@@ -1560,7 +1560,8 @@ function MainApp({ user }) {
       (r.grinder || "").toLowerCase().includes(q) ||
       (r.company || "").toLowerCase().includes(q) ||
       (r.bean || "").toLowerCase().includes(q) ||
-      (r.author || "").toLowerCase().includes(q)
+      (r.author || "").toLowerCase().includes(q) ||
+      (r.note || "").toLowerCase().includes(q)
     );
   });
 
@@ -1620,7 +1621,7 @@ function MainApp({ user }) {
       <div className="toolbar">
         <div className="search-box">
           <span className="search-icon">🔍</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="메뉴, 머신, 그라인더, 원두, 닉네임 검색 …" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="메뉴, 머신, 원두, 닉네임, 메모 검색 …" />
         </div>
         <button className="btn-new" onClick={() => setShowModal(true)}>+ 레시피 올리기</button>
       </div>
