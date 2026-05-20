@@ -165,6 +165,25 @@ const CSS = `
   .empty-state { text-align: center; padding: 5rem 2rem; color: var(--muted); grid-column: 1 / -1; }
   .empty-state span { font-size: 3rem; display: block; margin-bottom: 1rem; }
   .empty-state p { font-family: 'Playfair Display', serif; font-size: 1.1rem; }
+  .menu-selector { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .menu-btn {
+    padding: 0.45rem 0.9rem; border: 1px solid var(--steam); border-radius: 999px;
+    background: var(--foam); font-family: 'DM Sans', sans-serif; font-size: 0.82rem;
+    color: var(--muted); cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .menu-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .menu-btn.selected { background: var(--espresso); color: var(--cream); border-color: var(--espresso); font-weight: 500; }
+  .bean-counter { display: flex; flex-direction: column; gap: 0.5rem; }
+  .bean-counter-label { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .bean-counter-display { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .bean-icons { display: flex; flex-wrap: wrap; gap: 0.3rem; min-height: 2rem; align-items: center; padding: 0.5rem; background: var(--cream); border: 1px solid var(--steam); border-radius: 2px; flex: 1; }
+  .bean-icon { cursor: pointer; transition: transform 0.1s; display: inline-flex; align-items: center; }
+  .bean-icon:hover { transform: scale(1.2); }
+  .bean-counter-btns { display: flex; gap: 0.4rem; }
+  .bean-btn { width: 2rem; height: 2rem; border: 1px solid var(--steam); border-radius: 2px; background: var(--foam); font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; color: var(--espresso); }
+  .bean-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .bean-count-text { font-size: 0.82rem; color: var(--muted); min-width: 3rem; }
+  .auto-badge { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; background: var(--latte); color: var(--espresso); padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: 500; margin-left: 0.4rem; }
   .autocomplete-wrap { position: relative; }
   .autocomplete-list {
     position: absolute; top: calc(100% + 2px); left: 0; right: 0;
@@ -506,6 +525,78 @@ function AuthScreen() {
 
 
 // ─── 커피 머신 브랜드 ──────────────────────────────────────────────
+// 전자동 머신 브랜드
+const AUTO_MACHINE_BRANDS = [
+  "De'Longhi (드롱기)", "Jura (유라)", "Philips (필립스)",
+  "Siemens (지멘스)", "Gaggia (가찌아)", "Miele (밀레)",
+  "Melitta (멜리타)", "Saeco (세코)", "Krups (크룹스)",
+];
+
+// 반자동/전자동 선택 가능한 브랜드
+const BOTH_MODE_BRANDS = [
+  "De'Longhi (드롱기)", "Gaggia (가찌아)", "Saeco (세코)", "Philips (필립스)",
+];
+
+function isAutoMachine(brand) {
+  return AUTO_MACHINE_BRANDS.some(b => brand && (b.toLowerCase().includes(brand.toLowerCase().split(" ")[0]) || brand === b));
+}
+
+// 내장 그라인더 매핑 (머신 모델 → 그라인더 브랜드/모델)
+const BUILTIN_GRINDER_MAP = {
+  // Breville / Sage
+  "barista express": { brand: "Breville (브레빌)", model: "그라인더 일체형 (올인원)" },
+  "barista express impress": { brand: "Breville (브레빌)", model: "그라인더 일체형 (올인원)" },
+  "barista pro": { brand: "Breville (브레빌)", model: "그라인더 일체형 (올인원)" },
+  "barista touch": { brand: "Breville (브레빌)", model: "그라인더 일체형 (올인원)" },
+  "barista touch impress": { brand: "Breville (브레빌)", model: "그라인더 일체형 (올인원)" },
+  "the oracle": { brand: "Breville (브레빌)", model: "그라인더 일체형 (올인원)" },
+  "oracle touch": { brand: "Breville (브레빌)", model: "그라인더 일체형 (올인원)" },
+  "dual boiler": { brand: "Breville (브레빌)", model: "그라인더 별도" },
+  // De'Longhi 전자동
+  "magnifica": { brand: "De'Longhi (드롱기)", model: "내장 그라인더" },
+  "eletta": { brand: "De'Longhi (드롱기)", model: "내장 그라인더" },
+  "dinamica": { brand: "De'Longhi (드롱기)", model: "내장 그라인더" },
+  "primadonna": { brand: "De'Longhi (드롱기)", model: "내장 그라인더" },
+  // Jura
+  "e8": { brand: "Jura (유라)", model: "내장 그라인더" },
+  "e6": { brand: "Jura (유라)", model: "내장 그라인더" },
+  "s8": { brand: "Jura (유라)", model: "내장 그라인더" },
+  "f9": { brand: "Jura (유라)", model: "내장 그라인더" },
+  "z10": { brand: "Jura (유라)", model: "내장 그라인더" },
+  // Philips
+  "3200": { brand: "Philips (필립스)", model: "내장 그라인더" },
+  "4300": { brand: "Philips (필립스)", model: "내장 그라인더" },
+  "5400": { brand: "Philips (필립스)", model: "내장 그라인더" },
+};
+
+function getBuiltinGrinder(brand, model) {
+  if (!brand) return null;
+  const brandLow = brand.toLowerCase();
+  const modelLow = (model || "").toLowerCase().trim();
+
+  // 브레빌 — 그라인더 내장 모델 감지
+  if (brandLow.includes("breville") || brandLow.includes("브레빌") || brandLow.includes("sage") || brandLow.includes("세이지")) {
+    const integrated = ["barista express", "barista pro", "barista touch", "oracle", "the oracle", "impress"];
+    const hasBuiltin = integrated.some(k => modelLow.includes(k));
+    if (hasBuiltin) return { brand, model: "그라인더 일체형 (올인원)" };
+    // 그라인더 없는 모델
+    const noGrinder = ["dual boiler", "bambino", "infuser", "dedica"];
+    const hasNoGrinder = noGrinder.some(k => modelLow.includes(k));
+    if (hasNoGrinder) return null;
+    // 브레빌인데 모델 입력됐으면 일단 일체형으로
+    if (modelLow.length > 0) return { brand, model: "그라인더 일체형 (올인원)" };
+  }
+  // 전자동 머신 — 내장 그라인더
+  if (isAutoMachine(brand) && modelLow.length > 0) {
+    return { brand, model: "내장 그라인더" };
+  }
+  return null;
+}
+
+function isBothModeBrand(brand) {
+  return BOTH_MODE_BRANDS.some(b => brand && (b === brand || brand.includes(b.split(" ")[0])));
+}
+
 // 브랜드 기본값 (Firestore에서 덮어씀)
 const DEFAULT_MACHINE_BRANDS = [
   // ── 상업용 ──
@@ -594,6 +685,16 @@ function saveMyMachine(m) {
   try { localStorage.setItem(MACHINE_STORAGE_KEY, JSON.stringify(m)); } catch {}
 }
 
+// ─── CoffeeBeanIcon ────────────────────────────────────────────────
+function CoffeeBeanIcon({ size = 22, color = "#5c3317" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="12" cy="12" rx="7" ry="10" fill={color} transform="rotate(-30 12 12)" />
+      <path d="M12 4 Q14 8 12 12 Q10 16 12 20" stroke="#f5efe6" strokeWidth="1.5" strokeLinecap="round" fill="none" transform="rotate(-30 12 12)" />
+    </svg>
+  );
+}
+
 // ─── BrandInput (자동완성 입력창) ─────────────────────────────────
 function BrandInput({ value, onChange, brands, placeholder }) {
   const [query, setQuery] = useState(value || "");
@@ -638,6 +739,22 @@ function BrandInput({ value, onChange, brands, placeholder }) {
   );
 }
 
+
+// ─── 커피 메뉴 정의 ────────────────────────────────────────────────
+const COFFEE_MENUS = [
+  { id: "espresso",    label: "에스프레소",     emoji: "☕",  needsDilute: false },
+  { id: "ristretto",   label: "리스트레토",     emoji: "☕",  needsDilute: false },
+  { id: "lungo",       label: "룽고",          emoji: "☕",  needsDilute: false },
+  { id: "americano",   label: "아메리카노",     emoji: "🥤",  needsDilute: true  },
+  { id: "latte",       label: "카페라떼",       emoji: "🥛",  needsDilute: true  },
+  { id: "cappuccino",  label: "카푸치노",       emoji: "☕",  needsDilute: true  },
+  { id: "flatwhite",   label: "플랫화이트",     emoji: "🥛",  needsDilute: true  },
+  { id: "macchiato",   label: "마끼아또",       emoji: "☕",  needsDilute: true  },
+  { id: "cortado",     label: "코르타도",       emoji: "☕",  needsDilute: true  },
+  { id: "cold_brew",   label: "콜드브루",       emoji: "🧊",  needsDilute: true  },
+  { id: "other",       label: "기타",           emoji: "✨",  needsDilute: true  },
+];
+
 // ─── RecipeModal ───────────────────────────────────────────────────
 function RecipeModal({ onClose, onSave, user, editTarget }) {
   const isEdit = !!editTarget;
@@ -652,6 +769,11 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
     isEdit ? (editTarget.machineModel || "") : (savedMachine?.model || "")
   );
   const isCustomBrand = machineBrand === "기타 (직접 입력)";
+  const [machineType, setMachineType] = useState(
+    isEdit ? (editTarget.machineType || "auto") : "auto"
+  );
+  // 전자동 전용 브랜드거나, 선택 가능 브랜드에서 전자동 선택 시
+  const isAutoMode = isAutoMachine(machineBrand) && machineType === "auto";
 
   // 저장된 내 그라인더 불러오기
   const savedGrinder = loadMyGrinder();
@@ -670,6 +792,43 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [selectedMenu, setSelectedMenu] = useState(isEdit ? (editTarget.menuId || "") : "");
+
+  const currentMenu = COFFEE_MENUS.find(m => m.id === selectedMenu);
+  const needsDilute = !currentMenu || currentMenu.needsDilute;
+
+  const selectMenu = (menu) => {
+    setSelectedMenu(menu.id);
+    // 메뉴별 기본값 자동 입력
+    const defaults = {
+      espresso:   { seconds: "25", espressoMl: "30", diluteMl: "", diluteType: "물" },
+      ristretto:  { seconds: "20", espressoMl: "15", diluteMl: "", diluteType: "물" },
+      lungo:      { seconds: "40", espressoMl: "60", diluteMl: "", diluteType: "물" },
+      americano:  { seconds: "25", espressoMl: "30", diluteMl: "150", diluteType: "물" },
+      latte:      { seconds: "25", espressoMl: "30", diluteMl: "150", diluteType: "우유" },
+      cappuccino: { seconds: "25", espressoMl: "30", diluteMl: "100", diluteType: "우유" },
+      flatwhite:  { seconds: "25", espressoMl: "40", diluteMl: "80",  diluteType: "우유" },
+      macchiato:  { seconds: "25", espressoMl: "30", diluteMl: "20",  diluteType: "우유" },
+      cortado:    { seconds: "25", espressoMl: "30", diluteMl: "30",  diluteType: "우유" },
+      cold_brew:  { seconds: "30", espressoMl: "60", diluteMl: "100", diluteType: "물" },
+    };
+    if (defaults[menu.id]) {
+      setForm(f => ({ ...f, ...defaults[menu.id] }));
+    }
+  };
+
+  // 머신 브랜드/모델 바뀔 때 내장 그라인더 자동 입력
+  useEffect(() => {
+    if (!isEdit) {
+      const builtin = getBuiltinGrinder(machineBrand, machineModel);
+      if (builtin) {
+        setGrinderBrand(builtin.brand);
+        setGrinderModel(builtin.model);
+        setGrinderLocked(true);
+      }
+    }
+  }, [machineBrand, machineModel]);
 
   const machineDisplay = machineBrand
     ? (machineModel ? `${machineBrand} ${machineModel}` : machineBrand)
@@ -680,8 +839,17 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
     : "";
 
   const save = async () => {
-    if (!form.company || !form.bean || !form.gram || !form.seconds || !form.espressoMl)
-      return alert("필수 항목(*)을 모두 입력해주세요.");
+    const newErrors = {};
+    if (!form.company) newErrors.company = true;
+    if (!form.bean) newErrors.bean = true;
+    if (!form.gram) newErrors.gram = true;
+    if (!form.seconds) newErrors.seconds = true;
+    if (!form.espressoMl) newErrors.espressoMl = true;
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
     if (machineBrand && machineModel && !machineLocked) {
       saveMyMachine({ brand: machineBrand, model: machineModel });
     }
@@ -692,9 +860,12 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
     try {
       const payload = {
         ...form,
+        menuId: selectedMenu,
+        menuLabel: currentMenu?.label || "",
         machine: machineDisplay,
         machineBrand,
         machineModel,
+        machineType: isAutoMachine(machineBrand) ? machineType : "manual",
         grinder: grinderDisplay,
         grinderBrand,
         grinderModel,
@@ -752,95 +923,195 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
                 />
               </div>
               {machineBrand && (
-                <div className="field full">
-                  <label>세부 모델명</label>
-                  <input
-                    value={machineModel}
-                    onChange={e => setMachineModel(e.target.value)}
-                    placeholder={isCustomBrand ? "브랜드명과 모델명 입력" : "예) Barista Express, Dedica …"}
-                  />
-                  {machineModel && (
-                    <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem" }}>
-                      💾 저장하면 다음에도 자동으로 채워져요
-                    </p>
+                <>
+                  {/* 반자동/전자동 선택 가능한 브랜드인 경우 타입 선택 */}
+                  {isBothModeBrand(machineBrand) && (
+                    <div className="field full">
+                      <label>머신 타입</label>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        {[
+                          { val: "auto", label: "🤖 전자동" },
+                          { val: "manual", label: "🔧 반자동" },
+                        ].map(({ val, label }) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setMachineType(val)}
+                            style={{
+                              flex: 1, padding: "0.65rem", border: "1px solid",
+                              borderColor: machineType === val ? "var(--accent)" : "var(--steam)",
+                              borderRadius: "2px", background: machineType === val ? "var(--accent)" : "var(--foam)",
+                              color: machineType === val ? "white" : "var(--muted)",
+                              fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem",
+                              cursor: "pointer", transition: "all 0.2s", fontWeight: machineType === val ? 500 : 400,
+                            }}
+                          >{label}</button>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </div>
+                  <div className="field full">
+                    <label>세부 모델명</label>
+                    <input
+                      value={machineModel}
+                      onChange={e => setMachineModel(e.target.value)}
+                      placeholder={isCustomBrand ? "브랜드명과 모델명 입력" : "예) Barista Express, Dedica …"}
+                    />
+                    {machineModel && (
+                      <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem" }}>
+                        💾 저장하면 다음에도 자동으로 채워져요
+                      </p>
+                    )}
+                  </div>
+                </>
               )}
             </>
           )}
 
-          {/* 그라인더 */}
-          {grinderLocked ? (
-            <div className="field full">
-              <label>그라인더</label>
-              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                <div style={{
-                  flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)",
-                  borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem",
-                  color: "var(--espresso)", fontWeight: 500,
-                }}>
-                  ⚙️ {grinderDisplay}
+          {/* 그라인더 - 전자동이면 숨김 */}
+          {!isAutoMode && (
+            grinderLocked ? (
+              <div className="field full">
+                <label>그라인더</label>
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <div style={{
+                    flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)",
+                    borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem",
+                    color: "var(--espresso)", fontWeight: 500,
+                  }}>
+                    ⚙️ {grinderDisplay}
+                  </div>
+                  <button onClick={() => setGrinderLocked(false)} style={{
+                    padding: "0.75rem 0.8rem", background: "none", border: "1px solid var(--steam)",
+                    borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem",
+                    color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                  }}>변경</button>
                 </div>
-                <button onClick={() => setGrinderLocked(false)} style={{
-                  padding: "0.75rem 0.8rem", background: "none", border: "1px solid var(--steam)",
-                  borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem",
-                  color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-                }}>변경</button>
+              </div>
+            ) : (
+              <>
+                <div className="field full">
+                  <label>그라인더 브랜드</label>
+                  <BrandInput
+                    value={grinderBrand}
+                    onChange={v => { setGrinderBrand(v); setGrinderModel(""); }}
+                    brands={GRINDER_BRANDS}
+                    placeholder="브랜드 입력 또는 검색 (예: Mahlkönig, 마쩌…)"
+                  />
+                </div>
+                {grinderBrand && (
+                  <div className="field full">
+                    <label>세부 모델명</label>
+                    <input
+                      value={grinderModel}
+                      onChange={e => setGrinderModel(e.target.value)}
+                      placeholder={isCustomGrinderBrand ? "브랜드명과 모델명 입력" : "예) Encore, C40, Nano …"}
+                    />
+                    {grinderModel && (
+                      <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem" }}>
+                        💾 저장하면 다음에도 자동으로 채워져요
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
+            )
+          )}
+
+          <div className="field">
+            <label style={{ color: errors.company ? "#c0392b" : undefined }}>원두 회사명 *</label>
+            <input value={form.company} onChange={e => { set("company", e.target.value); setErrors(p => ({...p, company: false})); }}
+              placeholder="블루보틀 …"
+              style={{ borderColor: errors.company ? "#c0392b" : undefined }} />
+            {errors.company && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
+          </div>
+          <div className="field">
+            <label style={{ color: errors.bean ? "#c0392b" : undefined }}>원두 이름 *</label>
+            <input value={form.bean} onChange={e => { set("bean", e.target.value); setErrors(p => ({...p, bean: false})); }}
+              placeholder="에티오피아 예가체프"
+              style={{ borderColor: errors.bean ? "#c0392b" : undefined }} />
+            {errors.bean && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
+          </div>
+          <div className="field full"><label>로스팅 일자</label>
+            <input type="date" value={form.roastDate || ""} onChange={e => set("roastDate", e.target.value)} max={new Date().toISOString().split("T")[0]} />
+          </div>
+          {/* 커피 메뉴 선택 */}
+          <div className="field full">
+            <label>커피 메뉴</label>
+            <div className="menu-selector">
+              {COFFEE_MENUS.map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`menu-btn ${selectedMenu === m.id ? "selected" : ""}`}
+                  onClick={() => selectMenu(m)}
+                >
+                  {m.emoji} {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* 원두량: 전자동이면 콩 갯수, 아니면 g 입력 */}
+          {isAutoMode ? (
+            <div className="field full">
+              <div className="bean-counter">
+                <span className="bean-counter-label">
+                  원두 분쇄량 (콩 갯수) *
+                  <span className="auto-badge">🤖 전자동</span>
+                </span>
+                <div className="bean-counter-display">
+                  <div className="bean-icons">
+                    {Array.from({ length: Number(form.gram) || 0 }).map((_, i) => (
+                      <span key={i} className="bean-icon" title="클릭해서 제거"
+                        onClick={() => set("gram", String(Math.max(0, (Number(form.gram)||0) - 1)))}>
+                        <CoffeeBeanIcon size={22} />
+                      </span>
+                    ))}
+                    {(!form.gram || Number(form.gram) === 0) && (
+                      <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>콩을 추가해주세요</span>
+                    )}
+                  </div>
+                  <div className="bean-counter-btns">
+                    <button type="button" className="bean-btn"
+                      onClick={() => set("gram", String(Math.max(0, (Number(form.gram)||0) - 1)))}>−</button>
+                    <button type="button" className="bean-btn"
+                      onClick={() => set("gram", String((Number(form.gram)||0) + 1))}>+</button>
+                  </div>
+                </div>
+                <span className="bean-count-text">{form.gram || 0}개</span>
               </div>
             </div>
           ) : (
-            <>
-              <div className="field full">
-                <label>그라인더 브랜드</label>
-                <BrandInput
-                  value={grinderBrand}
-                  onChange={v => { setGrinderBrand(v); setGrinderModel(""); }}
-                  brands={GRINDER_BRANDS}
-                  placeholder="브랜드 입력 또는 검색 (예: Mahlkönig, 마쩌…)"
-                />
-              </div>
-              {grinderBrand && (
-                <div className="field full">
-                  <label>세부 모델명</label>
-                  <input
-                    value={grinderModel}
-                    onChange={e => setGrinderModel(e.target.value)}
-                    placeholder={isCustomGrinderBrand ? "브랜드명과 모델명 입력" : "예) Encore, C40, Nano …"}
-                  />
-                  {grinderModel && (
-                    <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem" }}>
-                      💾 저장하면 다음에도 자동으로 채워져요
-                    </p>
-                  )}
-                </div>
-              )}
-            </>
+            <div className="field">
+              <label style={{ color: errors.gram ? "#c0392b" : undefined }}>원두량 (g) *</label>
+              <input type="number" value={form.gram} onChange={e => { set("gram", String(Math.max(0, Number(e.target.value)))); setErrors(p => ({...p, gram: false})); }}
+                placeholder="18" min="0"
+                style={{ borderColor: errors.gram ? "#c0392b" : undefined }} />
+              {errors.gram && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
+            </div>
           )}
-
-          <div className="field"><label>원두 회사명 *</label>
-            <input value={form.company} onChange={e => set("company", e.target.value)} placeholder="블루보틀 …" />
+          <div className="field">
+            <label style={{ color: errors.seconds ? "#c0392b" : undefined }}>추출 시간 (초) *</label>
+            <input type="number" value={form.seconds} onChange={e => { set("seconds", String(Math.max(0, Number(e.target.value)))); setErrors(p => ({...p, seconds: false})); }}
+              placeholder="28" min="0"
+              style={{ borderColor: errors.seconds ? "#c0392b" : undefined }} />
+            {errors.seconds && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
           </div>
-          <div className="field"><label>원두 이름 *</label>
-            <input value={form.bean} onChange={e => set("bean", e.target.value)} placeholder="에티오피아 예가체프" />
+          <div className="field">
+            <label style={{ color: errors.espressoMl ? "#c0392b" : undefined }}>추출량 (ml) *</label>
+            <input type="number" value={form.espressoMl} onChange={e => { set("espressoMl", String(Math.max(0, Number(e.target.value)))); setErrors(p => ({...p, espressoMl: false})); }}
+              placeholder="36" min="0"
+              style={{ borderColor: errors.espressoMl ? "#c0392b" : undefined }} />
+            {errors.espressoMl && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
           </div>
-          <div className="field full"><label>로스팅 일자</label>
-            <input type="date" value={form.roastDate || ""} onChange={e => set("roastDate", e.target.value)} />
-          </div>
-          <div className="field"><label>원두량 (g) *</label>
-            <input type="number" value={form.gram} onChange={e => set("gram", e.target.value)} placeholder="18" />
-          </div>
-          <div className="field"><label>추출 시간 (초) *</label>
-            <input type="number" value={form.seconds} onChange={e => set("seconds", e.target.value)} placeholder="28" />
-          </div>
-          <div className="field"><label>추출량 (ml) *</label>
-            <input type="number" value={form.espressoMl} onChange={e => set("espressoMl", e.target.value)} placeholder="36" />
-          </div>
-          <div className="field"><label>희석 종류</label>
-            <input value={form.diluteType} onChange={e => set("diluteType", e.target.value)} placeholder="물/우유/두유" />
-          </div>
-          <div className="field full"><label>희석량 (ml)</label>
-            <input type="number" value={form.diluteMl} onChange={e => set("diluteMl", e.target.value)} placeholder="150" />
-          </div>
+          {needsDilute && (<>
+            <div className="field"><label>희석 종류</label>
+              <input value={form.diluteType} onChange={e => set("diluteType", e.target.value)} placeholder="물/우유/두유" />
+            </div>
+            <div className="field full"><label>희석량 (ml)</label>
+              <input type="number" value={form.diluteMl} onChange={e => set("diluteMl", String(Math.max(0, Number(e.target.value))))} placeholder="150" min="0" />
+            </div>
+          </>)}
           <div className="field full"><label>맛 노트 · 메모</label>
             <textarea value={form.note} onChange={e => set("note", e.target.value)} placeholder="산미가 밝고 과일향이 가득했어요 …" />
           </div>
@@ -1035,7 +1306,16 @@ function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDele
       <div className="modal" style={{ maxWidth: "460px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.2rem" }}>
           <div>
-            {recipe.machine && <div className="card-machine">🤖 {recipe.machine}</div>}
+            {recipe.machine && (
+        <div className="card-machine">
+          {recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
+          {recipe.machineType && (
+            <span style={{ marginLeft: "0.4rem", fontSize: "0.68rem", background: recipe.machineType === "auto" ? "var(--latte)" : "var(--steam)", color: "var(--espresso)", padding: "0.1rem 0.4rem", borderRadius: "999px" }}>
+              {recipe.machineType === "auto" ? "전자동" : "반자동"}
+            </span>
+          )}
+        </div>
+      )}
             {recipe.grinder && <div className="card-machine">⚙️ {recipe.grinder}</div>}
             <div className="card-company" style={{ marginTop: "0.3rem" }}>{recipe.company}</div>
             <div className="card-bean" style={{ marginBottom: 0 }}>{recipe.bean}</div>
@@ -1087,8 +1367,22 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike }) {
 
   return (
     <div className="recipe-card">
-      {recipe.machine && <div className="card-machine">🤖 {recipe.machine}</div>}
+      {recipe.machine && (
+        <div className="card-machine">
+          {recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
+          {recipe.machineType && (
+            <span style={{ marginLeft: "0.4rem", fontSize: "0.68rem", background: recipe.machineType === "auto" ? "var(--latte)" : "var(--steam)", color: "var(--espresso)", padding: "0.1rem 0.4rem", borderRadius: "999px" }}>
+              {recipe.machineType === "auto" ? "전자동" : "반자동"}
+            </span>
+          )}
+        </div>
+      )}
       {recipe.grinder && <div className="card-machine">⚙️ {recipe.grinder}</div>}
+      {recipe.menuLabel && (
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.75rem", background: "var(--espresso)", color: "var(--latte)", padding: "0.2rem 0.6rem", borderRadius: "999px", marginBottom: "0.4rem", fontWeight: 500 }}>
+          {COFFEE_MENUS.find(m => m.id === recipe.menuId)?.emoji || "☕"} {recipe.menuLabel}
+        </div>
+      )}
       <div className="card-company">{recipe.company}</div>
       <div className="card-bean">{recipe.bean}</div>
       {recipe.roastDate && <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.8rem" }}>🌱 로스팅 {new Date(recipe.roastDate).toLocaleDateString("ko-KR")}</div>}
