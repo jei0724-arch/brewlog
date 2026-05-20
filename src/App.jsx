@@ -1341,8 +1341,8 @@ function MyModal({ onClose, user }) {
           {grinderMsg && <p className={grinderMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "0.5rem" }}>{grinderMsg.text}</p>}
         </div>
 
-        {/* 비밀번호 변경 */}
-        <div className="my-section">
+        {/* 비밀번호 변경 - 구글 로그인 유저는 숨김 */}
+        {!user.providerData?.some(p => p.providerId === "google.com") && <div className="my-section">
           <div className="my-section-title">🔒 비밀번호 변경</div>
           <div className="field">
             <label>현재 비밀번호</label>
@@ -1365,7 +1365,7 @@ function MyModal({ onClose, user }) {
             <button className="btn-save-sm" onClick={handlePwChange} disabled={pwSaving}>{pwSaving ? "변경 중…" : "비밀번호 변경"}</button>
           </div>
           {pwMsg && <p className={pwMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "0.5rem" }}>{pwMsg.text}</p>}
-        </div>
+        </div>}
 
         <div className="modal-actions">
           <button className="btn-cancel" onClick={onClose}>닫기</button>
