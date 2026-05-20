@@ -844,6 +844,7 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
 
   const save = async () => {
     const newErrors = {};
+    if (!selectedMenu) newErrors.menu = true;
     if (!form.company) newErrors.company = true;
     if (!form.bean) newErrors.bean = true;
     if (!form.gram) newErrors.gram = true;
@@ -1041,19 +1042,22 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
           </div>
           {/* 커피 메뉴 선택 */}
           <div className="field full">
-            <label>커피 메뉴</label>
-            <div className="menu-selector">
+            <label style={{ color: errors.menu ? "#c0392b" : undefined }}>
+              커피 메뉴 *
+            </label>
+            <div className="menu-selector" style={{ border: errors.menu ? "1px solid #c0392b" : "none", borderRadius: "2px", padding: errors.menu ? "0.5rem" : "0" }}>
               {COFFEE_MENUS.map(m => (
                 <button
                   key={m.id}
                   type="button"
                   className={`menu-btn ${selectedMenu === m.id ? "selected" : ""}`}
-                  onClick={() => selectMenu(m)}
+                  onClick={() => { selectMenu(m); setErrors(p => ({...p, menu: false})); }}
                 >
                   {m.emoji} {m.label}
                 </button>
               ))}
             </div>
+            {errors.menu && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 커피 메뉴를 선택해주세요</p>}
           </div>
           {/* 원두량: 전자동이면 콩 갯수, 아니면 g 입력 */}
           {isAutoMode ? (
@@ -1492,6 +1496,7 @@ function MainApp({ user }) {
     const q = search.toLowerCase().trim();
     if (!q) return true;
     return (
+      (r.menuLabel || "").toLowerCase().includes(q) ||
       (r.machine || "").toLowerCase().includes(q) ||
       (r.grinder || "").toLowerCase().includes(q) ||
       (r.company || "").toLowerCase().includes(q) ||
@@ -1556,7 +1561,7 @@ function MainApp({ user }) {
       <div className="toolbar">
         <div className="search-box">
           <span className="search-icon">🔍</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="머신, 그라인더, 원두, 닉네임 검색 …" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="메뉴, 머신, 그라인더, 원두, 닉네임 검색 …" />
         </div>
         <button className="btn-new" onClick={() => setShowModal(true)}>+ 레시피 올리기</button>
       </div>
