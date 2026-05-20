@@ -742,17 +742,18 @@ function BrandInput({ value, onChange, brands, placeholder }) {
 
 // ─── 커피 메뉴 정의 ────────────────────────────────────────────────
 const COFFEE_MENUS = [
-  { id: "espresso",    label: "에스프레소",     emoji: "☕",  needsDilute: false },
-  { id: "ristretto",   label: "리스트레토",     emoji: "☕",  needsDilute: false },
-  { id: "lungo",       label: "룽고",          emoji: "☕",  needsDilute: false },
-  { id: "americano",   label: "아메리카노",     emoji: "🥤",  needsDilute: true  },
-  { id: "latte",       label: "카페라떼",       emoji: "🥛",  needsDilute: true  },
-  { id: "cappuccino",  label: "카푸치노",       emoji: "☕",  needsDilute: true  },
-  { id: "flatwhite",   label: "플랫화이트",     emoji: "🥛",  needsDilute: true  },
-  { id: "macchiato",   label: "마끼아또",       emoji: "☕",  needsDilute: true  },
-  { id: "cortado",     label: "코르타도",       emoji: "☕",  needsDilute: true  },
-  { id: "cold_brew",   label: "콜드브루",       emoji: "🧊",  needsDilute: true  },
-  { id: "other",       label: "기타",           emoji: "✨",  needsDilute: true  },
+  { id: "espresso",    label: "에스프레소",  emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
+  { id: "ristretto",   label: "리스트레토",  emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
+  { id: "lungo",       label: "룽고",        emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
+  { id: "americano",   label: "아메리카노",  emoji: "🥤", needsDilute: true,  fixedDilute: "물",  hasSyrup: false },
+  { id: "long_black",  label: "롱블랙",      emoji: "🥤", needsDilute: true,  fixedDilute: "물",  hasSyrup: false },
+  { id: "latte",       label: "카페라떼",    emoji: "🥛", needsDilute: true,  fixedDilute: "우유", hasSyrup: true  },
+  { id: "cappuccino",  label: "카푸치노",    emoji: "☕", needsDilute: true,  fixedDilute: "우유", hasSyrup: false },
+  { id: "flatwhite",   label: "플랫화이트",  emoji: "🥛", needsDilute: true,  fixedDilute: "우유", hasSyrup: false },
+  { id: "macchiato",   label: "마끼아또",    emoji: "☕", needsDilute: true,  fixedDilute: "우유", hasSyrup: true  },
+  { id: "cortado",     label: "코르타도",    emoji: "☕", needsDilute: true,  fixedDilute: "우유", hasSyrup: false },
+  { id: "cold_brew",   label: "콜드브루",    emoji: "🧊", needsDilute: true,  fixedDilute: null,  hasSyrup: true  },
+  { id: "other",       label: "기타",        emoji: "✨", needsDilute: true,  fixedDilute: null,  hasSyrup: false },
 ];
 
 // ─── RecipeModal ───────────────────────────────────────────────────
@@ -788,7 +789,7 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
 
   const [form, setForm] = useState(isEdit ? { ...editTarget } : {
     company: "", bean: "", roastDate: "", gram: "", seconds: "",
-    espressoMl: "", diluteMl: "", diluteType: "물", note: ""
+    espressoMl: "", diluteMl: "", diluteType: "물", syrup: "", note: ""
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [saving, setSaving] = useState(false);
@@ -797,6 +798,8 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
 
   const currentMenu = COFFEE_MENUS.find(m => m.id === selectedMenu);
   const needsDilute = !currentMenu || currentMenu.needsDilute;
+  const fixedDilute = currentMenu?.fixedDilute || null;
+  const hasSyrup = currentMenu?.hasSyrup || false;
 
   const selectMenu = (menu) => {
     setSelectedMenu(menu.id);
@@ -806,6 +809,7 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
       ristretto:  { seconds: "20", espressoMl: "15", diluteMl: "", diluteType: "물" },
       lungo:      { seconds: "40", espressoMl: "60", diluteMl: "", diluteType: "물" },
       americano:  { seconds: "25", espressoMl: "30", diluteMl: "150", diluteType: "물" },
+      long_black: { seconds: "25", espressoMl: "60", diluteMl: "150", diluteType: "물" },
       latte:      { seconds: "25", espressoMl: "30", diluteMl: "150", diluteType: "우유" },
       cappuccino: { seconds: "25", espressoMl: "30", diluteMl: "100", diluteType: "우유" },
       flatwhite:  { seconds: "25", espressoMl: "40", diluteMl: "80",  diluteType: "우유" },
@@ -1105,13 +1109,27 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
             {errors.espressoMl && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
           </div>
           {needsDilute && (<>
-            <div className="field"><label>희석 종류</label>
-              <input value={form.diluteType} onChange={e => set("diluteType", e.target.value)} placeholder="물/우유/두유" />
+            <div className="field">
+              <label>희석 종류</label>
+              {fixedDilute ? (
+                <div style={{ padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>
+                  💧 {fixedDilute} (고정)
+                </div>
+              ) : (
+                <input value={form.diluteType} onChange={e => set("diluteType", e.target.value)} placeholder="물/우유/두유" />
+              )}
             </div>
             <div className="field full"><label>희석량 (ml)</label>
               <input type="number" value={form.diluteMl} onChange={e => set("diluteMl", String(Math.max(0, Number(e.target.value))))} placeholder="150" min="0" />
             </div>
           </>)}
+          {hasSyrup && (
+            <div className="field full">
+              <label>시럽 / 추가 재료</label>
+              <input value={form.syrup || ""} onChange={e => set("syrup", e.target.value)}
+                placeholder="바닐라 시럽 1펌프, 카라멜 시럽 2펌프 …" />
+            </div>
+          )}
           <div className="field full"><label>맛 노트 · 메모</label>
             <textarea value={form.note} onChange={e => set("note", e.target.value)} placeholder="산미가 밝고 과일향이 가득했어요 …" />
           </div>
@@ -1392,6 +1410,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike }) {
         <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">추출량</span></div>
       </div>
       {recipe.diluteMl && <div className="card-dilution">💧 {recipe.diluteType} {recipe.diluteMl}ml 희석</div>}
+      {recipe.syrup && <div className="card-dilution">🍯 {recipe.syrup}</div>}
       {recipe.note && <div className="card-note">"{recipe.note}"</div>}
       <div className="card-footer">
         <div><span className="card-author">@{recipe.author}</span><span> · {date}</span></div>
