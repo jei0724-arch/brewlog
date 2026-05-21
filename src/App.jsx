@@ -112,13 +112,13 @@ const CSS = `
   }
   .app-header .logo { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--latte); }
   .header-right { display: flex; align-items: center; gap: 1rem; }
-  .nick-badge { font-size: 0.8rem; color: var(--steam); padding: 0.3rem 0.8rem; border: 1px solid #ffffff20; border-radius: 999px; cursor: pointer; transition: all 0.2s; }
+  .nick-badge { font-size: 0.72rem; color: var(--steam); padding: 0.25rem 0.6rem; border: 1px solid #ffffff20; border-radius: 999px; cursor: pointer; transition: all 0.2s; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .nick-badge:hover { border-color: var(--latte); color: var(--latte); }
   .nick-badge.active { background: var(--latte); color: var(--espresso); border-color: var(--latte); font-weight: 600; }
   .btn-logout {
     background: none; border: 1px solid #ffffff30; color: var(--steam);
-    padding: 0.35rem 0.9rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
-    font-size: 0.8rem; cursor: pointer; transition: all 0.2s;
+    padding: 0.3rem 0.6rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap;
   }
   .btn-logout:hover { border-color: var(--latte); color: var(--latte); }
 
@@ -267,14 +267,16 @@ const CSS = `
   .loading-wrap p { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--muted); }
   .btn-lang {
     background: none; border: 1px solid #ffffff30; color: var(--steam);
-    padding: 0.35rem 0.7rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
-    font-size: 0.75rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em;
+    padding: 0.3rem 0.6rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em;
+    white-space: nowrap;
   }
   .btn-lang:hover { border-color: var(--latte); color: var(--latte); }
   .btn-my {
     background: none; border: 1px solid #ffffff30; color: var(--steam);
-    padding: 0.35rem 0.9rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
-    font-size: 0.8rem; cursor: pointer; transition: all 0.2s; font-weight: 500;
+    padding: 0.3rem 0.6rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem; cursor: pointer; transition: all 0.2s; font-weight: 500;
+    white-space: nowrap;
   }
   .btn-my:hover { border-color: var(--latte); color: var(--latte); }
   .my-section { margin-bottom: 1.8rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--steam); }
@@ -318,7 +320,7 @@ const CSS = `
   .notice-item-title { font-weight: 500; color: var(--espresso); margin-bottom: 0.3rem; }
   .notice-item-body { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
   .notice-item-date { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
-  .btn-admin-header { background: none; border: 1px solid #ff000040; color: #ff6b6b; padding: 0.35rem 0.9rem; border-radius: 2px; font-family: 'DM Sans',sans-serif; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+  .btn-admin-header { background: none; border: 1px solid #ff000040; color: #ff6b6b; padding: 0.3rem 0.6rem; border-radius: 2px; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
   .btn-admin-header:hover { border-color: #ff6b6b; }
   .notice-banner { background: var(--espresso); color: var(--cream); padding: 0.6rem 2rem; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
   .notice-banner-close { background: none; border: none; color: var(--steam); cursor: pointer; font-size: 1rem; flex-shrink: 0; }
