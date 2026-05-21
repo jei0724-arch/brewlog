@@ -367,6 +367,89 @@ const SECURITY_QUESTIONS = [
   "좋아하는 커피 원두는?",
 ];
 
+// ─── 개인정보 처리방침 ────────────────────────────────────────────
+const PRIVACY_POLICY_KO = `Brewlog 개인정보 처리방침
+
+Brewlog는 이용자의 개인정보를 보호하기 위해 다음과 같이 처리방침을 수립합니다.
+
+1. 개인정보의 수집 및 이용 목적
+   - 회원 식별 및 서비스 부정이용 방지
+   - 커피 추출 레시피 기록 및 공유 서비스 제공
+
+2. 수집하는 개인정보 항목
+   - 이메일 가입: 닉네임, 비밀번호(암호화 저장)
+   - 구글 로그인: 구글 고유 ID, 프로필 닉네임
+
+3. 개인정보 보유 및 이용 기간
+   - 회원 탈퇴 시까지 보유하며, 탈퇴 즉시 파기합니다.
+
+4. 제3자 제공
+   - 이용자의 개인정보를 외부에 제공하지 않습니다.
+   - 인프라 서비스: Firebase(Google), Vercel
+
+5. 이용자의 권리
+   - 언제든지 본인 정보 조회·수정·삭제를 요청할 수 있습니다.
+
+6. 개인정보 보호 책임자
+   - 담당자: 조민우
+   - 이메일: jei0724@gmail.com
+
+공고일자: 2026년 5월 21일
+시행일자: 2026년 5월 21일
+
+본 동의는 서비스 이용을 위한 필수 항목입니다.`;
+
+const PRIVACY_POLICY_EN = `Brewlog Privacy Policy
+
+Brewlog establishes the following privacy policy to protect users' personal information.
+
+1. Purpose of Collection and Use
+   - Member identification and prevention of service misuse
+   - Providing coffee recipe recording and sharing service
+
+2. Items Collected
+   - Email signup: Nickname, password (encrypted)
+   - Google login: Google unique ID, profile nickname
+
+3. Retention Period
+   - Retained until account deletion, then immediately destroyed.
+
+4. Third Party Disclosure
+   - Personal information is not provided to third parties.
+   - Infrastructure: Firebase (Google), Vercel
+
+5. User Rights
+   - You may request to view, modify, or delete your information at any time.
+
+6. Privacy Officer
+   - Name: Minwoo Jo
+   - Email: jei0724@gmail.com
+
+Announced: May 21, 2026
+Effective: May 21, 2026
+
+This consent is required to use the service.`;
+
+function PrivacyModal({ onClose, lang }) {
+  return (
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: "480px" }}>
+        <h2 style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>
+          {lang === "en" ? "Privacy Policy" : "개인정보 처리방침"}
+        </h2>
+        <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.8, fontFamily: "'DM Sans', sans-serif" }}>
+          {lang === "en" ? PRIVACY_POLICY_EN : PRIVACY_POLICY_KO}
+        </pre>
+        <div className="modal-actions">
+          <button className="btn-primary" style={{ marginTop: 0, width: "auto", padding: "0.6rem 2rem" }} onClick={onClose}>
+            {lang === "en" ? "Close" : "닫기"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── AuthScreen ────────────────────────────────────────────────────
 function AuthScreen({ lang, toggleLang }) {
   const [tab, setTab] = useState("login");
@@ -385,6 +468,7 @@ function AuthScreen({ lang, toggleLang }) {
   const [nickCheckMsg, setNickCheckMsg] = useState(null);
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [privacyError, setPrivacyError] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   const [findNick, setFindNick] = useState("");
   const [findQuestion, setFindQuestion] = useState("");
@@ -438,7 +522,8 @@ function AuthScreen({ lang, toggleLang }) {
         lastLogin: serverTimestamp(),
       });
     } catch (e) {
-      setMsg({ type: "error", text: e.code === "auth/email-already-in-use" ? "이미 사용 중인 닉네임입니다." : "가입 오류: " + e.message });
+      const errMsg = e.code === "auth/email-already-in-use" ? "이미 사용 중인 닉네임입니다." : e.code === "auth/weak-password" ? "비밀번호는 6자 이상이어야 해요." : e.code === "auth/network-request-failed" ? "네트워크 오류. 인터넷 연결을 확인해주세요." : "가입 오류: " + e.message;
+      setMsg({ type: "error", text: errMsg });
     }
     setLoading(false);
   };
