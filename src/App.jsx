@@ -112,7 +112,9 @@ const CSS = `
   }
   .app-header .logo { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--latte); }
   .header-right { display: flex; align-items: center; gap: 1rem; }
-  .nick-badge { font-size: 0.8rem; color: var(--steam); padding: 0.3rem 0.8rem; border: 1px solid #ffffff20; border-radius: 999px; }
+  .nick-badge { font-size: 0.8rem; color: var(--steam); padding: 0.3rem 0.8rem; border: 1px solid #ffffff20; border-radius: 999px; cursor: pointer; transition: all 0.2s; }
+  .nick-badge:hover { border-color: var(--latte); color: var(--latte); }
+  .nick-badge.active { background: var(--latte); color: var(--espresso); border-color: var(--latte); font-weight: 600; }
   .btn-logout {
     background: none; border: 1px solid #ffffff30; color: var(--steam);
     padding: 0.35rem 0.9rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
@@ -173,6 +175,24 @@ const CSS = `
   .empty-state { text-align: center; padding: 5rem 2rem; color: var(--muted); grid-column: 1 / -1; }
   .empty-state span { font-size: 3rem; display: block; margin-bottom: 1rem; }
   .empty-state p { font-family: 'Playfair Display', serif; font-size: 1.1rem; }
+  .pressure-box {
+    background: var(--foam); color: var(--espresso); border-radius: 2px;
+    padding: 0.8rem 1rem; margin-top: 0.5rem; font-size: 0.82rem; line-height: 1.7;
+    border: 1px solid var(--steam);
+  }
+  .pressure-box.good { border-left: 3px solid #27ae60; }
+  .pressure-box.high { border-left: 3px solid #e67e22; }
+  .pressure-box.low  { border-left: 3px solid #e74c3c; }
+  .pressure-title { font-size: 0.75rem; color: var(--latte); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.4rem; }
+  .pressure-row { display: flex; justify-content: space-between; align-items: center; }
+  .pressure-val { font-weight: 600; font-size: 1rem; }
+  .pressure-good { color: #2ecc71; }
+  .pressure-high { color: #f39c12; }
+  .pressure-low  { color: #e74c3c; }
+  .star-rating { display: flex; gap: 0.3rem; align-items: center; }
+  .star-btn { background: none; border: none; cursor: pointer; font-size: 1.8rem; line-height: 1; padding: 0; transition: transform 0.1s; color: var(--steam); }
+  .star-btn:hover, .star-btn.active { color: var(--latte); transform: scale(1.15); }
+  .star-label { font-size: 0.78rem; color: var(--muted); margin-left: 0.4rem; }
   .menu-selector { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .menu-btn {
     padding: 0.45rem 0.9rem; border: 1px solid var(--steam); border-radius: 999px;
@@ -245,6 +265,12 @@ const CSS = `
   textarea:focus { border-color: var(--latte); }
   .loading-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--cream); }
   .loading-wrap p { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--muted); }
+  .btn-lang {
+    background: none; border: 1px solid #ffffff30; color: var(--steam);
+    padding: 0.35rem 0.7rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em;
+  }
+  .btn-lang:hover { border-color: var(--latte); color: var(--latte); }
   .btn-my {
     background: none; border: 1px solid #ffffff30; color: var(--steam);
     padding: 0.35rem 0.9rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
@@ -326,7 +352,7 @@ const SECURITY_QUESTIONS = [
 ];
 
 // ─── AuthScreen ────────────────────────────────────────────────────
-function AuthScreen() {
+function AuthScreen({ lang, toggleLang }) {
   const [tab, setTab] = useState("login");
   const [msg, setMsg] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -473,15 +499,22 @@ function AuthScreen() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.5rem" }}>
+          <button onClick={toggleLang} style={{
+            background: "none", border: "1px solid var(--steam)", borderRadius: "2px",
+            padding: "0.25rem 0.6rem", fontSize: "0.75rem", color: "var(--muted)",
+            cursor: "pointer", fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.05em"
+          }}>{lang === "ko" ? "EN" : "KO"}</button>
+        </div>
         <div className="brand">
           <span className="brand-icon">☕</span>
-          <h1>Brewlog</h1>
-          <p>커피 레시피 공유 커뮤니티</p>
+          <h1>Brewlog note</h1>
+          <p>{I18N[lang].appSub}</p>
         </div>
         <div className="tab-row">
-          <button className={`tab-btn ${tab === "login" ? "active" : ""}`} onClick={() => switchTab("login")}>로그인</button>
-          <button className={`tab-btn ${tab === "register" ? "active" : ""}`} onClick={() => switchTab("register")}>회원가입</button>
-          <button className={`tab-btn ${tab === "find" ? "active" : ""}`} onClick={() => switchTab("find")}>비밀번호 찾기</button>
+          <button className={`tab-btn ${tab === "login" ? "active" : ""}`} onClick={() => switchTab("login")}>{I18N[lang].login}</button>
+          <button className={`tab-btn ${tab === "register" ? "active" : ""}`} onClick={() => switchTab("register")}>{I18N[lang].register}</button>
+          <button className={`tab-btn ${tab === "find" ? "active" : ""}`} onClick={() => switchTab("find")}>{I18N[lang].findPw}</button>
         </div>
 
         {tab === "login" && (<>
@@ -729,6 +762,21 @@ async function loadBrandsFromDB() {
 
 const MACHINE_STORAGE_KEY = "brewlog_my_machine";
 const GRINDER_STORAGE_KEY = "brewlog_my_grinder";
+const BEAN_STORAGE_KEY = "brewlog_my_bean";
+const RECIPE_DEFAULTS_KEY = "brewlog_recipe_defaults";
+
+function loadMyBean() {
+  try { return JSON.parse(localStorage.getItem(BEAN_STORAGE_KEY) || "null"); } catch { return null; }
+}
+function saveMyBean(b) {
+  try { localStorage.setItem(BEAN_STORAGE_KEY, JSON.stringify(b)); } catch {}
+}
+function loadRecipeDefaults() {
+  try { return JSON.parse(localStorage.getItem(RECIPE_DEFAULTS_KEY) || "null"); } catch { return null; }
+}
+function saveRecipeDefaults(d) {
+  try { localStorage.setItem(RECIPE_DEFAULTS_KEY, JSON.stringify(d)); } catch {}
+}
 
 function loadMyGrinder() {
   try { return JSON.parse(localStorage.getItem(GRINDER_STORAGE_KEY) || "null"); } catch { return null; }
@@ -799,24 +847,182 @@ function BrandInput({ value, onChange, brands, placeholder }) {
 }
 
 
+
+// ─── 다국어 ────────────────────────────────────────────────────────
+const I18N = {
+  ko: {
+    appSub: "커피 레시피 공유 커뮤니티",
+    login: "로그인", register: "회원가입", findPw: "비밀번호 찾기",
+    nickname: "닉네임", password: "비밀번호", pwConfirm: "비밀번호 확인",
+    dupCheck: "중복 확인", confirmed: "확인 ✓",
+    secQuestion: "보안 질문", secAnswer: "보안 질문 답변",
+    loginBtn: "로그인하기", registerBtn: "가입하기",
+    googleLogin: "Google로 로그인", googleRegister: "Google로 시작하기",
+    orNickname: "또는 닉네임으로 가입",
+    pwMatch: "비밀번호가 일치합니다 ✓", pwMismatch: "비밀번호가 일치하지 않습니다.",
+    findStep1: "다음", findStep2: "확인",
+    findDone: "본인 확인 완료!", findDoneDesc: "보안상 비밀번호를 직접 표시할 수 없어요. 새 비밀번호로 로그인하려면 다시 가입하거나 관리자에게 문의해주세요.",
+    goLogin: "로그인하러 가기",
+    feedTitle: "레시피 피드", myFeedTitle: "내 레시피",
+    feedSub: "다른 브루어들의 추출 레시피를 둘러보세요.",
+    myFeedSub: "내가 올린 레시피 목록이에요. 닉네임을 다시 클릭하면 전체 피드로 돌아가요.",
+    searchPlaceholder: "메뉴, 머신, 원두, 닉네임, 메모 검색 …",
+    newRecipe: "+ 레시피 올리기",
+    logout: "로그아웃", myBtn: "MY",
+    emptyFeed: "아직 레시피가 없어요. 첫 번째 기록을 남겨보세요!",
+    emptyMy: "아직 내 레시피가 없어요. 첫 번째 기록을 남겨보세요!",
+    emptySearch: "검색 결과가 없어요.",
+    bestTitle: "🏆 베스트 레시피",
+    recordTitle: "☕ 레시피 기록하기", editTitle: "✏️ 레시피 수정하기",
+    machine: "커피 머신", machineBrand: "커피 머신 브랜드", machineModel: "세부 모델명",
+    machineType: "머신 타입", autoType: "🤖 전자동", manualType: "🔧 반자동",
+    grinder: "그라인더", grinderBrand: "그라인더 브랜드",
+    company: "원두 회사명 *", bean: "원두 이름 *", roastDate: "로스팅 일자",
+    coffeeMenu: "커피 메뉴 *", gram: "원두량 (G) *", gramAuto: "원두 분쇄량 (콩 갯수) *",
+    seconds: "추출 시간 (초) *", espressoMl: "추출량 (ML) *",
+    diluteType: "희석 종류", diluteMl: "희석량 (ML)", syrup: "시럽 / 추가 재료",
+    rating: "레시피 평가", note: "맛 노트 · 메모",
+    pressureTitle: "📊 예상 추출 압력", brewPressure: "추출 압력",
+    pressureGood: "✅ 적정 압력", pressureHigh: "⚠️ 압력 높음", pressureLow: "⚠️ 압력 낮음",
+    pressureRange: "적정: 9~11 bar",
+    save: "기록 저장", update: "수정 저장", saving: "저장 중…", cancel: "취소",
+    deleteConfirm: "이 레시피를 삭제할까요?",
+    mySettings: "👤 MY 설정", myMachine: "🤖 커피 머신", myGrinder: "⚙️ 그라인더",
+    myPw: "🔒 비밀번호 변경", curPw: "현재 비밀번호", newPw: "새 비밀번호", newPwConfirm: "새 비밀번호 확인",
+    changePw: "비밀번호 변경", changing: "변경 중…", close: "닫기", changeBtn: "변경",
+    ratingLabels: ["평가 없음", "별로예요", "그저 그래요", "괜찮아요", "맛있어요", "최고예요!"],
+    roasting: "로스팅", beanUnit: "원두", extractTime: "추출시간", extractVol: "추출량",
+    dilution: "희석", syrupLabel: "시럽", heartOwner: "내 레시피엔 하트를 누를 수 없어요",
+    heartCancel: "하트 취소", heart: "하트",
+    statGram: "원두", statSeconds: "추출시간", statMl: "추출량",
+    beanCount: "개",
+  },
+  en: {
+    appSub: "Coffee Recipe Community",
+    login: "Login", register: "Sign Up", findPw: "Find Password",
+    nickname: "Nickname", password: "Password", pwConfirm: "Confirm Password",
+    dupCheck: "Check", confirmed: "OK ✓",
+    secQuestion: "Security Question", secAnswer: "Answer",
+    loginBtn: "Login", registerBtn: "Sign Up",
+    googleLogin: "Continue with Google", googleRegister: "Start with Google",
+    orNickname: "Or sign up with nickname",
+    pwMatch: "Passwords match ✓", pwMismatch: "Passwords do not match.",
+    findStep1: "Next", findStep2: "Confirm",
+    findDone: "Identity Verified!", findDoneDesc: "For security, we can't display your password. Please re-register or contact admin.",
+    goLogin: "Go to Login",
+    feedTitle: "Recipe Feed", myFeedTitle: "My Recipes",
+    feedSub: "Browse extraction recipes from other brewers.",
+    myFeedSub: "Your uploaded recipes. Click your nickname again to return.",
+    searchPlaceholder: "Search menu, machine, bean, nickname, note …",
+    newRecipe: "+ Add Recipe",
+    logout: "Logout", myBtn: "MY",
+    emptyFeed: "No recipes yet. Be the first to share!",
+    emptyMy: "No recipes yet. Start sharing!",
+    emptySearch: "No results found.",
+    bestTitle: "🏆 Best Recipes",
+    recordTitle: "☕ Record Recipe", editTitle: "✏️ Edit Recipe",
+    machine: "Coffee Machine", machineBrand: "Machine Brand", machineModel: "Model Name",
+    machineType: "Machine Type", autoType: "🤖 Automatic", manualType: "🔧 Semi-auto",
+    grinder: "Grinder", grinderBrand: "Grinder Brand",
+    company: "Brand *", bean: "Bean Name *", roastDate: "Roast Date",
+    coffeeMenu: "Coffee Menu *", gram: "Dose (G) *", gramAuto: "Bean Count *",
+    seconds: "Extraction Time (s) *", espressoMl: "Yield (ML) *",
+    diluteType: "Dilution Type", diluteMl: "Dilution (ML)", syrup: "Syrup / Add-ons",
+    rating: "Rating", note: "Tasting Notes",
+    pressureTitle: "📊 Est. Brew Pressure", brewPressure: "Brew Pressure",
+    pressureGood: "✅ Optimal", pressureHigh: "⚠️ Too High", pressureLow: "⚠️ Too Low",
+    pressureRange: "Optimal: 9~11 bar",
+    save: "Save", update: "Update", saving: "Saving…", cancel: "Cancel",
+    deleteConfirm: "Delete this recipe?",
+    mySettings: "👤 My Settings", myMachine: "🤖 Coffee Machine", myGrinder: "⚙️ Grinder",
+    myPw: "🔒 Change Password", curPw: "Current Password", newPw: "New Password", newPwConfirm: "Confirm New Password",
+    changePw: "Change Password", changing: "Changing…", close: "Close", changeBtn: "Edit",
+    ratingLabels: ["No rating", "Poor", "Fair", "Good", "Great", "Excellent!"],
+    roasting: "Roasted", beanUnit: "bean", extractTime: "Time", extractVol: "Yield",
+    dilution: "dilution", syrupLabel: "Syrup", heartOwner: "Can't like your own recipe",
+    heartCancel: "Unlike", heart: "Like",
+    statGram: "Dose", statSeconds: "Time", statMl: "Yield",
+    beanCount: "beans",
+  },
+};
+
+const LangContext = React.createContext("ko");
+function useLang() { return React.useContext(LangContext); }
+
 // ─── 커피 메뉴 정의 ────────────────────────────────────────────────
 const COFFEE_MENUS = [
-  { id: "espresso",    label: "에스프레소",  emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
-  { id: "ristretto",   label: "리스트레토",  emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
-  { id: "lungo",       label: "룽고",        emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
-  { id: "americano",   label: "아메리카노",  emoji: "🥤", needsDilute: true,  fixedDilute: "물",  hasSyrup: false },
-  { id: "long_black",  label: "롱블랙",      emoji: "🥤", needsDilute: true,  fixedDilute: "물",  hasSyrup: false },
-  { id: "latte",       label: "카페라떼",    emoji: "🥛", needsDilute: true,  fixedDilute: "우유", hasSyrup: true  },
-  { id: "cappuccino",  label: "카푸치노",    emoji: "☕", needsDilute: true,  fixedDilute: "우유", hasSyrup: false },
-  { id: "flatwhite",   label: "플랫화이트",  emoji: "🥛", needsDilute: true,  fixedDilute: "우유", hasSyrup: false },
-  { id: "macchiato",   label: "마끼아또",    emoji: "☕", needsDilute: true,  fixedDilute: "우유", hasSyrup: true  },
-  { id: "cortado",     label: "코르타도",    emoji: "☕", needsDilute: true,  fixedDilute: "우유", hasSyrup: false },
-  { id: "cold_brew",   label: "콜드브루",    emoji: "🧊", needsDilute: true,  fixedDilute: null,  hasSyrup: true  },
-  { id: "other",       label: "기타",        emoji: "✨", needsDilute: true,  fixedDilute: null,  hasSyrup: false },
+  { id: "espresso",   label: "에스프레소", labelEn: "Espresso",    emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
+  { id: "ristretto",  label: "리스트레토", labelEn: "Ristretto",   emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
+  { id: "lungo",      label: "룽고",       labelEn: "Lungo",       emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
+  { id: "americano",  label: "아메리카노", labelEn: "Americano",   emoji: "🥤", needsDilute: true,  fixedDilute: "물",  fixedDiluteEn: "Water",  hasSyrup: false },
+  { id: "long_black", label: "롱블랙",     labelEn: "Long Black",  emoji: "🥤", needsDilute: true,  fixedDilute: "물",  fixedDiluteEn: "Water",  hasSyrup: false },
+  { id: "latte",      label: "카페라떼",   labelEn: "Latte",       emoji: "🥛", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: true },
+  { id: "cappuccino", label: "카푸치노",   labelEn: "Cappuccino",  emoji: "☕", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: false },
+  { id: "flatwhite",  label: "플랫화이트", labelEn: "Flat White",  emoji: "🥛", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: false },
+  { id: "macchiato",  label: "마끼아또",   labelEn: "Macchiato",   emoji: "☕", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: true },
+  { id: "cortado",    label: "코르타도",   labelEn: "Cortado",     emoji: "☕", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: false },
+  { id: "cold_brew",  label: "콜드브루",   labelEn: "Cold Brew",   emoji: "🧊", needsDilute: true,  fixedDilute: null,  hasSyrup: true },
+  { id: "other",      label: "기타",       labelEn: "Other",       emoji: "✨", needsDilute: true,  fixedDilute: null,  hasSyrup: false },
 ];
 
+
+// ─── 압력 계산 (ULKA E5 공식 펌프 곡선 기반) ──────────────────────
+function calcPressure(espressoMl, seconds) {
+  if (!espressoMl || !seconds || seconds <= 0) return null;
+  const ml = Number(espressoMl);
+  const sec = Number(seconds);
+  if (ml <= 0 || sec <= 0) return null;
+
+  // 유량 cc/min 계산
+  const flowRate = (ml / sec) * 60;
+
+  // ULKA E5 공식 펌프 곡선 데이터 (DIYCoffeeGuy GitHub + Home-Barista 자료 기반)
+  // 유량(cc/min) → 펌프 출구 압력(bar)
+  const curve = [
+    { flow: 0,   bar: 14.5 },
+    { flow: 30,  bar: 14.0 },
+    { flow: 60,  bar: 13.2 },
+    { flow: 90,  bar: 12.4 },
+    { flow: 120, bar: 11.5 },
+    { flow: 150, bar: 10.6 },
+    { flow: 180, bar: 9.7  },
+    { flow: 210, bar: 8.7  },
+    { flow: 240, bar: 7.6  },
+    { flow: 270, bar: 6.4  },
+    { flow: 300, bar: 5.0  },
+    { flow: 330, bar: 3.3  },
+    { flow: 350, bar: 2.0  },
+  ];
+
+  // 선형 보간으로 펌프 압력 계산
+  let pumpBar = 14.5;
+  if (flowRate >= curve[curve.length - 1].flow) {
+    pumpBar = curve[curve.length - 1].bar;
+  } else {
+    for (let i = 0; i < curve.length - 1; i++) {
+      if (flowRate >= curve[i].flow && flowRate < curve[i + 1].flow) {
+        const t = (flowRate - curve[i].flow) / (curve[i + 1].flow - curve[i].flow);
+        pumpBar = curve[i].bar + t * (curve[i + 1].bar - curve[i].bar);
+        break;
+      }
+    }
+  }
+
+  // 추출 압력 = 펌프 압력 - 배관 손실 (0.8 bar: 보일러+배관+그룹헤드 저항)
+  // 참고: Home-Barista.com - 실제 브루 압력은 펌프 압력보다 낮음
+  const brewBar = pumpBar - 0.8;
+
+  return {
+    flowRate: Math.round(flowRate),
+    pumpBar: Math.round(pumpBar * 10) / 10,
+    showerBar: Math.round(brewBar * 10) / 10,
+    status: brewBar >= 9 && brewBar <= 11 ? "good" : brewBar > 11 ? "high" : "low",
+  };
+}
+
 // ─── RecipeModal ───────────────────────────────────────────────────
-function RecipeModal({ onClose, onSave, user, editTarget }) {
+function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
+  const t = I18N[lang];
   const isEdit = !!editTarget;
 
   // 저장된 내 머신 불러오기
@@ -846,9 +1052,19 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
   );
   const isCustomGrinderBrand = grinderBrand === "기타 (직접 입력)";
 
+  const savedBean = loadMyBean();
+  const savedDefaults = loadRecipeDefaults();
   const [form, setForm] = useState(isEdit ? { ...editTarget } : {
-    company: "", bean: "", roastDate: "", gram: "", seconds: "",
-    espressoMl: "", diluteMl: "", diluteType: "물", syrup: "", note: ""
+    company: savedBean?.company || "",
+    bean: savedBean?.bean || "",
+    roastDate: savedBean?.roastDate || "",
+    rating: 0,
+    gram: savedDefaults?.gram || "",
+    seconds: savedDefaults?.seconds || "",
+    espressoMl: savedDefaults?.espressoMl || "",
+    diluteMl: savedDefaults?.diluteMl || "",
+    diluteType: savedDefaults?.diluteType || "물",
+    syrup: "", note: ""
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [saving, setSaving] = useState(false);
@@ -858,6 +1074,7 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
   const currentMenu = COFFEE_MENUS.find(m => m.id === selectedMenu);
   const needsDilute = !currentMenu || currentMenu.needsDilute;
   const fixedDilute = currentMenu?.fixedDilute || null;
+  const fixedDiluteEn = currentMenu?.fixedDiluteEn || null;
   const hasSyrup = currentMenu?.hasSyrup || false;
 
   const selectMenu = (menu) => {
@@ -920,12 +1137,22 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
     if (grinderBrand && grinderModel && !grinderLocked) {
       saveMyGrinder({ brand: grinderBrand, model: grinderModel });
     }
+    // 원두 정보 저장
+    if (form.company || form.bean) {
+      saveMyBean({ company: form.company, bean: form.bean, roastDate: form.roastDate });
+    }
+    // 추출 기본값 저장
+    saveRecipeDefaults({ gram: form.gram, seconds: form.seconds, espressoMl: form.espressoMl, diluteMl: form.diluteMl, diluteType: form.diluteType });
     setSaving(true);
     try {
+      const pressureData = calcPressure(form.espressoMl, form.seconds);
       const payload = {
         ...form,
         menuId: selectedMenu,
         menuLabel: currentMenu?.label || "",
+        flowRate: pressureData?.flowRate || null,
+        pumpBar: pressureData?.pumpBar || null,
+        showerBar: pressureData?.showerBar || null,
         machine: machineDisplay,
         machineBrand,
         machineModel,
@@ -953,13 +1180,13 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
   return (
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <h2>{isEdit ? "✏️ 레시피 수정하기" : "☕ 레시피 기록하기"}</h2>
+        <h2>{isEdit ? t.editTitle : t.recordTitle}</h2>
         <div className="modal-grid">
 
           {/* 커피 머신 */}
           {machineLocked ? (
             <div className="field full">
-              <label>커피 머신</label>
+              <label>{t ? t.machine : "커피 머신"}</label>
               <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                 <div style={{
                   flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)",
@@ -972,13 +1199,13 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
                   padding: "0.75rem 0.8rem", background: "none", border: "1px solid var(--steam)",
                   borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem",
                   color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-                }}>변경</button>
+                }}>{ lang === "en" ? "Edit" : "변경"}</button>
               </div>
             </div>
           ) : (
             <>
               <div className="field full">
-                <label>커피 머신 브랜드</label>
+                <label>{t ? t.machineBrand : "커피 머신 브랜드"}</label>
                 <BrandInput
                   value={machineBrand}
                   onChange={v => { setMachineBrand(v); setMachineModel(""); }}
@@ -991,11 +1218,11 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
                   {/* 반자동/전자동 선택 가능한 브랜드인 경우 타입 선택 */}
                   {isBothModeBrand(machineBrand) && (
                     <div className="field full">
-                      <label>머신 타입</label>
+                      <label>{t ? t.machineType : "머신 타입"}</label>
                       <div style={{ display: "flex", gap: "0.5rem" }}>
                         {[
-                          { val: "auto", label: "🤖 전자동" },
-                          { val: "manual", label: "🔧 반자동" },
+                          { val: "auto", label: t.autoType },
+                          { val: "manual", label: t.manualType },
                         ].map(({ val, label }) => (
                           <button
                             key={val}
@@ -1015,7 +1242,7 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
                     </div>
                   )}
                   <div className="field full">
-                    <label>세부 모델명</label>
+                    <label>{t ? t.machineModel : "세부 모델명"}</label>
                     <input
                       value={machineModel}
                       onChange={e => setMachineModel(e.target.value)}
@@ -1036,7 +1263,7 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
           {!isAutoMode && (
             grinderLocked ? (
               <div className="field full">
-                <label>그라인더</label>
+                <label>{t ? t.grinder : "그라인더"}</label>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                   <div style={{
                     flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)",
@@ -1049,13 +1276,13 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
                     padding: "0.75rem 0.8rem", background: "none", border: "1px solid var(--steam)",
                     borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem",
                     color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-                  }}>변경</button>
+                  }}>{ lang === "en" ? "Edit" : "변경"}</button>
                 </div>
               </div>
             ) : (
               <>
                 <div className="field full">
-                  <label>그라인더 브랜드</label>
+                  <label>{t ? t.grinderBrand : "그라인더 브랜드"}</label>
                   <BrandInput
                     value={grinderBrand}
                     onChange={v => { setGrinderBrand(v); setGrinderModel(""); }}
@@ -1065,7 +1292,7 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
                 </div>
                 {grinderBrand && (
                   <div className="field full">
-                    <label>세부 모델명</label>
+                    <label>{t ? t.machineModel : "세부 모델명"}</label>
                     <input
                       value={grinderModel}
                       onChange={e => setGrinderModel(e.target.value)}
@@ -1083,26 +1310,29 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
           )}
 
           <div className="field">
-            <label style={{ color: errors.company ? "#c0392b" : undefined }}>원두 회사명 *</label>
+            <label style={{ color: errors.company ? "#c0392b" : undefined }}>{t.company}</label>
             <input value={form.company} onChange={e => { set("company", e.target.value); setErrors(p => ({...p, company: false})); }}
               placeholder="블루보틀 …"
               style={{ borderColor: errors.company ? "#c0392b" : undefined }} />
             {errors.company && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
+            {savedBean?.company && form.company === savedBean.company && !errors.company && (
+              <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.3rem" }}>💾 {lang === "ko" ? "이전 기록에서 불러왔어요" : "Loaded from last record"}</p>
+            )}
           </div>
           <div className="field">
-            <label style={{ color: errors.bean ? "#c0392b" : undefined }}>원두 이름 *</label>
+            <label style={{ color: errors.bean ? "#c0392b" : undefined }}>{t.bean}</label>
             <input value={form.bean} onChange={e => { set("bean", e.target.value); setErrors(p => ({...p, bean: false})); }}
               placeholder="에티오피아 예가체프"
               style={{ borderColor: errors.bean ? "#c0392b" : undefined }} />
             {errors.bean && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
           </div>
-          <div className="field full"><label>로스팅 일자</label>
+          <div className="field full"><label>{t ? t.roastDate : "로스팅 일자"}</label>
             <input type="date" value={form.roastDate || ""} onChange={e => set("roastDate", e.target.value)} max={new Date().toISOString().split("T")[0]} />
           </div>
           {/* 커피 메뉴 선택 */}
           <div className="field full">
             <label style={{ color: errors.menu ? "#c0392b" : undefined }}>
-              커피 메뉴 *
+              {t.coffeeMenu}
             </label>
             <div className="menu-selector" style={{ border: errors.menu ? "1px solid #c0392b" : "none", borderRadius: "2px", padding: errors.menu ? "0.5rem" : "0" }}>
               {COFFEE_MENUS.map(m => (
@@ -1112,7 +1342,7 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
                   className={`menu-btn ${selectedMenu === m.id ? "selected" : ""}`}
                   onClick={() => { selectMenu(m); setErrors(p => ({...p, menu: false})); }}
                 >
-                  {m.emoji} {m.label}
+                  {m.emoji} {lang === "en" ? m.labelEn : m.label}
                 </button>
               ))}
             </div>
@@ -1123,7 +1353,7 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
             <div className="field full">
               <div className="bean-counter">
                 <span className="bean-counter-label">
-                  원두 분쇄량 (콩 갯수) *
+                  {t.gramAuto}
                   <span className="auto-badge">🤖 전자동</span>
                 </span>
                 <div className="bean-counter-display">
@@ -1135,7 +1365,7 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
                       </span>
                     ))}
                     {(!form.gram || Number(form.gram) === 0) && (
-                      <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>콩을 추가해주세요</span>
+                      <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>{lang === "ko" ? "콩을 추가해주세요" : "Add beans"}</span>
                     )}
                   </div>
                   <div className="bean-counter-btns">
@@ -1150,7 +1380,7 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
             </div>
           ) : (
             <div className="field">
-              <label style={{ color: errors.gram ? "#c0392b" : undefined }}>원두량 (g) *</label>
+              <label style={{ color: errors.gram ? "#c0392b" : undefined }}>{t.gram}</label>
               <input type="number" value={form.gram} onChange={e => { set("gram", String(Math.max(0, Number(e.target.value)))); setErrors(p => ({...p, gram: false})); }}
                 placeholder="18" min="0"
                 style={{ borderColor: errors.gram ? "#c0392b" : undefined }} />
@@ -1158,14 +1388,14 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
             </div>
           )}
           <div className="field">
-            <label style={{ color: errors.seconds ? "#c0392b" : undefined }}>추출 시간 (초) *</label>
+            <label style={{ color: errors.seconds ? "#c0392b" : undefined }}>{t.seconds}</label>
             <input type="number" value={form.seconds} onChange={e => { set("seconds", String(Math.max(0, Number(e.target.value)))); setErrors(p => ({...p, seconds: false})); }}
               placeholder="28" min="0"
               style={{ borderColor: errors.seconds ? "#c0392b" : undefined }} />
             {errors.seconds && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
           </div>
           <div className="field">
-            <label style={{ color: errors.espressoMl ? "#c0392b" : undefined }}>추출량 (ml) *</label>
+            <label style={{ color: errors.espressoMl ? "#c0392b" : undefined }}>{t.espressoMl}</label>
             <input type="number" value={form.espressoMl} onChange={e => { set("espressoMl", String(Math.max(0, Number(e.target.value)))); setErrors(p => ({...p, espressoMl: false})); }}
               placeholder="36" min="0"
               style={{ borderColor: errors.espressoMl ? "#c0392b" : undefined }} />
@@ -1173,34 +1403,90 @@ function RecipeModal({ onClose, onSave, user, editTarget }) {
           </div>
           {needsDilute && (<>
             <div className="field">
-              <label>희석 종류</label>
+              <label>{t ? t.diluteType : "희석 종류"}</label>
               {fixedDilute ? (
                 <div style={{ padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>
-                  💧 {fixedDilute} (고정)
+                  💧 {lang === "en" ? (fixedDiluteEn || fixedDilute) : fixedDilute} {lang === "en" ? "(Fixed)" : "(고정)"}
                 </div>
               ) : (
-                <input value={form.diluteType} onChange={e => set("diluteType", e.target.value)} placeholder="물/우유/두유" />
+                <input
+                  value={lang === "en"
+                    ? (form.diluteType === "물" ? "Water" : form.diluteType === "우유" ? "Milk" : form.diluteType === "두유" ? "Soy Milk" : form.diluteType)
+                    : form.diluteType}
+                  onChange={e => {
+                    const v = e.target.value;
+                    // 영어 입력을 한국어로 저장
+                    if (lang === "en") {
+                      const map = { "Water": "물", "Milk": "우유", "Soy Milk": "두유" };
+                      set("diluteType", map[v] || v);
+                    } else {
+                      set("diluteType", v);
+                    }
+                  }}
+                  placeholder={lang === "en" ? "Water / Milk / Soy Milk" : "물/우유/두유"} />
               )}
             </div>
-            <div className="field full"><label>희석량 (ml)</label>
+            <div className="field full"><label>{t.diluteMl}</label>
               <input type="number" value={form.diluteMl} onChange={e => set("diluteMl", String(Math.max(0, Number(e.target.value))))} placeholder="150" min="0" />
             </div>
           </>)}
           {hasSyrup && (
             <div className="field full">
-              <label>시럽 / 추가 재료</label>
+              <label>{t ? t.syrup : "시럽 / 추가 재료"}</label>
               <input value={form.syrup || ""} onChange={e => set("syrup", e.target.value)}
                 placeholder="바닐라 시럽 1펌프, 카라멜 시럽 2펌프 …" />
             </div>
           )}
-          <div className="field full"><label>맛 노트 · 메모</label>
-            <textarea value={form.note} onChange={e => set("note", e.target.value)} placeholder="산미가 밝고 과일향이 가득했어요 …" />
+          {/* 별점 평가 */}
+          <div className="field full">
+            <label>{t ? t.rating : "레시피 평가"}</label>
+            <div className="star-rating">
+              {[1,2,3,4,5].map(star => (
+                <button
+                  key={star}
+                  type="button"
+                  className={`star-btn ${star <= (form.rating || 0) ? "active" : ""}`}
+                  onClick={() => set("rating", form.rating === star ? 0 : star)}
+                >
+                  {star <= (form.rating || 0) ? "★" : "☆"}
+                </button>
+              ))}
+              <span className="star-label">
+                {t.ratingLabels[form.rating || 0]}
+              </span>
+            </div>
+          </div>
+          {/* 예상 압력 계산 - 맛 노트 바로 위 */}
+          {(() => {
+            const p = calcPressure(form.espressoMl, form.seconds);
+            if (!p) return null;
+            return (
+              <div className={`pressure-box ${p.status} field full`} style={{ marginBottom: 0 }}>
+                <div className="pressure-title">{t.pressureTitle}</div>
+                <div className="pressure-row">
+                  <span style={{ color: "var(--muted)" }}>{t.brewPressure}</span>
+                  <span className={`pressure-val pressure-${p.status}`}>
+                    {p.status === "high"
+                      ? `9 bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${p.pumpBar} bar)`
+                      : p.status === "low"
+                      ? `${p.showerBar} bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${p.pumpBar} bar)`
+                      : `${p.showerBar} bar`}
+                  </span>
+                </div>
+                <div style={{ marginTop: "0.3rem", fontSize: "0.78rem", color: "var(--muted)" }}>
+                  {p.status === "good" ? t.pressureGood : p.status === "high" ? t.pressureHigh : t.pressureLow} ({t.pressureRange})
+                </div>
+              </div>
+            );
+          })()}
+          <div className="field full"><label>{t ? t.note : "맛 노트 · 메모"}</label>
+            <textarea value={form.note} onChange={e => set("note", e.target.value)} placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"} />
           </div>
         </div>
         <div className="modal-actions">
-          <button className="btn-cancel" onClick={onClose}>취소</button>
+          <button className="btn-cancel" onClick={onClose}>{t.cancel}</button>
           <button className="btn-primary" style={{ width: "auto", marginTop: 0, padding: "0.7rem 2rem" }} onClick={save} disabled={saving}>
-            {saving ? "저장 중…" : isEdit ? "수정 저장" : "기록 저장"}
+            {saving ? t.saving : isEdit ? t.update : t.save}
           </button>
         </div>
       </div>
@@ -1289,7 +1575,7 @@ function MyModal({ onClose, user }) {
           {!machineEditing ? (
             <div className="my-locked-row">
               <div className="my-locked-val">{machine.brand ? `${machine.brand}${machine.model ? " " + machine.model : ""}` : "미설정"}</div>
-              <button className="btn-change" onClick={() => setMachineEditing(true)}>변경</button>
+              <button className="btn-change" onClick={() => setMachineEditing(true)}>{ lang === "en" ? "Edit" : "변경"}</button>
             </div>
           ) : (
             <>
@@ -1299,7 +1585,7 @@ function MyModal({ onClose, user }) {
               </div>
               {machineBrand && (
                 <div className="field">
-                  <label>세부 모델명</label>
+                  <label>{t ? t.machineModel : "세부 모델명"}</label>
                   <input value={machineModel} onChange={e => setMachineModel(e.target.value)} placeholder="예) Barista Express …" />
                 </div>
               )}
@@ -1318,7 +1604,7 @@ function MyModal({ onClose, user }) {
           {!grinderEditing ? (
             <div className="my-locked-row">
               <div className="my-locked-val">{grinder.brand ? `${grinder.brand}${grinder.model ? " " + grinder.model : ""}` : "미설정"}</div>
-              <button className="btn-change" onClick={() => setGrinderEditing(true)}>변경</button>
+              <button className="btn-change" onClick={() => setGrinderEditing(true)}>{ lang === "en" ? "Edit" : "변경"}</button>
             </div>
           ) : (
             <>
@@ -1328,7 +1614,7 @@ function MyModal({ onClose, user }) {
               </div>
               {grinderBrand && (
                 <div className="field">
-                  <label>세부 모델명</label>
+                  <label>{t ? t.machineModel : "세부 모델명"}</label>
                   <input value={grinderModel} onChange={e => setGrinderModel(e.target.value)} placeholder="예) Encore, C40 …" />
                 </div>
               )}
@@ -1376,8 +1662,9 @@ function MyModal({ onClose, user }) {
 }
 
 // ─── RecipeDetailModal ────────────────────────────────────────────
-function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDelete }) {
-  const date = recipe.createdAt?.toDate?.()?.toLocaleDateString("ko-KR") || "";
+function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDelete, lang = "ko" }) {
+  const t = I18N[lang];
+  const date = recipe.createdAt?.toDate?.()?.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR") || "";
   const liked = (recipe.likedBy || []).includes(currentUid);
   const likeCount = (recipe.likedBy || []).length;
   const isOwner = recipe.uid === currentUid;
@@ -1392,7 +1679,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDele
           {recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
           {recipe.machineType && (
             <span style={{ marginLeft: "0.4rem", fontSize: "0.68rem", background: recipe.machineType === "auto" ? "var(--latte)" : "var(--steam)", color: "var(--espresso)", padding: "0.1rem 0.4rem", borderRadius: "999px" }}>
-              {recipe.machineType === "auto" ? "전자동" : "반자동"}
+              {recipe.machineType === "auto" ? (lang === "en" ? "Auto" : "전자동") : (lang === "en" ? "Semi-auto" : "반자동")}
             </span>
           )}
         </div>
@@ -1405,18 +1692,27 @@ function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDele
         </div>
         {recipe.roastDate && (
           <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "1rem" }}>
-            🌱 로스팅 {new Date(recipe.roastDate).toLocaleDateString("ko-KR")}
+            🌱 {t.roasting} {new Date(recipe.roastDate).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US")}
           </div>
         )}
         <div className="card-stats" style={{ marginBottom: "1rem" }}>
-          <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">원두</span></div>
-          <div className="stat"><span className="stat-val">{recipe.seconds}s</span><span className="stat-label">추출시간</span></div>
-          <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">추출량</span></div>
+          <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
+          <div className="stat"><span className="stat-val">{recipe.seconds}s</span><span className="stat-label">{t.statSeconds}</span></div>
+          <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
         </div>
         {recipe.diluteMl && (
           <div className="card-dilution">💧 {recipe.diluteType} {recipe.diluteMl}ml 희석</div>
         )}
-        {recipe.note && <div className="card-note">"{recipe.note}"</div>}
+        {recipe.rating > 0 && (
+        <div style={{ display: "flex", gap: "0.15rem", marginBottom: "0.5rem" }}>
+          {[1,2,3,4,5].map(s => (
+            <span key={s} style={{ fontSize: "1rem", color: s <= recipe.rating ? "var(--latte)" : "var(--steam)" }}>
+              {s <= recipe.rating ? "★" : "☆"}
+            </span>
+          ))}
+        </div>
+      )}
+      {recipe.note && <div className="card-note">"{recipe.note}"</div>}
         <div className="card-footer" style={{ marginTop: "1rem" }}>
           <div><span className="card-author">@{recipe.author}</span><span style={{ color: "var(--muted)" }}> · {date}</span></div>
           <div className="card-actions">
@@ -1424,7 +1720,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDele
               className={`btn-heart ${liked ? "liked" : ""}`}
               onClick={() => !isOwner && onLike(recipe)}
               style={{ cursor: isOwner ? "default" : "pointer", opacity: isOwner ? 0.4 : 1 }}
-              title={isOwner ? "내 레시피엔 하트를 누를 수 없어요" : liked ? "하트 취소" : "하트"}
+              title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}
             >
               {liked ? "❤️" : "🤍"}<span>{likeCount > 0 ? likeCount : ""}</span>
             </button>
@@ -1440,8 +1736,9 @@ function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDele
 }
 
 // ─── RecipeCard ────────────────────────────────────────────────────
-function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike }) {
-  const date = recipe.createdAt?.toDate?.()?.toLocaleDateString("ko-KR") || "";
+function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, lang = "ko" }) {
+  const t = I18N[lang];
+  const date = recipe.createdAt?.toDate?.()?.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR") || "";
   const liked = (recipe.likedBy || []).includes(currentUid);
   const likeCount = (recipe.likedBy || []).length;
   const isOwner = recipe.uid === currentUid;
@@ -1453,7 +1750,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike }) {
           {recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
           {recipe.machineType && (
             <span style={{ marginLeft: "0.4rem", fontSize: "0.68rem", background: recipe.machineType === "auto" ? "var(--latte)" : "var(--steam)", color: "var(--espresso)", padding: "0.1rem 0.4rem", borderRadius: "999px" }}>
-              {recipe.machineType === "auto" ? "전자동" : "반자동"}
+              {recipe.machineType === "auto" ? (lang === "en" ? "Auto" : "전자동") : (lang === "en" ? "Semi-auto" : "반자동")}
             </span>
           )}
         </div>
@@ -1461,19 +1758,40 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike }) {
       {recipe.grinder && <div className="card-machine">⚙️ {recipe.grinder}</div>}
       {recipe.menuLabel && (
         <div style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.75rem", background: "var(--espresso)", color: "var(--latte)", padding: "0.2rem 0.6rem", borderRadius: "999px", marginBottom: "0.4rem", fontWeight: 500 }}>
-          {COFFEE_MENUS.find(m => m.id === recipe.menuId)?.emoji || "☕"} {recipe.menuLabel}
+          {COFFEE_MENUS.find(m => m.id === recipe.menuId)?.emoji || "☕"} {lang === "en" ? (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.labelEn || recipe.menuLabel) : recipe.menuLabel}
         </div>
       )}
       <div className="card-company">{recipe.company}</div>
       <div className="card-bean">{recipe.bean}</div>
-      {recipe.roastDate && <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.8rem" }}>🌱 로스팅 {new Date(recipe.roastDate).toLocaleDateString("ko-KR")}</div>}
+      {recipe.roastDate && <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.8rem" }}>🌱 {t.roasting} {new Date(recipe.roastDate).toLocaleDateString(lang === "en" ? "en-US" : "ko-KR")}</div>}
       <div className="card-stats">
-        <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">원두</span></div>
-        <div className="stat"><span className="stat-val">{recipe.seconds}s</span><span className="stat-label">추출시간</span></div>
-        <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">추출량</span></div>
+        <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
+        <div className="stat"><span className="stat-val">{recipe.seconds}s</span><span className="stat-label">{t.statSeconds}</span></div>
+        <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
       </div>
-      {recipe.diluteMl && <div className="card-dilution">💧 {recipe.diluteType} {recipe.diluteMl}ml 희석</div>}
+      {recipe.diluteMl && <div className="card-dilution">💧 {lang === "en" ? (recipe.diluteType === "물" ? "Water" : recipe.diluteType === "우유" ? "Milk" : recipe.diluteType === "두유" ? "Soy Milk" : recipe.diluteType) : recipe.diluteType} {recipe.diluteMl}ml {t.dilution}</div>}
       {recipe.syrup && <div className="card-dilution">🍯 {recipe.syrup}</div>}
+      {recipe.showerBar && (
+        <div style={{
+          fontSize: "0.78rem", padding: "0.4rem 0.8rem", borderRadius: "2px", marginBottom: "0.5rem",
+          background: recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "#27ae6015" : "#e74c3c15",
+          color: recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "#27ae60" : "#e74c3c",
+          border: `1px solid ${recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "#27ae6030" : "#e74c3c30"}`,
+          display: "flex", justifyContent: "space-between",
+        }}>
+          <span>📊 {t.brewPressure}</span>
+          <span style={{ fontWeight: 600 }}>{recipe.showerBar} bar {recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "✅" : "⚠️"}</span>
+        </div>
+      )}
+      {recipe.rating > 0 && (
+        <div style={{ display: "flex", gap: "0.15rem", marginBottom: "0.5rem" }}>
+          {[1,2,3,4,5].map(s => (
+            <span key={s} style={{ fontSize: "1rem", color: s <= recipe.rating ? "var(--latte)" : "var(--steam)" }}>
+              {s <= recipe.rating ? "★" : "☆"}
+            </span>
+          ))}
+        </div>
+      )}
       {recipe.note && <div className="card-note">"{recipe.note}"</div>}
       <div className="card-footer">
         <div><span className="card-author">@{recipe.author}</span><span> · {date}</span></div>
@@ -1483,7 +1801,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike }) {
             className={`btn-heart ${liked ? "liked" : ""}`}
             onClick={() => !isOwner && onLike(recipe)}
             style={{ cursor: isOwner ? "default" : "pointer", opacity: isOwner ? 0.4 : 1 }}
-            title={isOwner ? "내 레시피엔 하트를 누를 수 없어요" : liked ? "하트 취소" : "하트"}
+            title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}
           >
             {liked ? "❤️" : "🤍"}<span>{likeCount > 0 ? likeCount : ""}</span>
           </button>
@@ -1498,9 +1816,10 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike }) {
 }
 
 // ─── MainApp ───────────────────────────────────────────────────────
-function MainApp({ user }) {
+function MainApp({ user, lang, toggleLang }) {
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState("");
+  const [myRecipesOnly, setMyRecipesOnly] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [showMyModal, setShowMyModal] = useState(false);
@@ -1552,6 +1871,7 @@ function MainApp({ user }) {
   };
 
   const filtered = recipes.filter(r => {
+    if (myRecipesOnly && r.uid !== user.uid) return false;
     const q = search.toLowerCase().trim();
     if (!q) return true;
     return (
@@ -1575,18 +1895,25 @@ function MainApp({ user }) {
       </div>
     )}
     <header className="app-header">
-      <div className="logo">☕ Brewlog</div>
+      <div className="logo">☕ Brewlog note</div>
       <div className="header-right">
-        <span className="nick-badge">@{user.displayName}</span>
+        <span
+          className={`nick-badge ${myRecipesOnly ? "active" : ""}`}
+          onClick={() => setMyRecipesOnly(v => !v)}
+          title={myRecipesOnly ? "전체 피드 보기" : "내 레시피만 보기"}
+        >
+          @{user.displayName}{myRecipesOnly ? " 👤" : ""}
+        </span>
         {isAdmin && <button className="btn-admin-header" onClick={() => setAdminMode(true)}>관리자</button>}
+        <button className="btn-lang" onClick={toggleLang}>{lang === "ko" ? "EN" : "KO"}</button>
         <button className="btn-my" onClick={() => setShowMyModal(true)}>MY</button>
-        <button className="btn-logout" onClick={() => signOut(auth)}>로그아웃</button>
+        <button className="btn-logout" onClick={() => signOut(auth)}>{I18N[lang].logout}</button>
       </div>
     </header>
     {/* 타이틀 + 베스트 */}
     <div className="main-wrap">
-      <div className="section-title">레시피 피드</div>
-      <div className="section-sub">다른 브루어들의 추출 레시피를 둘러보세요.</div>
+      <div className="section-title">{myRecipesOnly ? I18N[lang].myFeedTitle : I18N[lang].feedTitle}</div>
+      <div className="section-sub">{myRecipesOnly ? I18N[lang].myFeedSub : I18N[lang].feedSub}</div>
       <div className="divider" style={{ marginBottom: "1.5rem" }} />
       {(() => {
         const MEDALS = ["🥇", "🥈", "🥉"];
@@ -1597,7 +1924,7 @@ function MainApp({ user }) {
         if (best.length === 0) return null;
         return (
           <div className="best-section">
-            <div className="best-title">🏆 베스트 레시피</div>
+<div className="best-title">{I18N[lang].bestTitle}</div>
             <div className="best-grid">
               {best.map((r, i) => (
                 <div key={r.id} className="best-card" onClick={() => setDetailRecipe(r)}>
@@ -1621,9 +1948,9 @@ function MainApp({ user }) {
       <div className="toolbar">
         <div className="search-box">
           <span className="search-icon">🔍</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="메뉴, 머신, 원두, 닉네임, 메모 검색 …" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
         </div>
-        <button className="btn-new" onClick={() => setShowModal(true)}>+ 레시피 올리기</button>
+        <button className="btn-new" onClick={() => setShowModal(true)}>{I18N[lang].newRecipe}</button>
       </div>
     </div>
 
@@ -1633,21 +1960,22 @@ function MainApp({ user }) {
         {filtered.length === 0 ? (
           <div className="empty-state">
             <span>☕</span>
-            <p>{search ? "검색 결과가 없어요." : "아직 레시피가 없어요. 첫 번째 기록을 남겨보세요!"}</p>
+            <p>{search ? "검색 결과가 없어요." : myRecipesOnly ? "아직 내 레시피가 없어요. 첫 번째 기록을 남겨보세요!" : "아직 레시피가 없어요. 첫 번째 기록을 남겨보세요!"}</p>
           </div>
         ) : filtered.map(r => (
-          <RecipeCard key={r.id} recipe={r} currentUid={user.uid}
+          <RecipeCard key={r.id} recipe={r} currentUid={user.uid} lang={lang}
             onDelete={handleDelete}
             onLike={handleLike}
             onEdit={r => { setEditTarget(r); setShowModal(true); }} />
         ))}
       </div>
     </div>
-    {showMyModal && <MyModal user={user} onClose={() => setShowMyModal(false)} />}
+    {showMyModal && <MyModal user={user} lang={lang} onClose={() => setShowMyModal(false)} />}
     {detailRecipe && (
       <RecipeDetailModal
         recipe={detailRecipe}
         currentUid={user.uid}
+        lang={lang}
         onClose={() => setDetailRecipe(null)}
         onLike={r => { handleLike(r); setDetailRecipe(null); }}
         onEdit={r => { setEditTarget(r); setShowModal(true); setDetailRecipe(null); }}
@@ -1655,7 +1983,7 @@ function MainApp({ user }) {
       />
     )}
     {showModal && (
-      <RecipeModal user={user} editTarget={editTarget}
+      <RecipeModal user={user} editTarget={editTarget} lang={lang}
         onClose={() => { setShowModal(false); setEditTarget(null); }}
         onSave={() => { loadRecipes(); setShowModal(false); setEditTarget(null); }} />
     )}
@@ -1850,7 +2178,7 @@ function AdminApp({ user, onExit }) {
       <div className="logo">☕ Brewlog <span style={{ fontSize: "0.75rem", color: "#ff6b6b", marginLeft: "0.5rem" }}>ADMIN</span></div>
       <div className="header-right">
         <button className="btn-admin-header" onClick={onExit}>← 일반화면</button>
-        <button className="btn-logout" onClick={() => signOut(auth)}>로그아웃</button>
+        <button className="btn-logout" onClick={() => signOut(auth)}>{I18N[lang].logout}</button>
       </div>
     </header>
     <div className="admin-wrap">
@@ -2060,6 +2388,13 @@ function AdminApp({ user, onExit }) {
 // ─── Root ──────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(undefined);
+  const [lang, setLang] = useState(() => localStorage.getItem("brewlog_lang") || "ko");
+
+  const toggleLang = () => {
+    const next = lang === "ko" ? "en" : "ko";
+    setLang(next);
+    localStorage.setItem("brewlog_lang", next);
+  };
 
   useEffect(() => {
     loadBrandsFromDB();
@@ -2068,14 +2403,18 @@ export default function App() {
   }, []);
 
   if (user === undefined) return (
-    <><style>{CSS}</style>
+    <LangContext.Provider value={lang}>
+      <style>{CSS}</style>
       <div className="loading-wrap"><p>☕ 로딩 중…</p></div>
-    </>
+    </LangContext.Provider>
   );
 
   return (
-    <><style>{CSS}</style>
-      {user ? <MainApp user={user} /> : <AuthScreen />}
-    </>
+    <LangContext.Provider value={lang}>
+      <style>{CSS}</style>
+      {user
+        ? <MainApp user={user} lang={lang} toggleLang={toggleLang} />
+        : <AuthScreen lang={lang} toggleLang={toggleLang} />}
+    </LangContext.Provider>
   );
 }
