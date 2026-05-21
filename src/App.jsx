@@ -201,6 +201,14 @@ const CSS = `
   }
   .menu-btn:hover { border-color: var(--accent); color: var(--accent); }
   .menu-btn.selected { background: var(--espresso); color: var(--cream); border-color: var(--espresso); font-weight: 500; }
+  .timer-box { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 1rem 1rem 0.8rem; background: var(--cream); border: 1px solid var(--steam); border-radius: 2px; margin-top: 0.5rem; }
+  .timer-display { font-family: 'Playfair Display', serif; font-size: 3rem; color: var(--espresso); letter-spacing: 0.08em; line-height: 1; min-width: 4rem; text-align: center; }
+  .timer-display.running { color: var(--accent); }
+  .timer-display.done { color: #27ae60; }
+  .timer-btns { display: flex; gap: 0.5rem; width: 100%; }
+  .timer-start { flex: 1; padding: 0.6rem 0; background: var(--espresso); color: var(--cream); border: none; border-radius: 2px; font-family: 'DM Sans',sans-serif; font-size: 0.85rem; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
+  .timer-start:hover { background: var(--roast); }
+  .timer-reset { flex: 1; padding: 0.6rem 0; background: none; border: 1px solid var(--steam); border-radius: 2px; font-family: 'DM Sans',sans-serif; font-size: 0.85rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
   .bean-counter { display: flex; flex-direction: column; gap: 0.5rem; }
   .bean-counter-label { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
   .bean-counter-display { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
@@ -224,6 +232,12 @@ const CSS = `
     color: var(--espresso); cursor: pointer; transition: background 0.1s;
   }
   .autocomplete-item:hover, .autocomplete-item.active { background: var(--cream); color: var(--roast); }
+  .btn-bookmark { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted); transition: all 0.15s; padding: 0; line-height: 1; display: inline-flex; align-items: center; }
+  .btn-bookmark:hover { color: var(--latte); transform: scale(1.15); }
+  .btn-bookmark.saved { color: var(--latte); }
+  .bookmark-tab { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .bookmark-tab-btn { padding: 0.4rem 1rem; border: 1px solid var(--steam); border-radius: 999px; background: var(--foam); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+  .bookmark-tab-btn.active { background: var(--espresso); color: var(--cream); border-color: var(--espresso); }
   .btn-heart { background: none; border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.3rem; color: var(--muted); transition: all 0.15s; padding: 0; line-height: 1; }
   .btn-heart:hover { transform: scale(1.15); }
   .btn-heart.liked { color: #e74c3c; }
@@ -369,6 +383,8 @@ function AuthScreen({ lang, toggleLang }) {
   const [regAnswer, setRegAnswer] = useState("");
   const [nickChecked, setNickChecked] = useState(false);
   const [nickCheckMsg, setNickCheckMsg] = useState(null);
+  const [privacyAgreed, setPrivacyAgreed] = useState(false);
+  const [privacyError, setPrivacyError] = useState(false);
 
   const [findNick, setFindNick] = useState("");
   const [findQuestion, setFindQuestion] = useState("");
@@ -406,6 +422,8 @@ function AuthScreen({ lang, toggleLang }) {
     if (!regPw.trim()) return setMsg({ type: "error", text: "비밀번호를 입력해주세요." });
     if (regPw !== regPwConfirm) return setMsg({ type: "error", text: "비밀번호가 일치하지 않습니다." });
     if (!regAnswer.trim()) return setMsg({ type: "error", text: "보안 질문 답변을 입력해주세요." });
+    if (!privacyAgreed) { setPrivacyError(true); return; }
+    setPrivacyError(false);
     setLoading(true);
     try {
       const email = `${regNick.trim()}@brewlog.app`;
@@ -416,6 +434,8 @@ function AuthScreen({ lang, toggleLang }) {
         nickname: regNick.trim(),
         securityQuestion: regQuestion,
         securityAnswer: regAnswer.trim().toLowerCase(),
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp(),
       });
     } catch (e) {
       setMsg({ type: "error", text: e.code === "auth/email-already-in-use" ? "이미 사용 중인 닉네임입니다." : "가입 오류: " + e.message });
@@ -437,10 +457,14 @@ function AuthScreen({ lang, toggleLang }) {
           nickname,
           securityQuestion: "",
           securityAnswer: "",
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp(),
         });
         await setDoc(doc(db, "nicknames", nickname), { uid: u.uid });
-        // displayName 업데이트
         if (!u.displayName) await updateProfile(u, { displayName: nickname });
+      } else {
+        // 최종 접속일 업데이트
+        await updateDoc(doc(db, "users", u.uid), { lastLogin: serverTimestamp() });
       }
     } catch (e) {
       if (e.code !== "auth/popup-closed-by-user") {
@@ -892,6 +916,9 @@ const I18N = {
     mySettings: "👤 MY 설정", myMachine: "🤖 커피 머신", myGrinder: "⚙️ 그라인더",
     myPw: "🔒 비밀번호 변경", curPw: "현재 비밀번호", newPw: "새 비밀번호", newPwConfirm: "새 비밀번호 확인",
     changePw: "비밀번호 변경", changing: "변경 중…", close: "닫기", changeBtn: "변경",
+    timerStart: "추출 시작", timerStop: "정지", timerReset: "초기화", timerApply: "적용",
+    bookmarks: "즐겨찾기", bookmarkSave: "저장됨", bookmarkAdd: "즐겨찾기 추가", bookmarkRemove: "즐겨찾기 해제",
+    allRecipes: "전체", myBookmarks: "즐겨찾기",
     ratingLabels: ["평가 없음", "별로예요", "그저 그래요", "괜찮아요", "맛있어요", "최고예요!"],
     roasting: "로스팅", beanUnit: "원두", extractTime: "추출시간", extractVol: "추출량",
     dilution: "희석", syrupLabel: "시럽", heartOwner: "내 레시피엔 하트를 누를 수 없어요",
@@ -939,6 +966,9 @@ const I18N = {
     mySettings: "👤 My Settings", myMachine: "🤖 Coffee Machine", myGrinder: "⚙️ Grinder",
     myPw: "🔒 Change Password", curPw: "Current Password", newPw: "New Password", newPwConfirm: "Confirm New Password",
     changePw: "Change Password", changing: "Changing…", close: "Close", changeBtn: "Edit",
+    timerStart: "Start", timerStop: "Stop", timerReset: "Reset", timerApply: "Apply",
+    bookmarks: "Bookmarks", bookmarkSave: "Saved", bookmarkAdd: "Save recipe", bookmarkRemove: "Remove bookmark",
+    allRecipes: "All", myBookmarks: "Bookmarks",
     ratingLabels: ["No rating", "Poor", "Fair", "Good", "Great", "Excellent!"],
     roasting: "Roasted", beanUnit: "bean", extractTime: "Time", extractVol: "Yield",
     dilution: "dilution", syrupLabel: "Syrup", heartOwner: "Can't like your own recipe",
@@ -1020,6 +1050,67 @@ function calcPressure(espressoMl, seconds) {
     showerBar: Math.round(brewBar * 10) / 10,
     status: brewBar >= 9 && brewBar <= 11 ? "good" : brewBar > 11 ? "high" : "low",
   };
+}
+
+// ─── TimerField ────────────────────────────────────────────────────
+function TimerField({ value, onChange, lang, t }) {
+  const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const intervalRef = useRef(null);
+
+  const fmt = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}:${String(sec).padStart(2,"0")}` : `${sec}`;
+  };
+
+  const start = () => {
+    if (running) {
+      clearInterval(intervalRef.current);
+      setRunning(false);
+    } else {
+      setRunning(true);
+      intervalRef.current = setInterval(() => setElapsed(p => p + 1), 1000);
+    }
+  };
+
+  const reset = () => {
+    clearInterval(intervalRef.current);
+    setRunning(false);
+    setElapsed(0);
+  };
+
+  const apply = () => {
+    clearInterval(intervalRef.current);
+    setRunning(false);
+    onChange(String(elapsed));
+  };
+
+  useEffect(() => () => clearInterval(intervalRef.current), []);
+
+  const status = running ? "running" : elapsed > 0 ? "done" : "";
+
+  return (
+    <div>
+      <input type="number" value={value} onChange={e => onChange(String(Math.max(0, Number(e.target.value))))}
+        placeholder="28" min="0"
+        style={{ width: "100%", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none", marginBottom: "0.5rem" }} />
+      <div className="timer-box">
+        <div className={`timer-display ${status}`}>{fmt(elapsed)}</div>
+        <div className="timer-btns">
+          <button type="button" className="timer-start" onClick={start}>
+            {running ? t.timerStop : t.timerStart}
+          </button>
+          <button type="button" className="timer-reset" onClick={reset}>{t.timerReset}</button>
+          {elapsed > 0 && !running && (
+            <button type="button" className="timer-start" style={{ background: "#27ae60" }} onClick={apply}>
+              {t.timerApply} ({elapsed}s)
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── RecipeModal ───────────────────────────────────────────────────
@@ -1391,10 +1482,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
           )}
           <div className="field">
             <label style={{ color: errors.seconds ? "#c0392b" : undefined }}>{t.seconds}</label>
-            <input type="number" value={form.seconds} onChange={e => { set("seconds", String(Math.max(0, Number(e.target.value)))); setErrors(p => ({...p, seconds: false})); }}
-              placeholder="28" min="0"
-              style={{ borderColor: errors.seconds ? "#c0392b" : undefined }} />
-            {errors.seconds && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
+            <TimerField value={form.seconds} onChange={v => { set("seconds", v); setErrors(p => ({...p, seconds: false})); }} lang={lang} t={t} />
+            {errors.seconds && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>{lang === "en" ? "⚠️ Required" : "⚠️ 필수 항목이에요"}</p>}
           </div>
           <div className="field">
             <label style={{ color: errors.espressoMl ? "#c0392b" : undefined }}>{t.espressoMl}</label>
@@ -1738,7 +1827,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDele
 }
 
 // ─── RecipeCard ────────────────────────────────────────────────────
-function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, lang = "ko" }) {
+function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, lang = "ko" }) {
   const t = I18N[lang];
   const date = recipe.createdAt?.toDate?.()?.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR") || "";
   const liked = (recipe.likedBy || []).includes(currentUid);
@@ -1807,6 +1896,14 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, lang = "ko" 
           >
             {liked ? "❤️" : "🤍"}<span>{likeCount > 0 ? likeCount : ""}</span>
           </button>
+          <button
+            className={`btn-bookmark ${isBookmarked ? "saved" : ""}`}
+            onClick={() => onBookmark(recipe.id)}
+            title={isBookmarked ? t.bookmarkRemove : t.bookmarkAdd}
+            style={{ color: isBookmarked ? "var(--latte)" : "var(--muted)" }}
+          >
+            {isBookmarked ? "🔖" : "🏷️"}
+          </button>
           {isOwner && (<>
             <button className="card-edit" onClick={() => onEdit(recipe)}>✏️</button>
             <button className="card-delete" onClick={() => onDelete(recipe.id)}>🗑</button>
@@ -1827,6 +1924,18 @@ function MainApp({ user, lang, toggleLang }) {
   const [showMyModal, setShowMyModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [detailRecipe, setDetailRecipe] = useState(null);
+  const [feedTab, setFeedTab] = useState("all"); // "all" | "bookmarks"
+  const [bookmarks, setBookmarks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("brewlog_bookmarks_" + user.uid) || "[]"); } catch { return []; }
+  });
+
+  const toggleBookmark = (recipeId) => {
+    setBookmarks(prev => {
+      const next = prev.includes(recipeId) ? prev.filter(id => id !== recipeId) : [...prev, recipeId];
+      try { localStorage.setItem("brewlog_bookmarks_" + user.uid, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
   const [adminMode, setAdminMode] = useState(false);
   const [notices, setNotices] = useState([]);
   const [noticeDismissed, setNoticeDismissed] = useState(false);
@@ -1842,12 +1951,24 @@ function MainApp({ user, lang, toggleLang }) {
   useEffect(() => {
     loadRecipes();
     // 관리자 여부 확인
-    getDoc(doc(db, "admins", user.uid))
-      .then(snap => {
-        console.log("admin check:", snap.exists(), user.uid);
+    // 관리자 체크 - 재시도 로직 포함
+    const checkAdmin = async () => {
+      try {
+        const token = await user.getIdToken(true); // 토큰 강제 갱신
+        const snap = await getDoc(doc(db, "admins", user.uid));
         setIsAdmin(snap.exists());
-      })
-      .catch(e => console.error("admin check error:", e));
+      } catch(e) {
+        console.error("admin check error:", e);
+        // 1초 후 재시도
+        setTimeout(async () => {
+          try {
+            const snap = await getDoc(doc(db, "admins", user.uid));
+            setIsAdmin(snap.exists());
+          } catch(e2) { console.error("admin retry failed:", e2); }
+        }, 1000);
+      }
+    };
+    checkAdmin();
     // 최신 공지사항 로드
     getDocs(query(collection(db, "notices"), orderBy("createdAt", "desc")))
       .then(snap => {
@@ -1874,6 +1995,7 @@ function MainApp({ user, lang, toggleLang }) {
 
   const filtered = recipes.filter(r => {
     if (myRecipesOnly && r.uid !== user.uid) return false;
+    if (feedTab === "bookmarks" && !bookmarks.includes(r.id)) return false;
     const q = search.toLowerCase().trim();
     if (!q) return true;
     return (
@@ -1948,11 +2070,17 @@ function MainApp({ user, lang, toggleLang }) {
     {/* 검색바 sticky 고정 */}
     <div className="toolbar-sticky">
       <div className="toolbar">
-        <div className="search-box">
-          <span className="search-icon">🔍</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
+        <div className="bookmark-tab">
+          <button className={`bookmark-tab-btn ${feedTab === "all" ? "active" : ""}`} onClick={() => setFeedTab("all")}>{I18N[lang].allRecipes}</button>
+          <button className={`bookmark-tab-btn ${feedTab === "bookmarks" ? "active" : ""}`} onClick={() => setFeedTab("bookmarks")}>🔖 {I18N[lang].myBookmarks} {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}</button>
         </div>
-        <button className="btn-new" onClick={() => setShowModal(true)}>{I18N[lang].newRecipe}</button>
+        <div style={{ display: "flex", gap: "1rem", flex: 1, flexWrap: "wrap", alignItems: "center" }}>
+          <div className="search-box">
+            <span className="search-icon">🔍</span>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
+          </div>
+          <button className="btn-new" onClick={() => setShowModal(true)}>{I18N[lang].newRecipe}</button>
+        </div>
       </div>
     </div>
 
@@ -1962,12 +2090,14 @@ function MainApp({ user, lang, toggleLang }) {
         {filtered.length === 0 ? (
           <div className="empty-state">
             <span>☕</span>
-            <p>{search ? "검색 결과가 없어요." : myRecipesOnly ? "아직 내 레시피가 없어요. 첫 번째 기록을 남겨보세요!" : "아직 레시피가 없어요. 첫 번째 기록을 남겨보세요!"}</p>
+<p>{search ? (lang === "en" ? "No results found." : "검색 결과가 없어요.") : feedTab === "bookmarks" ? (lang === "en" ? "No bookmarks yet." : "즐겨찾기한 레시피가 없어요.") : myRecipesOnly ? (lang === "en" ? "No recipes yet." : "아직 내 레시피가 없어요.") : (lang === "en" ? "No recipes yet. Be the first!" : "아직 레시피가 없어요.")}</p>
           </div>
         ) : filtered.map(r => (
           <RecipeCard key={r.id} recipe={r} currentUid={user.uid} lang={lang}
             onDelete={handleDelete}
             onLike={handleLike}
+            onBookmark={toggleBookmark}
+            isBookmarked={bookmarks.includes(r.id)}
             onEdit={r => { setEditTarget(r); setShowModal(true); }} />
         ))}
       </div>
