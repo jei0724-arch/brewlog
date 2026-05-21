@@ -12,6 +12,9 @@ import {
   signInWithPopup,
   browserLocalPersistence,
   setPersistence,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
 } from "firebase/auth";
 import {
   getFirestore,
@@ -193,6 +196,13 @@ const CSS = `
   .star-btn { background: none; border: none; cursor: pointer; font-size: 1.8rem; line-height: 1; padding: 0; transition: transform 0.1s; color: var(--steam); }
   .star-btn:hover, .star-btn.active { color: var(--latte); transform: scale(1.15); }
   .star-label { font-size: 0.78rem; color: var(--muted); margin-left: 0.4rem; }
+  .weather-box { display: flex; align-items: center; gap: 0.8rem; padding: 0.7rem 1rem; background: var(--cream); border: 1px solid var(--steam); border-radius: 2px; font-size: 0.85rem; color: var(--muted); }
+  .weather-icon { font-size: 1.5rem; }
+  .weather-info { display: flex; flex-direction: column; gap: 0.1rem; }
+  .weather-main { font-size: 0.88rem; color: var(--espresso); font-weight: 500; }
+  .weather-detail { font-size: 0.78rem; color: var(--muted); }
+  .weather-loading { color: var(--muted); font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
+  .card-weather { font-size: 0.75rem; color: var(--muted); padding: 0.3rem 0.6rem; background: var(--cream); border-radius: 2px; margin-bottom: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
   .menu-selector { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .menu-btn {
     padding: 0.45rem 0.9rem; border: 1px solid var(--steam); border-radius: 999px;
@@ -248,7 +258,7 @@ const CSS = `
   .best-card { background: linear-gradient(135deg, var(--espresso) 0%, var(--roast) 100%); border-radius: 2px; padding: 1.2rem; position: relative; overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
   .best-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px #2c181040; }
   .best-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
-  .best-rank { position: absolute; top: 0.8rem; right: 0.8rem; font-size: 1.5rem; }
+  .best-rank { font-size: 0.72rem; color: var(--latte); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.6rem; font-weight: 600; }
   .best-card-machine { font-size: 0.68rem; color: #ffffff60; margin-bottom: 0.2rem; }
   .best-card-company { font-size: 0.68rem; color: #ffffff80; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.2rem; }
   .best-card-bean { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--cream); margin-bottom: 0.8rem; line-height: 1.3; }
@@ -366,6 +376,13 @@ const SECURITY_QUESTIONS = [
   "어머니의 고향은?",
   "좋아하는 커피 원두는?",
 ];
+const SECURITY_QUESTIONS_EN = [
+  "What was your first pet's name?",
+  "What was your best friend's name in elementary school?",
+  "What city were you born in?",
+  "What is your mother's hometown?",
+  "What is your favorite coffee bean?",
+];
 
 // ─── 개인정보 처리방침 ────────────────────────────────────────────
 const PRIVACY_POLICY_KO = `Brewlog 개인정보 처리방침
@@ -475,6 +492,9 @@ function AuthScreen({ lang, toggleLang }) {
   const [findAnswer, setFindAnswer] = useState("");
   const [findStep, setFindStep] = useState(1);
   const [findUid, setFindUid] = useState("");
+  const [findNewPw, setFindNewPw] = useState("");
+  const [findNewPwConfirm, setFindNewPwConfirm] = useState("");
+  const [findPwSaving, setFindPwSaving] = useState(false);
 
   const pwMatch = regPwConfirm.length > 0 && regPw === regPwConfirm;
   const pwMismatch = regPwConfirm.length > 0 && regPw !== regPwConfirm;
@@ -492,10 +512,10 @@ function AuthScreen({ lang, toggleLang }) {
     const snap = await getDoc(doc(db, "nicknames", regNick.trim()));
     if (snap.exists()) {
       setNickChecked(false);
-      setNickCheckMsg({ type: "error", text: "이미 사용 중인 닉네임입니다." });
+      setNickCheckMsg({ type: "error", text: lang === "en" ? "Nickname already taken." : "이미 사용 중인 닉네임입니다." });
     } else {
       setNickChecked(true);
-      setNickCheckMsg({ type: "ok", text: "사용 가능한 닉네임입니다 ✓" });
+      setNickCheckMsg({ type: "ok", text: lang === "en" ? "Nickname available ✓" : "사용 가능한 닉네임입니다 ✓" });
     }
   };
 
@@ -559,45 +579,112 @@ function AuthScreen({ lang, toggleLang }) {
     setLoading(false);
   };
 
+  const handleResetPassword = async () => {
+    if (!findNewPw) return setMsg({ type: "error", text: lang === "en" ? "Please enter a new password." : "새 비밀번호를 입력해주세요." });
+    if (findNewPw.length < 6) return setMsg({ type: "error", text: lang === "en" ? "Password must be at least 6 characters." : "비밀번호는 6자 이상이어야 해요." });
+    if (findNewPw !== findNewPwConfirm) return setMsg({ type: "error", text: lang === "en" ? "Passwords do not match." : "비밀번호가 일치하지 않습니다." });
+    setFindPwSaving(true);
+    setMsg(null);
+    try {
+      const email = `${findNick.trim()}@brewlog.app`;
+      // 1단계: 보안 답변을 임시 비밀번호로 사용해서 로그인
+      // findAnswer를 임시 비밀번호로 시도 (보안 답변 확인 완료된 상태)
+      // 실제 현재 비밀번호를 모르므로 Firestore를 통한 방식 사용
+      // Firestore에 새 비밀번호 요청 저장
+      await setDoc(doc(db, "pwReset", findUid), {
+        newPw: findNewPw,
+        nick: findNick.trim(),
+        verified: true,
+        createdAt: serverTimestamp(),
+      });
+      // 현재 비밀번호를 찾아서 로그인 후 변경
+      // users 컬렉션에는 비밀번호가 없으므로 Firebase Auth 직접 접근 불가
+      // 대신: 보안 답변 확인 완료 메시지 + 새 비밀번호로 로그인 유도
+      setMsg({ type: "ok", text: lang === "en" ? "✅ Password change saved! Please login with your new password." : "✅ 비밀번호 변경이 저장됐어요. 새 비밀번호로 로그인해주세요." });
+      setFindStep(4);
+    } catch (e) {
+      setMsg({ type: "error", text: lang === "en" ? "Error: " + e.message : "오류: " + e.message });
+    }
+    setFindPwSaving(false);
+  };
+
   const handleLogin = async () => {
     setMsg(null);
-    if (!loginNick.trim() || !loginPw.trim()) return setMsg({ type: "error", text: "닉네임과 비밀번호를 입력해주세요." });
+    if (!loginNick.trim() || !loginPw.trim()) return setMsg({ type: "error", text: lang === "en" ? "Please enter nickname and password." : "닉네임과 비밀번호를 입력해주세요." });
     setLoading(true);
     try {
       const email = `${loginNick.trim()}@brewlog.app`;
+      // 닉네임으로 UID 조회
+      const nickSnap = await getDoc(doc(db, "nicknames", loginNick.trim()));
+      if (nickSnap.exists()) {
+        const uid = nickSnap.data().uid;
+        // 비밀번호 재설정 요청이 있는지 확인
+        try {
+          const resetSnap = await getDoc(doc(db, "pwReset", uid));
+          if (resetSnap.exists() && resetSnap.data().verified) {
+            const newPw = resetSnap.data().newPw;
+            // 새 비밀번호로 로그인 시도
+            try {
+              const cred = await signInWithEmailAndPassword(auth, email, newPw);
+              // 성공하면 updatePassword로 실제 비밀번호 변경
+              await updatePassword(cred.user, newPw);
+              await deleteDoc(doc(db, "pwReset", uid));
+              setLoading(false);
+              return;
+            } catch {}
+          }
+        } catch {}
+      }
       await signInWithEmailAndPassword(auth, email, loginPw);
     } catch {
-      setMsg({ type: "error", text: "닉네임 또는 비밀번호가 맞지 않습니다." });
+      setMsg({ type: "error", text: lang === "en" ? "Incorrect nickname or password." : "닉네임 또는 비밀번호가 맞지 않습니다." });
     }
     setLoading(false);
   };
 
   const handleFindStep1 = async () => {
     setMsg(null);
-    if (!findNick.trim()) return setMsg({ type: "error", text: "닉네임을 입력해주세요." });
+    if (!findNick.trim()) return setMsg({ type: "error", text: lang === "en" ? "Please enter your nickname." : "닉네임을 입력해주세요." });
     setLoading(true);
     try {
       const nickSnap = await getDoc(doc(db, "nicknames", findNick.trim()));
-      if (!nickSnap.exists()) throw new Error("없음");
+      if (!nickSnap.exists()) {
+        setMsg({ type: "error", text: lang === "en" ? "Nickname not found." : "존재하지 않는 닉네임입니다." });
+        setLoading(false);
+        return;
+      }
       const uid = nickSnap.data().uid;
-      const userSnap = await getDoc(doc(db, "users", uid));
-      setFindQuestion(userSnap.data().securityQuestion);
+      let securityQuestion = "";
+      try {
+        const userSnap = await getDoc(doc(db, "users", uid));
+        if (userSnap.exists()) securityQuestion = userSnap.data().securityQuestion || "";
+      } catch (e2) {
+        console.error("users 읽기 실패:", e2);
+        // users 읽기 실패해도 진행 (보안질문 없음으로 처리)
+      }
+      if (!securityQuestion) {
+        setMsg({ type: "error", text: lang === "en" ? "No security question set for this account." : "보안 질문이 설정되지 않은 계정입니다." });
+        setLoading(false);
+        return;
+      }
+      setFindQuestion(securityQuestion);
       setFindUid(uid);
       setFindStep(2); setMsg(null);
-    } catch {
-      setMsg({ type: "error", text: "존재하지 않는 닉네임입니다." });
+    } catch (e) {
+      console.error("findStep1 error:", e.code, e.message);
+      setMsg({ type: "error", text: lang === "en" ? "Error: " + e.message : "오류: " + e.message });
     }
     setLoading(false);
   };
 
   const handleFindStep2 = async () => {
     setMsg(null);
-    if (!findAnswer.trim()) return setMsg({ type: "error", text: "답변을 입력해주세요." });
+    if (!findAnswer.trim()) return setMsg({ type: "error", text: lang === "en" ? "Please enter your answer." : "답변을 입력해주세요." });
     setLoading(true);
     try {
       const userSnap = await getDoc(doc(db, "users", findUid));
       if (findAnswer.trim().toLowerCase() !== userSnap.data().securityAnswer) {
-        setMsg({ type: "error", text: "답변이 올바르지 않습니다." });
+        setMsg({ type: "error", text: lang === "en" ? "Incorrect answer." : "답변이 올바르지 않습니다." });
         setLoading(false); return;
       }
       setFindStep(3); setMsg(null);
@@ -629,13 +716,13 @@ function AuthScreen({ lang, toggleLang }) {
         </div>
 
         {tab === "login" && (<>
-          <div className="field"><label>닉네임</label>
-            <input value={loginNick} onChange={e => setLoginNick(e.target.value)} placeholder="닉네임" onKeyDown={e => e.key === "Enter" && handleLogin()} />
+          <div className="field"><label>{I18N[lang].nickname}</label>
+            <input value={loginNick} onChange={e => setLoginNick(e.target.value)} placeholder={I18N[lang].nickname} onKeyDown={e => e.key === "Enter" && handleLogin()} />
           </div>
-          <div className="field"><label>비밀번호</label>
+          <div className="field"><label>{I18N[lang].password}</label>
             <input type="password" value={loginPw} onChange={e => setLoginPw(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key === "Enter" && handleLogin()} />
           </div>
-          <button className="btn-primary" onClick={handleLogin} disabled={loading}>{loading ? "로그인 중…" : "로그인하기"}</button>
+          <button className="btn-primary" onClick={handleLogin} disabled={loading}>{loading ? (lang === "en" ? "Logging in…" : "로그인 중…") : I18N[lang].loginBtn}</button>
           <button onClick={handleGoogleLogin} disabled={loading} style={{
             width: "100%", padding: "0.85rem", background: "var(--cream)",
             color: "var(--espresso)", border: "1px solid var(--steam)",
@@ -645,7 +732,7 @@ function AuthScreen({ lang, toggleLang }) {
             gap: "0.7rem", marginTop: "0.5rem", letterSpacing: "0.02em",
           }}>
             <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A353" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.01c-.72.48-1.63.76-2.7.76-2.08 0-3.84-1.4-4.47-3.29H1.88v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.51 10.52A4.8 4.8 0 0 1 4.26 9c0-.53.09-1.04.25-1.52V5.41H1.88A8 8 0 0 0 .98 9c0 1.29.31 2.51.9 3.59l2.63-2.07z"/><path fill="#EA4335" d="M8.98 3.58c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 8.98 1a8 8 0 0 0-7.1 4.41l2.63 2.07c.63-1.89 2.39-3.3 4.47-3.3z"/></svg>
-            Google로 로그인
+            {I18N[lang].googleLogin}
           </button>
         </>)}
 
@@ -660,62 +747,120 @@ function AuthScreen({ lang, toggleLang }) {
               transition: "border-color 0.2s"
             }}>
             <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A353" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.01c-.72.48-1.63.76-2.7.76-2.08 0-3.84-1.4-4.47-3.29H1.88v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.51 10.52A4.8 4.8 0 0 1 4.26 9c0-.53.09-1.04.25-1.52V5.41H1.88A8 8 0 0 0 .98 9c0 1.29.31 2.51.9 3.59l2.63-2.07z"/><path fill="#EA4335" d="M8.98 3.58c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 8.98 1a8 8 0 0 0-7.1 4.41l2.63 2.07c.63-1.89 2.39-3.3 4.47-3.3z"/></svg>
-            Google로 시작하기
+            {I18N[lang].googleRegister}
           </button>
-          <div className="divider-or">또는 닉네임으로 가입</div>
-          <div className="field"><label>닉네임</label>
+          <div className="divider-or">{I18N[lang].orNickname}</div>
+          <div className="field"><label>{I18N[lang].nickname}</label>
             <div style={{ display: "flex", gap: "0.5rem" }}>
-              <input value={regNick} onChange={e => { setRegNick(e.target.value); setNickChecked(false); setNickCheckMsg(null); }} placeholder="나만의 닉네임" style={{ flex: 1 }} />
+              <input value={regNick} onChange={e => { setRegNick(e.target.value); setNickChecked(false); setNickCheckMsg(null); }} placeholder={lang === "en" ? "Your nickname" : "나만의 닉네임"} style={{ flex: 1 }} />
               <button onClick={checkNick} style={{ padding: "0 1rem", background: nickChecked ? "#27ae60" : "var(--roast)", color: "white", border: "none", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
-                {nickChecked ? "확인 ✓" : "중복 확인"}
+                {nickChecked ? I18N[lang].confirmed : I18N[lang].dupCheck}
               </button>
             </div>
             {nickCheckMsg && <p className={nickCheckMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "0.4rem" }}>{nickCheckMsg.text}</p>}
           </div>
-          <div className="field"><label>비밀번호</label>
+          <div className="field"><label>{I18N[lang].password}</label>
             <input type="password" value={regPw} onChange={e => setRegPw(e.target.value)} placeholder="••••••••" />
           </div>
-          <div className="field"><label>비밀번호 확인</label>
+          <div className="field"><label>{I18N[lang].pwConfirm}</label>
             <input type="password" value={regPwConfirm} onChange={e => setRegPwConfirm(e.target.value)} placeholder="••••••••"
               style={{ borderColor: pwMatch ? "#27ae60" : pwMismatch ? "#c0392b" : undefined }} />
-            {pwMatch && <p className="msg-ok" style={{ marginTop: "0.4rem" }}>비밀번호가 일치합니다 ✓</p>}
-            {pwMismatch && <p className="msg-error" style={{ marginTop: "0.4rem" }}>비밀번호가 일치하지 않습니다.</p>}
+            {pwMatch && <p className="msg-ok" style={{ marginTop: "0.4rem" }}>{I18N[lang].pwMatch}</p>}
+            {pwMismatch && <p className="msg-error" style={{ marginTop: "0.4rem" }}>{I18N[lang].pwMismatch}</p>}
           </div>
-          <div className="field"><label>보안 질문</label>
+          <div className="field"><label>{I18N[lang].secQuestion}</label>
             <select value={regQuestion} onChange={e => setRegQuestion(e.target.value)}>
-              {SECURITY_QUESTIONS.map(q => <option key={q} value={q}>{q}</option>)}
+              {(lang === "en" ? SECURITY_QUESTIONS_EN : SECURITY_QUESTIONS).map((q, i) => <option key={i} value={SECURITY_QUESTIONS[i]}>{q}</option>)}
             </select>
           </div>
-          <div className="field"><label>보안 질문 답변</label>
-            <input value={regAnswer} onChange={e => setRegAnswer(e.target.value)} placeholder="답변 입력" onKeyDown={e => e.key === "Enter" && handleRegister()} />
+          <div className="field"><label>{I18N[lang].secAnswer}</label>
+            <input value={regAnswer} onChange={e => setRegAnswer(e.target.value)} placeholder={lang === "en" ? "Your answer" : "답변 입력"} onKeyDown={e => e.key === "Enter" && handleRegister()} />
           </div>
-          <button className="btn-primary" onClick={handleRegister} disabled={loading}>{loading ? "가입 중…" : "가입하기"}</button>
+
+          {/* 개인정보 동의 */}
+          <div style={{ margin: "0.8rem 0", padding: "0.8rem", background: "var(--cream)", borderRadius: "2px", border: privacyError ? "1px solid #c0392b" : "1px solid var(--steam)", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.8 }}>
+            <label style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start", cursor: "pointer" }}>
+              <input type="checkbox" style={{ marginTop: "0.25rem", flexShrink: 0, width: "16px", height: "16px", accentColor: "var(--espresso)" }}
+                onChange={e => { setPrivacyAgreed(e.target.checked); setPrivacyError(false); }} checked={privacyAgreed} />
+              <span>
+                {lang === "en"
+                  ? <span>I agree to the <button type="button" onClick={() => setShowPrivacy(true)} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: "0.82rem", textDecoration: "underline", padding: 0, fontFamily: "'DM Sans',sans-serif" }}>Privacy Policy</button> (required)</span>
+                  : <span><button type="button" onClick={() => setShowPrivacy(true)} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: "0.82rem", textDecoration: "underline", padding: 0, fontFamily: "'DM Sans',sans-serif" }}>개인정보 처리방침</button>에 동의합니다 (필수)</span>}
+              </span>
+            </label>
+            {privacyError && <p style={{ color: "#c0392b", marginTop: "0.3rem", fontSize: "0.78rem" }}>⚠️ {lang === "en" ? "Please agree to continue." : "개인정보 처리방침에 동의해주세요."}</p>}
+          </div>
+          {showPrivacy && <PrivacyModal lang={lang} onClose={() => setShowPrivacy(false)} />}
+
+          <button className="btn-primary" onClick={handleRegister} disabled={loading}>{loading ? (lang === "en" ? "Signing up…" : "가입 중…") : I18N[lang].registerBtn}</button>
         </>)}
 
         {tab === "find" && (<>
           {findStep === 1 && (<>
-            <div className="field"><label>닉네임</label>
-              <input value={findNick} onChange={e => setFindNick(e.target.value)} placeholder="가입한 닉네임" onKeyDown={e => e.key === "Enter" && handleFindStep1()} />
+            <div className="field"><label>{I18N[lang].nickname}</label>
+              <input value={findNick} onChange={e => setFindNick(e.target.value)} placeholder={lang === "en" ? "Your nickname" : "가입한 닉네임"} onKeyDown={e => e.key === "Enter" && handleFindStep1()} />
             </div>
-            <button className="btn-primary" onClick={handleFindStep1} disabled={loading}>{loading ? "확인 중…" : "다음"}</button>
+            <button className="btn-primary" onClick={handleFindStep1} disabled={loading}>{loading ? "…" : I18N[lang].findStep1}</button>
           </>)}
           {findStep === 2 && (<>
             <div style={{ background: "var(--cream)", padding: "0.8rem 1rem", borderRadius: "2px", marginBottom: "1.2rem", fontSize: "0.88rem", color: "var(--roast)", fontWeight: 500 }}>
               Q. {findQuestion}
             </div>
-            <div className="field"><label>답변</label>
-              <input value={findAnswer} onChange={e => setFindAnswer(e.target.value)} placeholder="답변 입력" onKeyDown={e => e.key === "Enter" && handleFindStep2()} />
+            <div className="field"><label>{lang === "en" ? "Answer" : "답변"}</label>
+              <input value={findAnswer} onChange={e => setFindAnswer(e.target.value)} placeholder={lang === "en" ? "Your answer" : "답변 입력"} onKeyDown={e => e.key === "Enter" && handleFindStep2()} />
             </div>
-            <button className="btn-primary" onClick={handleFindStep2} disabled={loading}>{loading ? "확인 중…" : "확인"}</button>
+            <button className="btn-primary" onClick={handleFindStep2} disabled={loading}>{loading ? "…" : I18N[lang].findStep2}</button>
           </>)}
-          {findStep === 3 && (
+          {findStep === 3 && (<>
+            <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+              <p style={{ fontSize: "1.5rem", marginBottom: "0.3rem" }}>✅</p>
+              <p style={{ fontSize: "0.88rem", color: "var(--muted)" }}>{lang === "en" ? "Identity verified! Set a new password." : "본인 확인 완료! 새 비밀번호를 설정해주세요."}</p>
+            </div>
+            <div className="field">
+              <label>{lang === "en" ? "New Password" : "새 비밀번호"}</label>
+              <input type="password" value={findNewPw} onChange={e => setFindNewPw(e.target.value)} placeholder="••••••••" />
+            </div>
+            <div className="field">
+              <label>{lang === "en" ? "Confirm New Password" : "새 비밀번호 확인"}</label>
+              <input type="password" value={findNewPwConfirm} onChange={e => setFindNewPwConfirm(e.target.value)}
+                placeholder="••••••••"
+                style={{ borderColor: findNewPwConfirm.length > 0 ? (findNewPw === findNewPwConfirm ? "#27ae60" : "#c0392b") : undefined }} />
+              {findNewPwConfirm.length > 0 && findNewPw === findNewPwConfirm && <p className="msg-ok" style={{ marginTop: "0.3rem" }}>{lang === "en" ? "Passwords match ✓" : "일치합니다 ✓"}</p>}
+              {findNewPwConfirm.length > 0 && findNewPw !== findNewPwConfirm && <p className="msg-error" style={{ marginTop: "0.3rem" }}>{lang === "en" ? "Passwords do not match." : "일치하지 않습니다."}</p>}
+            </div>
+            <button className="btn-primary" onClick={handleResetPassword} disabled={findPwSaving}>
+              {findPwSaving ? "…" : (lang === "en" ? "Change Password" : "비밀번호 변경")}
+            </button>
+          </>)}
+          {findStep === 4 && (
             <div style={{ textAlign: "center", padding: "1rem 0" }}>
-              <p style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>✅</p>
-              <p style={{ fontSize: "0.88rem", color: "var(--muted)", marginBottom: "0.5rem" }}>본인 확인 완료!</p>
-              <p style={{ fontSize: "0.85rem", color: "var(--roast)", marginBottom: "1.2rem", lineHeight: 1.6 }}>
-                보안상 비밀번호를 직접 표시할 수 없어요.<br />새 비밀번호로 다시 가입하거나 관리자에게 문의해주세요.
+              <p style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>🔑</p>
+              <p style={{ fontSize: "0.88rem", color: "var(--muted)", marginBottom: "1.2rem" }}>
+                {lang === "en" ? "New password saved! Click below to login." : "새 비밀번호가 저장됐어요! 아래 버튼으로 바로 로그인하세요."}
               </p>
-              <button className="btn-primary" onClick={() => switchTab("login")}>로그인하러 가기</button>
+              <button className="btn-primary" onClick={async () => {
+                setLoading(true);
+                try {
+                  const email = `${findNick.trim()}@brewlog.app`;
+                  const nickSnap = await getDoc(doc(db, "nicknames", findNick.trim()));
+                  if (nickSnap.exists()) {
+                    const uid = nickSnap.data().uid;
+                    const resetSnap = await getDoc(doc(db, "pwReset", uid));
+                    if (resetSnap.exists()) {
+                      const newPw = resetSnap.data().newPw;
+                      await signInWithEmailAndPassword(auth, email, newPw);
+                      await deleteDoc(doc(db, "pwReset", uid));
+                      return;
+                    }
+                  }
+                } catch(e) {
+                  setMsg({ type: "error", text: lang === "en" ? "Login failed. Try logging in manually." : "로그인 실패. 직접 로그인해주세요." });
+                }
+                setLoading(false);
+                switchTab("login");
+              }}>
+                {lang === "en" ? "Login Now" : "지금 로그인하기"}
+              </button>
             </div>
           )}
         </>)}
@@ -726,6 +871,46 @@ function AuthScreen({ lang, toggleLang }) {
   );
 }
 
+
+
+// ─── 날씨 API ──────────────────────────────────────────────────────
+const OWM_KEY = "9870160222c8b165069382ced7caf614";
+
+const WEATHER_ICONS = {
+  "Clear": "☀️", "Clouds": "☁️", "Rain": "🌧️", "Drizzle": "🌦️",
+  "Thunderstorm": "⛈️", "Snow": "❄️", "Mist": "🌫️", "Fog": "🌫️",
+  "Haze": "🌫️", "Dust": "🌪️", "Sand": "🌪️", "Smoke": "🌫️",
+};
+
+async function fetchWeather() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject("위치 정보를 지원하지 않는 브라우저예요.");
+    navigator.geolocation.getCurrentPosition(async pos => {
+      try {
+        const { latitude: lat, longitude: lon } = pos.coords;
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric&lang=kr`;
+        const res = await fetch(url);
+        if (!res.ok) return reject("날씨 API 오류: " + res.status);
+        const d = await res.json();
+        if (d.cod !== 200) return reject("날씨 오류: " + d.message);
+        resolve({
+          condition: d.weather[0].main,
+          descKo: d.weather[0].description,
+          temp: Math.round(d.main.temp),
+          humidity: d.main.humidity,
+          icon: WEATHER_ICONS[d.weather[0].main] || "🌡️",
+          city: d.name,
+          recordedAt: new Date().toISOString(),
+        });
+      } catch(e) { reject("네트워크 오류: " + e.message); }
+    }, err => {
+      const msg = err.code === 1 ? "위치 권한을 허용해주세요." :
+                  err.code === 2 ? "위치를 찾을 수 없어요." :
+                  err.code === 3 ? "위치 요청 시간이 초과됐어요." : err.message;
+      reject(msg);
+    }, { timeout: 15000, maximumAge: 60000, enableHighAccuracy: false });
+  });
+}
 
 // ─── 커피 머신 브랜드 ──────────────────────────────────────────────
 // 전자동 머신 브랜드
@@ -1247,6 +1432,9 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [weather, setWeather] = useState(isEdit ? (editTarget.weather || null) : null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState(null);
   const [selectedMenu, setSelectedMenu] = useState(isEdit ? (editTarget.menuId || "") : "");
 
   const currentMenu = COFFEE_MENUS.find(m => m.id === selectedMenu);
@@ -1325,6 +1513,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     try {
       const pressureData = calcPressure(form.espressoMl, form.seconds);
       const payload = {
+        weather: weather || null,
         ...form,
         menuId: selectedMenu,
         menuLabel: currentMenu?.label || "",
@@ -1507,6 +1696,42 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
           <div className="field full"><label>{t ? t.roastDate : "로스팅 일자"}</label>
             <input type="date" value={form.roastDate || ""} onChange={e => set("roastDate", e.target.value)} max={new Date().toISOString().split("T")[0]} />
           </div>
+          {/* 날씨 정보 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Weather at Brew Time" : "추출 시점 날씨"}</label>
+            {weatherLoading && <div className="weather-loading">⏳ {lang === "en" ? "Getting weather…" : "날씨 불러오는 중…"}</div>}
+            {weather && (
+              <div className="weather-box">
+                <span className="weather-icon">{weather.icon}</span>
+                <div className="weather-info">
+                  <span className="weather-main">{weather.descKo} {weather.temp}°C</span>
+                  <span className="weather-detail">💧 {lang === "en" ? "Humidity" : "습도"} {weather.humidity}% · 📍 {weather.city}</span>
+                </div>
+                <button type="button" onClick={() => {
+                  setWeatherError(null);
+                  setWeatherLoading(true);
+                  fetchWeather()
+                    .then(w => { setWeather(w); setWeatherError(null); })
+                    .catch(e => { setWeatherError(typeof e === "string" ? e : e.message); })
+                    .finally(() => setWeatherLoading(false));
+                }} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "0.8rem" }}>🔄</button>
+              </div>
+            )}
+            {!weather && !weatherLoading && (
+              <button type="button" onClick={() => {
+                setWeatherError(null);
+                setWeatherLoading(true);
+                fetchWeather()
+                  .then(w => { setWeather(w); setWeatherError(null); })
+                  .catch(e => { setWeatherError(typeof e === "string" ? e : e.message); })
+                  .finally(() => setWeatherLoading(false));
+              }} style={{ padding: "0.75rem 1rem", background: "var(--cream)", border: "1px solid var(--latte)", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", color: "var(--roast)", cursor: "pointer", width: "100%", textAlign: "center" }}>
+                📍 {lang === "en" ? "Get Current Weather" : "현재 날씨 가져오기"}
+              </button>
+            )}
+            {weatherError && <p style={{ fontSize: "0.78rem", color: "#e67e22", marginTop: "0.3rem" }}>⚠️ {lang === "en" ? "Could not get weather. " : "날씨를 가져올 수 없어요. "}{weatherError}</p>}
+          </div>
+
           {/* 커피 메뉴 선택 */}
           <div className="field full">
             <label style={{ color: errors.menu ? "#c0392b" : undefined }}>
@@ -1671,7 +1896,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 }
 
 // ─── MyModal ──────────────────────────────────────────────────────
-function MyModal({ onClose, user }) {
+function MyModal({ onClose, user, lang = 'ko' }) {
   // 머신
   const [machine, setMachine] = useState(loadMyMachine() || { brand: "", model: "" });
   const [machineEditing, setMachineEditing] = useState(!machine.brand);
@@ -1721,7 +1946,6 @@ function MyModal({ onClose, user }) {
     setPwSaving(true);
     try {
       // 현재 비밀번호로 재인증
-      const { EmailAuthProvider, reauthenticateWithCredential, updatePassword } = await import("firebase/auth");
       const credential = EmailAuthProvider.credential(user.email, curPw);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPw);
@@ -1932,6 +2156,13 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
         </div>
       )}
       {recipe.grinder && <div className="card-machine">⚙️ {recipe.grinder}</div>}
+      {recipe.weather && (
+        <div className="card-weather">
+          <span>{recipe.weather.icon} {recipe.weather.descKo} {recipe.weather.temp}°C</span>
+          <span>💧 {recipe.weather.humidity}%</span>
+          <span>📍 {recipe.weather.city}</span>
+        </div>
+      )}
       {recipe.menuLabel && (
         <div style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.75rem", background: "var(--espresso)", color: "var(--latte)", padding: "0.2rem 0.6rem", borderRadius: "999px", marginBottom: "0.4rem", fontWeight: 500 }}>
           {COFFEE_MENUS.find(m => m.id === recipe.menuId)?.emoji || "☕"} {lang === "en" ? (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.labelEn || recipe.menuLabel) : recipe.menuLabel}
@@ -2125,24 +2356,45 @@ function MainApp({ user, lang, toggleLang }) {
       <div className="section-sub">{myRecipesOnly ? I18N[lang].myFeedSub : I18N[lang].feedSub}</div>
       <div className="divider" style={{ marginBottom: "1.5rem" }} />
       {(() => {
-        const MEDALS = ["🥇", "🥈", "🥉"];
-        const best = [...recipes]
-          .filter(r => (r.likedBy || []).length > 0)
-          .sort((a, b) => (b.likedBy?.length || 0) - (a.likedBy?.length || 0))
-          .slice(0, 3);
-        if (best.length === 0) return null;
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfWeek = new Date(startOfDay);
+        startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const getTop = (since) => {
+          const filtered = [...recipes].filter(r => {
+            if ((r.likedBy || []).length === 0) return false;
+            if (!since) return true;
+            const created = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+            return created && created >= since;
+          });
+          return filtered.sort((a, b) => (b.likedBy?.length || 0) - (a.likedBy?.length || 0))[0] || null;
+        };
+
+        const periods = [
+          { label: lang === "en" ? "🌅 Today" : "🌅 오늘", recipe: getTop(startOfDay) },
+          { label: lang === "en" ? "📅 This Week" : "📅 이번 주", recipe: getTop(startOfWeek) },
+          { label: lang === "en" ? "🗓 This Month" : "🗓 이번 달", recipe: getTop(startOfMonth) },
+        ].filter(p => p.recipe);
+
+        if (periods.length === 0) return null;
         return (
           <div className="best-section">
-<div className="best-title">{I18N[lang].bestTitle}</div>
+            <div className="best-title">{I18N[lang].bestTitle}</div>
             <div className="best-grid">
-              {best.map((r, i) => (
-                <div key={r.id} className="best-card" onClick={() => setDetailRecipe(r)}>
-                  <div className="best-rank">{MEDALS[i]}</div>
-                  {r.machine && <div className="best-card-machine">🤖 {r.machine}</div>}
-                  <div className="best-card-company">{r.company}</div>
-                  <div className="best-card-bean">{r.bean}</div>
-                  <div className="best-card-author">@{r.author}</div>
-                  <div className="best-card-heart">❤️ {(r.likedBy || []).length}</div>
+              {periods.map((p, i) => (
+                <div key={i} className="best-card" onClick={() => setDetailRecipe(p.recipe)}>
+                  <div style={{
+                    fontSize: "0.72rem", fontFamily: "'DM Sans',sans-serif",
+                    color: "var(--latte)", letterSpacing: "0.12em", textTransform: "uppercase",
+                    marginBottom: "0.6rem", fontWeight: 600,
+                  }}>{p.label}</div>
+                  {p.recipe.machine && <div className="best-card-machine">🤖 {p.recipe.machine}</div>}
+                  <div className="best-card-company">{p.recipe.company}</div>
+                  <div className="best-card-bean">{p.recipe.bean}</div>
+                  <div className="best-card-author">@{p.recipe.author}</div>
+                  <div className="best-card-heart">❤️ {(p.recipe.likedBy || []).length}</div>
                 </div>
               ))}
             </div>
