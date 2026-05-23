@@ -2138,16 +2138,19 @@ function MyModal({ onClose, user, lang = 'ko' }) {
 }
 
 // ─── RecipeDetailModal ────────────────────────────────────────────
-function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, lang = "ko" }) {
+function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, lang = "ko" }) {
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
 
   useEffect(() => {
     if (!recipe?.id) return;
-    const q = query(collection(db, "comments"), where("recipeId", "==", recipe.id), orderBy("createdAt", "asc"));
+    const q = query(collection(db, "comments"), where("recipeId", "==", recipe.id));
     const unsub = onSnapshot(q, snap => {
-      setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // 클라이언트에서 시간순 정렬 (Firestore 복합 인덱스 불필요)
+      list.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+      setComments(list);
     });
     return unsub;
   }, [recipe?.id]);
@@ -2307,7 +2310,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
 }
 
 // ─── RecipeCard ────────────────────────────────────────────────────
-function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, lang = "ko" }) {
+function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, onCardClick, lang = "ko" }) {
   const t = I18N[lang];
   const date = recipe.createdAt?.toDate?.()?.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR") || "";
   const liked = (recipe.likedBy || []).includes(currentUid);
@@ -2315,7 +2318,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
   const isOwner = recipe.uid === currentUid;
 
   return (
-    <div className="recipe-card">
+    <div className="recipe-card" onClick={onCardClick} style={{ cursor: onCardClick ? "pointer" : "default" }}>
       {recipe.machine && (
         <div className="card-machine">
           {recipe.machineType === "handdrip" ? "🫗" : recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
@@ -2391,7 +2394,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
           {/* 본인 글엔 하트 비활성화 */}
           <button
             className={`btn-heart ${liked ? "liked" : ""}`}
-            onClick={() => !isOwner && onLike(recipe)}
+            onClick={e => { e.stopPropagation(); !isOwner && onLike(recipe); }}
             style={{ cursor: isOwner ? "default" : "pointer", opacity: isOwner ? 0.4 : 1 }}
             title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}
           >
@@ -2399,15 +2402,15 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
           </button>
           <button
             className={`btn-bookmark ${isBookmarked ? "saved" : ""}`}
-            onClick={() => onBookmark(recipe.id)}
+            onClick={e => { e.stopPropagation(); onBookmark(recipe.id); }}
             title={isBookmarked ? t.bookmarkRemove : t.bookmarkAdd}
             style={{ color: isBookmarked ? "var(--latte)" : "var(--muted)" }}
           >
             {isBookmarked ? "🔖" : "🏷️"}
           </button>
           {isOwner && (<>
-            <button className="card-edit" onClick={() => onEdit(recipe)}>✏️</button>
-            <button className="card-delete" onClick={() => onDelete(recipe.id)}>🗑</button>
+            <button className="card-edit" onClick={e => { e.stopPropagation(); onEdit(recipe); }}>✏️</button>
+            <button className="card-delete" onClick={e => { e.stopPropagation(); onDelete(recipe.id); }}>🗑</button>
           </>)}
         </div>
       </div>
@@ -2652,7 +2655,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             isBookmarked={bookmarks.includes(r.id)}
             onFollow={toggleFollow}
             isFollowing={following.includes(r.uid) || following.includes(r.author)}
-            onEdit={r => { setEditTarget(r); setShowModal(true); }} />
+            onEdit={r => { setEditTarget(r); setShowModal(true); }}
+            onCardClick={() => setDetailRecipe(r)} />
         ))}
       </div>
     </div>
@@ -2665,9 +2669,13 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         onRequireAuth={onRequireAuth}
         lang={lang}
         onClose={() => setDetailRecipe(null)}
-        onLike={r => { handleLike(r); setDetailRecipe(null); }}
+        onLike={r => { handleLike(r); }}
         onEdit={r => { setEditTarget(r); setShowModal(true); setDetailRecipe(null); }}
         onDelete={id => { handleDelete(id); setDetailRecipe(null); }}
+        onFollow={toggleFollow}
+        isFollowing={detailRecipe && (following.includes(detailRecipe.uid) || following.includes(detailRecipe.author))}
+        onBookmark={toggleBookmark}
+        isBookmarked={detailRecipe && bookmarks.includes(detailRecipe.id)}
       />
     )}
     {showModal && (
