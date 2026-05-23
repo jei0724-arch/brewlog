@@ -1211,7 +1211,7 @@ const I18N = {
     follow: "구독", following: "구독중", unfollow: "구독취소", followingFeed: "구독",
     commentPlaceholder: "댓글을 남겨보세요…", commentSubmit: "등록", commentDelete: "삭제", commentLogin: "로그인 후 댓글 작성 가능해요", comments: "댓글",
     bookmarks: "즐겨찾기", bookmarkSave: "저장됨", bookmarkAdd: "즐겨찾기 추가", bookmarkRemove: "즐겨찾기 해제",
-    allRecipes: "전체", myBookmarks: "즐겨찾기",
+    allRecipes: "전체", myBookmarks: "즐겨찾기", myRecipes: "내 레시피",
     ratingLabels: ["평가 없음", "별로예요", "그저 그래요", "괜찮아요", "맛있어요", "최고예요!"],
     roasting: "로스팅", beanUnit: "원두", extractTime: "추출시간", extractVol: "추출량",
     dilution: "희석", syrupLabel: "시럽", heartOwner: "내 레시피엔 하트를 누를 수 없어요",
@@ -1263,7 +1263,7 @@ const I18N = {
     follow: "Subscribe", following: "Subscribed", unfollow: "Unsubscribe", followingFeed: "Following",
     commentPlaceholder: "Leave a comment…", commentSubmit: "Post", commentDelete: "Delete", commentLogin: "Sign in to leave a comment", comments: "Comments",
     bookmarks: "Bookmarks", bookmarkSave: "Saved", bookmarkAdd: "Save recipe", bookmarkRemove: "Remove bookmark",
-    allRecipes: "All", myBookmarks: "Bookmarks",
+    allRecipes: "All", myBookmarks: "Bookmarks", myRecipes: "My Recipes",
     ratingLabels: ["No rating", "Poor", "Fair", "Good", "Great", "Excellent!"],
     roasting: "Roasted", beanUnit: "bean", extractTime: "Time", extractVol: "Yield",
     dilution: "dilution", syrupLabel: "Syrup", heartOwner: "Can't like your own recipe",
@@ -1459,7 +1459,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     diluteType: savedDefaults?.diluteType || "물",
     waterTemp: savedDefaults?.waterTemp || "93",
     grindSize: savedDefaults?.grindSize || "",
-    syrup: "", note: ""
+    isPublic: isEdit ? (editTarget.isPublic !== false) : true,
+    syrup: isEdit ? (editTarget.syrup || "") : "", note: isEdit ? (editTarget.note || "") : ""
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [saving, setSaving] = useState(false);
@@ -1563,6 +1564,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         grinderBrand,
         grinderModel,
         grindSize: form.grindSize,
+        isPublic: form.isPublic !== false,
       };
       if (isEdit) {
         const { id, ...rest } = payload;
@@ -1924,6 +1926,34 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
           })()}
           <div className="field full"><label>{t ? t.note : "맛 노트 · 메모"}</label>
             <textarea value={form.note} onChange={e => set("note", e.target.value)} placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"} />
+          </div>
+
+          {/* 공개 설정 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Visibility" : "공개 설정"}</label>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button type="button"
+                onClick={() => set("isPublic", true)}
+                style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "2px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s",
+                  borderColor: form.isPublic !== false ? "var(--latte)" : "var(--steam)",
+                  background: form.isPublic !== false ? "var(--latte)" : "var(--foam)",
+                  color: form.isPublic !== false ? "var(--espresso)" : "var(--muted)", fontWeight: form.isPublic !== false ? 600 : 400 }}>
+                🌍 {lang === "en" ? "Public" : "공개"}
+              </button>
+              <button type="button"
+                onClick={() => set("isPublic", false)}
+                style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "2px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s",
+                  borderColor: form.isPublic === false ? "var(--espresso)" : "var(--steam)",
+                  background: form.isPublic === false ? "var(--espresso)" : "var(--foam)",
+                  color: form.isPublic === false ? "var(--cream)" : "var(--muted)", fontWeight: form.isPublic === false ? 600 : 400 }}>
+                🔒 {lang === "en" ? "Private" : "비공개"}
+              </button>
+            </div>
+            <p style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: "0.4rem" }}>
+              {form.isPublic !== false
+                ? (lang === "en" ? "Visible to everyone in the feed" : "피드에 공개됩니다")
+                : (lang === "en" ? "Only visible to you" : "나만 볼 수 있어요")}
+            </p>
           </div>
         </div>
         <div className="modal-actions">
@@ -2319,6 +2349,9 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
 
   return (
     <div className="recipe-card" onClick={onCardClick} style={{ cursor: onCardClick ? "pointer" : "default" }}>
+      {recipe.isPublic === false && (
+        <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: "0.4rem" }}>🔒 {lang === "en" ? "Private" : "비공개"}</div>
+      )}
       {recipe.machine && (
         <div className="card-machine">
           {recipe.machineType === "handdrip" ? "🫗" : recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
@@ -2515,9 +2548,12 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   };
 
   const filtered = recipes.filter(r => {
+    // 비공개 레시피는 본인만 볼 수 있음
+    if (r.isPublic === false && r.uid !== user?.uid) return false;
     if (myRecipesOnly && r.uid !== user?.uid) return false;
     if (feedTab === "bookmarks" && !bookmarks.includes(r.id)) return false;
     if (feedTab === "following" && !following.includes(r.uid) && !following.includes(r.author)) return false;
+    if (feedTab === "mine" && r.uid !== user?.uid) return false;
     const q = search.toLowerCase().trim();
     if (!q) return true;
     return (
@@ -2625,9 +2661,10 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     <div className="toolbar-sticky">
       <div className="toolbar">
         <div className="bookmark-tab">
-          <button className={`bookmark-tab-btn ${feedTab === "all" ? "active" : ""}`} onClick={() => setFeedTab("all")}>{I18N[lang].allRecipes}</button>
-          <button className={`bookmark-tab-btn ${feedTab === "following" ? "active" : ""}`} onClick={() => setFeedTab("following")}>📡 {I18N[lang].followingFeed} {following.length > 0 ? `(${following.length})` : ""}</button>
-          <button className={`bookmark-tab-btn ${feedTab === "bookmarks" ? "active" : ""}`} onClick={() => setFeedTab("bookmarks")}>🔖 {I18N[lang].myBookmarks} {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}</button>
+          <button className={`bookmark-tab-btn ${feedTab === "all" ? "active" : ""}`} onClick={() => { setFeedTab("all"); setMyRecipesOnly(false); }}>{I18N[lang].allRecipes}</button>
+          <button className={`bookmark-tab-btn ${feedTab === "following" ? "active" : ""}`} onClick={() => { setFeedTab("following"); setMyRecipesOnly(false); }}>📡 {I18N[lang].followingFeed} {following.length > 0 ? `(${following.length})` : ""}</button>
+          <button className={`bookmark-tab-btn ${feedTab === "bookmarks" ? "active" : ""}`} onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); }}>🔖 {I18N[lang].myBookmarks} {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}</button>
+          {user && <button className={`bookmark-tab-btn ${feedTab === "mine" ? "active" : ""}`} onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); }}>👤 {I18N[lang].myRecipes}</button>}
         </div>
         <div style={{ display: "flex", gap: "1rem", flex: 1, flexWrap: "wrap", alignItems: "center" }}>
           <div className="search-box">
@@ -2645,7 +2682,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         {filtered.length === 0 ? (
           <div className="empty-state">
             <span>☕</span>
-<p>{search ? (lang === "en" ? "No results found." : "검색 결과가 없어요.") : feedTab === "bookmarks" ? (lang === "en" ? "No bookmarks yet." : "즐겨찾기한 레시피가 없어요.") : feedTab === "following" ? (lang === "en" ? "No subscriptions yet. Subscribe to brewers you like!" : "구독한 브루어가 없어요. 마음에 드는 브루어를 구독해보세요!") : myRecipesOnly ? (lang === "en" ? "No recipes yet." : "아직 내 레시피가 없어요.") : (lang === "en" ? "No recipes yet. Be the first!" : "아직 레시피가 없어요.")}</p>
+<p>{search ? (lang === "en" ? "No results found." : "검색 결과가 없어요.") : feedTab === "bookmarks" ? (lang === "en" ? "No bookmarks yet." : "즐겨찾기한 레시피가 없어요.") : feedTab === "following" ? (lang === "en" ? "No subscriptions yet. Subscribe to brewers you like!" : "구독한 브루어가 없어요. 마음에 드는 브루어를 구독해보세요!") : feedTab === "mine" ? (lang === "en" ? "No recipes yet. Start brewing!" : "아직 내 레시피가 없어요. 첫 레시피를 기록해보세요!") : myRecipesOnly ? (lang === "en" ? "No recipes yet." : "아직 내 레시피가 없어요.") : (lang === "en" ? "No recipes yet. Be the first!" : "아직 레시피가 없어요.")}</p>
           </div>
         ) : filtered.map(r => (
           <RecipeCard key={r.id} recipe={r} currentUid={user?.uid} lang={lang}
