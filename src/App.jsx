@@ -2959,6 +2959,17 @@ export default function App() {
   useEffect(() => {
     loadBrandsFromDB();
     const unsub = onAuthStateChanged(auth, u => setUser(u ?? null));
+    // 최초 방문 시(localStorage에 언어 설정 없을 때)만 IP 기반 언어 감지
+    if (!localStorage.getItem("brewlog_lang")) {
+      fetch("https://ipapi.co/json/")
+        .then(r => r.json())
+        .then(d => {
+          const detected = d.country_code === "KR" ? "ko" : "en";
+          setLang(detected);
+          localStorage.setItem("brewlog_lang", detected);
+        })
+        .catch(() => {}); // 실패 시 기본값(ko) 유지
+    }
     return unsub;
   }, []);
 
