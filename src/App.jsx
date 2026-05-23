@@ -1195,7 +1195,7 @@ const I18N = {
     myPw: "🔒 비밀번호 변경", curPw: "현재 비밀번호", newPw: "새 비밀번호", newPwConfirm: "새 비밀번호 확인",
     changePw: "비밀번호 변경", changing: "변경 중…", close: "닫기", changeBtn: "변경",
     timerStart: "추출 시작", timerStop: "정지", timerReset: "초기화", timerApply: "적용",
-    follow: "구독", following: "구독중", unfollow: "구독취소", followingFeed: "구독 피드",
+    follow: "구독", following: "구독중", unfollow: "구독취소", followingFeed: "구독",
     bookmarks: "즐겨찾기", bookmarkSave: "저장됨", bookmarkAdd: "즐겨찾기 추가", bookmarkRemove: "즐겨찾기 해제",
     allRecipes: "전체", myBookmarks: "즐겨찾기",
     ratingLabels: ["평가 없음", "별로예요", "그저 그래요", "괜찮아요", "맛있어요", "최고예요!"],
