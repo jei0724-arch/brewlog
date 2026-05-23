@@ -245,6 +245,10 @@ const CSS = `
   .btn-bookmark { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted); transition: all 0.15s; padding: 0; line-height: 1; display: inline-flex; align-items: center; }
   .btn-bookmark:hover { color: var(--latte); transform: scale(1.15); }
   .btn-bookmark.saved { color: var(--latte); }
+  .follow-btn { background: none; border: 1px solid var(--steam); border-radius: 999px; padding: 0.2rem 0.7rem; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; color: var(--muted); white-space: nowrap; }
+  .follow-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .follow-btn.following { background: var(--espresso); color: var(--cream); border-color: var(--espresso); }
+  .follow-btn.following:hover { background: #c0392b; border-color: #c0392b; }
   .bookmark-tab { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
   .bookmark-tab-btn { padding: 0.4rem 1rem; border: 1px solid var(--steam); border-radius: 999px; background: var(--foam); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; color: var(--muted); cursor: pointer; transition: all 0.2s; }
   .bookmark-tab-btn.active { background: var(--espresso); color: var(--cream); border-color: var(--espresso); }
@@ -874,7 +878,7 @@ function AuthScreen({ lang, toggleLang }) {
 
 
 // ─── 날씨 API ──────────────────────────────────────────────────────
-const OWM_KEY = "9870160222c8b165069382ced7caf614";
+const OWM_KEY = import.meta.env.VITE_OWM_KEY;
 
 const WEATHER_ICONS = {
   "Clear": "☀️", "Clouds": "☁️", "Rain": "🌧️", "Drizzle": "🌦️",
@@ -899,7 +903,7 @@ async function fetchWeather() {
           temp: Math.round(d.main.temp),
           humidity: d.main.humidity,
           icon: WEATHER_ICONS[d.weather[0].main] || "🌡️",
-          city: d.name,
+          country: d.sys?.country || "",
           recordedAt: new Date().toISOString(),
         });
       } catch(e) { reject("네트워크 오류: " + e.message); }
@@ -1187,6 +1191,7 @@ const I18N = {
     myPw: "🔒 비밀번호 변경", curPw: "현재 비밀번호", newPw: "새 비밀번호", newPwConfirm: "새 비밀번호 확인",
     changePw: "비밀번호 변경", changing: "변경 중…", close: "닫기", changeBtn: "변경",
     timerStart: "추출 시작", timerStop: "정지", timerReset: "초기화", timerApply: "적용",
+    follow: "구독", following: "구독중", unfollow: "구독취소", followingFeed: "구독 피드",
     bookmarks: "즐겨찾기", bookmarkSave: "저장됨", bookmarkAdd: "즐겨찾기 추가", bookmarkRemove: "즐겨찾기 해제",
     allRecipes: "전체", myBookmarks: "즐겨찾기",
     ratingLabels: ["평가 없음", "별로예요", "그저 그래요", "괜찮아요", "맛있어요", "최고예요!"],
@@ -1237,6 +1242,7 @@ const I18N = {
     myPw: "🔒 Change Password", curPw: "Current Password", newPw: "New Password", newPwConfirm: "Confirm New Password",
     changePw: "Change Password", changing: "Changing…", close: "Close", changeBtn: "Edit",
     timerStart: "Start", timerStop: "Stop", timerReset: "Reset", timerApply: "Apply",
+    follow: "Subscribe", following: "Subscribed", unfollow: "Unsubscribe", followingFeed: "Following",
     bookmarks: "Bookmarks", bookmarkSave: "Saved", bookmarkAdd: "Save recipe", bookmarkRemove: "Remove bookmark",
     allRecipes: "All", myBookmarks: "Bookmarks",
     ratingLabels: ["No rating", "Poor", "Fair", "Good", "Great", "Excellent!"],
@@ -1705,7 +1711,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                 <span className="weather-icon">{weather.icon}</span>
                 <div className="weather-info">
                   <span className="weather-main">{weather.descKo} {weather.temp}°C</span>
-                  <span className="weather-detail">💧 {lang === "en" ? "Humidity" : "습도"} {weather.humidity}% · 📍 {weather.city}</span>
+                  <span className="weather-detail">💧 {lang === "en" ? "Humidity" : "습도"} {weather.humidity}% · 🌐 {weather.country}</span>
                 </div>
                 <button type="button" onClick={() => {
                   setWeatherError(null);
@@ -2114,7 +2120,18 @@ function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDele
       )}
       {recipe.note && <div className="card-note">"{recipe.note}"</div>}
         <div className="card-footer" style={{ marginTop: "1rem" }}>
-          <div><span className="card-author">@{recipe.author}</span><span style={{ color: "var(--muted)" }}> · {date}</span></div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+            <span className="card-author" style={{ cursor: "pointer" }}>@{recipe.author}</span>
+            {recipe.author && recipe.uid !== currentUid && onFollow && (
+              <button
+                className={`follow-btn ${isFollowing ? "following" : ""}`}
+                onClick={e => { e.stopPropagation(); onFollow(recipe.uid || recipe.author); }}
+              >
+                {isFollowing ? t.following : t.follow}
+              </button>
+            )}
+            <span style={{ color: "var(--muted)" }}> · {date}</span>
+          </div>
           <div className="card-actions">
             <button
               className={`btn-heart ${liked ? "liked" : ""}`}
@@ -2136,7 +2153,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDele
 }
 
 // ─── RecipeCard ────────────────────────────────────────────────────
-function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, lang = "ko" }) {
+function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, lang = "ko" }) {
   const t = I18N[lang];
   const date = recipe.createdAt?.toDate?.()?.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR") || "";
   const liked = (recipe.likedBy || []).includes(currentUid);
@@ -2160,7 +2177,9 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
         <div className="card-weather">
           <span>{recipe.weather.icon} {recipe.weather.descKo} {recipe.weather.temp}°C</span>
           <span>💧 {recipe.weather.humidity}%</span>
-          <span>📍 {recipe.weather.city}</span>
+          {(recipe.weather.country || recipe.weather.city) && (
+            <span>🌐 {recipe.weather.country || recipe.weather.city}</span>
+          )}
         </div>
       )}
       {recipe.menuLabel && (
@@ -2201,7 +2220,18 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
       )}
       {recipe.note && <div className="card-note">"{recipe.note}"</div>}
       <div className="card-footer">
-        <div><span className="card-author">@{recipe.author}</span><span> · {date}</span></div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+          <span className="card-author">@{recipe.author}</span>
+          {recipe.author && recipe.uid !== currentUid && onFollow && (
+            <button
+              className={`follow-btn ${isFollowing ? "following" : ""}`}
+              onClick={e => { e.stopPropagation(); onFollow(recipe.uid || recipe.author); }}
+            >
+              {isFollowing ? t.following : t.follow}
+            </button>
+          )}
+          <span style={{ color: "var(--muted)" }}> · {date}</span>
+        </div>
         <div className="card-actions">
           {/* 본인 글엔 하트 비활성화 */}
           <button
@@ -2240,7 +2270,21 @@ function MainApp({ user, lang, toggleLang }) {
   const [showMyModal, setShowMyModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [detailRecipe, setDetailRecipe] = useState(null);
-  const [feedTab, setFeedTab] = useState("all"); // "all" | "bookmarks"
+  const [feedTab, setFeedTab] = useState("all"); // "all" | "bookmarks" | "following"
+  const [following, setFollowing] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("brewlog_following_" + user.uid) || "[]"); } catch { return []; }
+  });
+
+  const toggleFollow = (authorUid) => {
+    if (!authorUid || authorUid === user.uid || authorUid === user.displayName) return;
+    setFollowing(prev => {
+      const next = prev.includes(authorUid)
+        ? prev.filter(id => id !== authorUid)
+        : [...prev, authorUid];
+      try { localStorage.setItem("brewlog_following_" + user.uid, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
   const [bookmarks, setBookmarks] = useState(() => {
     try { return JSON.parse(localStorage.getItem("brewlog_bookmarks_" + user.uid) || "[]"); } catch { return []; }
   });
@@ -2312,6 +2356,7 @@ function MainApp({ user, lang, toggleLang }) {
   const filtered = recipes.filter(r => {
     if (myRecipesOnly && r.uid !== user.uid) return false;
     if (feedTab === "bookmarks" && !bookmarks.includes(r.id)) return false;
+    if (feedTab === "following" && !following.includes(r.uid) && !following.includes(r.author)) return false;
     const q = search.toLowerCase().trim();
     if (!q) return true;
     return (
@@ -2325,7 +2370,7 @@ function MainApp({ user, lang, toggleLang }) {
     );
   });
 
-  if (adminMode) return <AdminApp user={user} onExit={() => setAdminMode(false)} />;
+  if (adminMode) return <AdminApp user={user} lang={lang} onExit={() => setAdminMode(false)} />;
 
   return (<>
     {notices.length > 0 && !noticeDismissed && (
@@ -2409,6 +2454,7 @@ function MainApp({ user, lang, toggleLang }) {
       <div className="toolbar">
         <div className="bookmark-tab">
           <button className={`bookmark-tab-btn ${feedTab === "all" ? "active" : ""}`} onClick={() => setFeedTab("all")}>{I18N[lang].allRecipes}</button>
+          <button className={`bookmark-tab-btn ${feedTab === "following" ? "active" : ""}`} onClick={() => setFeedTab("following")}>📡 {I18N[lang].followingFeed} {following.length > 0 ? `(${following.length})` : ""}</button>
           <button className={`bookmark-tab-btn ${feedTab === "bookmarks" ? "active" : ""}`} onClick={() => setFeedTab("bookmarks")}>🔖 {I18N[lang].myBookmarks} {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}</button>
         </div>
         <div style={{ display: "flex", gap: "1rem", flex: 1, flexWrap: "wrap", alignItems: "center" }}>
@@ -2427,7 +2473,7 @@ function MainApp({ user, lang, toggleLang }) {
         {filtered.length === 0 ? (
           <div className="empty-state">
             <span>☕</span>
-<p>{search ? (lang === "en" ? "No results found." : "검색 결과가 없어요.") : feedTab === "bookmarks" ? (lang === "en" ? "No bookmarks yet." : "즐겨찾기한 레시피가 없어요.") : myRecipesOnly ? (lang === "en" ? "No recipes yet." : "아직 내 레시피가 없어요.") : (lang === "en" ? "No recipes yet. Be the first!" : "아직 레시피가 없어요.")}</p>
+<p>{search ? (lang === "en" ? "No results found." : "검색 결과가 없어요.") : feedTab === "bookmarks" ? (lang === "en" ? "No bookmarks yet." : "즐겨찾기한 레시피가 없어요.") : feedTab === "following" ? (lang === "en" ? "No subscriptions yet. Subscribe to brewers you like!" : "구독한 브루어가 없어요. 마음에 드는 브루어를 구독해보세요!") : myRecipesOnly ? (lang === "en" ? "No recipes yet." : "아직 내 레시피가 없어요.") : (lang === "en" ? "No recipes yet. Be the first!" : "아직 레시피가 없어요.")}</p>
           </div>
         ) : filtered.map(r => (
           <RecipeCard key={r.id} recipe={r} currentUid={user.uid} lang={lang}
@@ -2435,6 +2481,8 @@ function MainApp({ user, lang, toggleLang }) {
             onLike={handleLike}
             onBookmark={toggleBookmark}
             isBookmarked={bookmarks.includes(r.id)}
+            onFollow={toggleFollow}
+            isFollowing={following.includes(r.uid) || following.includes(r.author)}
             onEdit={r => { setEditTarget(r); setShowModal(true); }} />
         ))}
       </div>
@@ -2460,7 +2508,7 @@ function MainApp({ user, lang, toggleLang }) {
 }
 
 // ─── AdminApp ──────────────────────────────────────────────────────
-function AdminApp({ user, onExit }) {
+function AdminApp({ user, onExit, lang = 'ko' }) {
   const [tab, setTab] = useState("stats");
   const [users, setUsers] = useState([]);
   const [recipes, setRecipes] = useState([]);
