@@ -28,6 +28,8 @@ import {
   deleteDoc,
   query,
   orderBy,
+  where,
+  onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -472,8 +474,9 @@ function PrivacyModal({ onClose, lang }) {
 }
 
 // ─── AuthScreen ────────────────────────────────────────────────────
-function AuthScreen({ lang, toggleLang }) {
-  const [tab, setTab] = useState("login");
+function AuthScreen({ lang, toggleLang, onGuest, defaultTab }) {
+  // defaultTab 있으면 초기 탭 설정
+  const [tab, setTab] = useState(defaultTab || "login");
   const [msg, setMsg] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -870,6 +873,16 @@ function AuthScreen({ lang, toggleLang }) {
         </>)}
 
         {msg && <p className={msg.type === "error" ? "msg-error" : "msg-ok"}>{msg.text}</p>}
+        {onGuest && (
+          <button onClick={onGuest} style={{
+            width: "100%", marginTop: "1.2rem", padding: "0.75rem",
+            background: "none", border: "none", color: "var(--muted)",
+            fontFamily: "'DM Sans', sans-serif", fontSize: "0.85rem",
+            cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "3px"
+          }}>
+            {lang === "en" ? "Browse without signing in →" : "로그인 없이 구경하기 →"}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1196,6 +1209,7 @@ const I18N = {
     changePw: "비밀번호 변경", changing: "변경 중…", close: "닫기", changeBtn: "변경",
     timerStart: "추출 시작", timerStop: "정지", timerReset: "초기화", timerApply: "적용",
     follow: "구독", following: "구독중", unfollow: "구독취소", followingFeed: "구독",
+    commentPlaceholder: "댓글을 남겨보세요…", commentSubmit: "등록", commentDelete: "삭제", commentLogin: "로그인 후 댓글 작성 가능해요", comments: "댓글",
     bookmarks: "즐겨찾기", bookmarkSave: "저장됨", bookmarkAdd: "즐겨찾기 추가", bookmarkRemove: "즐겨찾기 해제",
     allRecipes: "전체", myBookmarks: "즐겨찾기",
     ratingLabels: ["평가 없음", "별로예요", "그저 그래요", "괜찮아요", "맛있어요", "최고예요!"],
@@ -1247,6 +1261,7 @@ const I18N = {
     changePw: "Change Password", changing: "Changing…", close: "Close", changeBtn: "Edit",
     timerStart: "Start", timerStop: "Stop", timerReset: "Reset", timerApply: "Apply",
     follow: "Subscribe", following: "Subscribed", unfollow: "Unsubscribe", followingFeed: "Following",
+    commentPlaceholder: "Leave a comment…", commentSubmit: "Post", commentDelete: "Delete", commentLogin: "Sign in to leave a comment", comments: "Comments",
     bookmarks: "Bookmarks", bookmarkSave: "Saved", bookmarkAdd: "Save recipe", bookmarkRemove: "Remove bookmark",
     allRecipes: "All", myBookmarks: "Bookmarks",
     ratingLabels: ["No rating", "Poor", "Fair", "Good", "Great", "Excellent!"],
@@ -1443,6 +1458,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     diluteMl: savedDefaults?.diluteMl || "",
     diluteType: savedDefaults?.diluteType || "물",
     waterTemp: savedDefaults?.waterTemp || "93",
+    grindSize: savedDefaults?.grindSize || "",
     syrup: "", note: ""
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -1527,7 +1543,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       saveMyBean({ company: form.company, bean: form.bean, roastDate: form.roastDate });
     }
     // 추출 기본값 저장
-    saveRecipeDefaults({ gram: form.gram, seconds: form.seconds, espressoMl: form.espressoMl, diluteMl: form.diluteMl, diluteType: form.diluteType, waterTemp: form.waterTemp });
+    saveRecipeDefaults({ gram: form.gram, seconds: form.seconds, espressoMl: form.espressoMl, diluteMl: form.diluteMl, diluteType: form.diluteType, waterTemp: form.waterTemp, grindSize: form.grindSize });
     setSaving(true);
     try {
       const pressureData = calcPressure(form.espressoMl, form.seconds);
@@ -1546,6 +1562,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         grinder: grinderDisplay,
         grinderBrand,
         grinderModel,
+        grindSize: form.grindSize,
       };
       if (isEdit) {
         const { id, ...rest } = payload;
@@ -1553,8 +1570,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       } else {
         await addDoc(collection(db, "recipes"), {
           ...payload,
-          author: user.displayName,
-          uid: user.uid,
+          author: user?.displayName,
+          uid: user?.uid,
           createdAt: serverTimestamp(),
         });
       }
@@ -1679,6 +1696,18 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                 )}
               </>
             )
+          )}
+
+          {/* 분쇄도 - 전자동이면 숨김 */}
+          {!isAutoMode && (
+            <div className="field full">
+              <label>⚙️ {lang === "en" ? "Grind Size" : "분쇄도"}</label>
+              <input
+                value={form.grindSize}
+                onChange={e => set("grindSize", e.target.value)}
+                placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"}
+              />
+            </div>
           )}
 
           <div className="field">
@@ -1965,7 +1994,7 @@ function MyModal({ onClose, user, lang = 'ko' }) {
     setPwSaving(true);
     try {
       // 현재 비밀번호로 재인증
-      const credential = EmailAuthProvider.credential(user.email, curPw);
+      const credential = EmailAuthProvider.credential(user?.email, curPw);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPw);
       setPwMsg({ type: "ok", text: "비밀번호가 변경됐어요 ✓" });
@@ -2075,7 +2104,7 @@ function MyModal({ onClose, user, lang = 'ko' }) {
         </div>
 
         {/* 비밀번호 변경 - 구글 로그인 유저는 숨김 */}
-        {!user.providerData?.some(p => p.providerId === "google.com") && <div className="my-section">
+        {!user?.providerData?.some(p => p.providerId === "google.com") && <div className="my-section">
           <div className="my-section-title">🔒 비밀번호 변경</div>
           <div className="field">
             <label>현재 비밀번호</label>
@@ -2109,7 +2138,42 @@ function MyModal({ onClose, user, lang = 'ko' }) {
 }
 
 // ─── RecipeDetailModal ────────────────────────────────────────────
-function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDelete, lang = "ko" }) {
+function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, lang = "ko" }) {
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState("");
+  const [commentLoading, setCommentLoading] = useState(false);
+
+  useEffect(() => {
+    if (!recipe?.id) return;
+    const q = query(collection(db, "comments"), where("recipeId", "==", recipe.id), orderBy("createdAt", "asc"));
+    const unsub = onSnapshot(q, snap => {
+      setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, [recipe?.id]);
+
+  const submitComment = async () => {
+    if (!currentUser) { onRequireAuth?.(); return; }
+    const text = commentText.trim();
+    if (!text) return;
+    setCommentLoading(true);
+    try {
+      await addDoc(collection(db, "comments"), {
+        recipeId: recipe.id,
+        uid: currentUser.uid,
+        author: currentUser.displayName,
+        text,
+        createdAt: serverTimestamp(),
+      });
+      setCommentText("");
+    } catch(e) { console.error(e); }
+    setCommentLoading(false);
+  };
+
+  const deleteComment = async (commentId) => {
+    if (!confirm("댓글을 삭제할까요?")) return;
+    await deleteDoc(doc(db, "comments", commentId));
+  };
   const t = I18N[lang];
   const date = recipe.createdAt?.toDate?.()?.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR") || "";
   const liked = (recipe.likedBy || []).includes(currentUid);
@@ -2131,7 +2195,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDele
           )}
         </div>
       )}
-            {recipe.grinder && <div className="card-machine">⚙️ {recipe.grinder}</div>}
+            {recipe.grinder && <div className="card-machine">⚙️ {recipe.grinder}{recipe.grindSize ? <span style={{marginLeft:"0.5rem",fontSize:"0.8rem",color:"var(--muted)"}}>({recipe.grindSize})</span> : null}</div>}
             <div className="card-company" style={{ marginTop: "0.3rem" }}>{recipe.company}</div>
             <div className="card-bean" style={{ marginBottom: 0 }}>{recipe.bean}</div>
           </div>
@@ -2214,7 +2278,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
           )}
         </div>
       )}
-      {recipe.grinder && <div className="card-machine">⚙️ {recipe.grinder}</div>}
+      {recipe.grinder && <div className="card-machine">⚙️ {recipe.grinder}{recipe.grindSize ? <span style={{marginLeft:"0.5rem",fontSize:"0.8rem",color:"var(--muted)"}}>({recipe.grindSize})</span> : null}</div>}
       {recipe.weather && (
         <div className="card-weather">
           <span>{recipe.weather.icon} {recipe.weather.descKo} {recipe.weather.temp}°C</span>
@@ -2298,13 +2362,66 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
             <button className="card-delete" onClick={() => onDelete(recipe.id)}>🗑</button>
           </>)}
         </div>
+
+        {/* 댓글 섹션 */}
+        <div style={{ borderTop: "1px solid var(--steam)", marginTop: "1.2rem", paddingTop: "1rem" }}>
+          <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--espresso)", marginBottom: "0.8rem" }}>
+            💬 {t.comments} {comments.length > 0 ? `(${comments.length})` : ""}
+          </div>
+          {/* 댓글 목록 */}
+          {comments.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", marginBottom: "0.8rem", maxHeight: "220px", overflowY: "auto" }}>
+              {comments.map(c => (
+                <div key={c.id} style={{ background: "var(--foam)", borderRadius: "2px", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem" }}>
+                    <div>
+                      <span style={{ fontWeight: 600, color: "var(--espresso)", marginRight: "0.4rem" }}>@{c.author}</span>
+                      <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
+                        {c.createdAt?.toDate?.()?.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US") || ""}
+                      </span>
+                    </div>
+                    {(c.uid === currentUid) && (
+                      <button onClick={() => deleteComment(c.id)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer", flexShrink: 0, padding: 0 }}>
+                        {t.commentDelete}
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ color: "var(--espresso)", marginTop: "0.3rem", lineHeight: 1.5 }}>{c.text}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* 입력창 */}
+          {currentUser ? (
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <input
+                value={commentText}
+                onChange={e => setCommentText(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && !e.shiftKey && submitComment()}
+                placeholder={t.commentPlaceholder}
+                style={{ flex: 1, padding: "0.6rem 0.8rem", border: "1px solid var(--steam)", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", background: "var(--cream)", color: "var(--espresso)", outline: "none" }}
+              />
+              <button
+                onClick={submitComment}
+                disabled={commentLoading || !commentText.trim()}
+                style={{ padding: "0.6rem 1rem", background: "var(--espresso)", color: "var(--cream)", border: "none", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap", opacity: commentText.trim() ? 1 : 0.5 }}
+              >
+                {t.commentSubmit}
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => onRequireAuth?.()} style={{ width: "100%", padding: "0.65rem", background: "none", border: "1px dashed var(--steam)", borderRadius: "2px", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer" }}>
+              🔒 {t.commentLogin}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 // ─── MainApp ───────────────────────────────────────────────────────
-function MainApp({ user, lang, toggleLang }) {
+function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState("");
   const [myRecipesOnly, setMyRecipesOnly] = useState(false);
@@ -2315,27 +2432,29 @@ function MainApp({ user, lang, toggleLang }) {
   const [detailRecipe, setDetailRecipe] = useState(null);
   const [feedTab, setFeedTab] = useState("all"); // "all" | "bookmarks" | "following"
   const [following, setFollowing] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("brewlog_following_" + user.uid) || "[]"); } catch { return []; }
+    try { return user?.uid ? JSON.parse(localStorage.getItem("brewlog_following_" + user?.uid) || "[]") : []; } catch { return []; }
   });
 
   const toggleFollow = (authorUid) => {
-    if (!authorUid || authorUid === user.uid || authorUid === user.displayName) return;
+    if (!user) { onRequireAuth?.(); return; }
+    if (!authorUid || authorUid === user?.uid || authorUid === user?.displayName) return;
     setFollowing(prev => {
       const next = prev.includes(authorUid)
         ? prev.filter(id => id !== authorUid)
         : [...prev, authorUid];
-      try { localStorage.setItem("brewlog_following_" + user.uid, JSON.stringify(next)); } catch {}
+      try { localStorage.setItem("brewlog_following_" + user?.uid, JSON.stringify(next)); } catch {}
       return next;
     });
   };
   const [bookmarks, setBookmarks] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("brewlog_bookmarks_" + user.uid) || "[]"); } catch { return []; }
+    try { return user?.uid ? JSON.parse(localStorage.getItem("brewlog_bookmarks_" + user?.uid) || "[]") : []; } catch { return []; }
   });
 
   const toggleBookmark = (recipeId) => {
+    if (!user) { onRequireAuth?.(); return; }
     setBookmarks(prev => {
       const next = prev.includes(recipeId) ? prev.filter(id => id !== recipeId) : [...prev, recipeId];
-      try { localStorage.setItem("brewlog_bookmarks_" + user.uid, JSON.stringify(next)); } catch {}
+      try { localStorage.setItem("brewlog_bookmarks_" + user?.uid, JSON.stringify(next)); } catch {}
       return next;
     });
   };
@@ -2356,16 +2475,16 @@ function MainApp({ user, lang, toggleLang }) {
     // 관리자 여부 확인
     // 관리자 체크 - 재시도 로직 포함
     const checkAdmin = async () => {
+      if (!user) return; // 비회원이면 스킵
       try {
-        const token = await user.getIdToken(true); // 토큰 강제 갱신
-        const snap = await getDoc(doc(db, "admins", user.uid));
+        const token = await user?.getIdToken(true);
+        const snap = await getDoc(doc(db, "admins", user?.uid));
         setIsAdmin(snap.exists());
       } catch(e) {
         console.error("admin check error:", e);
-        // 1초 후 재시도
         setTimeout(async () => {
           try {
-            const snap = await getDoc(doc(db, "admins", user.uid));
+            const snap = await getDoc(doc(db, "admins", user?.uid));
             setIsAdmin(snap.exists());
           } catch(e2) { console.error("admin retry failed:", e2); }
         }, 1000);
@@ -2378,7 +2497,7 @@ function MainApp({ user, lang, toggleLang }) {
         setNotices(snap.docs.slice(0, 1).map(d => ({ id: d.id, ...d.data() })));
       })
       .catch(() => {});
-  }, [loadRecipes, user.uid]);
+  }, [loadRecipes, user?.uid]);
 
   const handleDelete = async (id) => {
     if (!confirm("이 레시피를 삭제할까요?")) return;
@@ -2387,17 +2506,18 @@ function MainApp({ user, lang, toggleLang }) {
   };
 
   const handleLike = async (recipe) => {
+    if (!user) { onRequireAuth?.(); return; }
     const likedBy = recipe.likedBy || [];
-    const alreadyLiked = likedBy.includes(user.uid);
+    const alreadyLiked = likedBy.includes(user?.uid);
     const newLikedBy = alreadyLiked
-      ? likedBy.filter(id => id !== user.uid)
-      : [...likedBy, user.uid];
+      ? likedBy.filter(id => id !== user?.uid)
+      : [...likedBy, user?.uid];
     await updateDoc(doc(db, "recipes", recipe.id), { likedBy: newLikedBy });
     loadRecipes();
   };
 
   const filtered = recipes.filter(r => {
-    if (myRecipesOnly && r.uid !== user.uid) return false;
+    if (myRecipesOnly && r.uid !== user?.uid) return false;
     if (feedTab === "bookmarks" && !bookmarks.includes(r.id)) return false;
     if (feedTab === "following" && !following.includes(r.uid) && !following.includes(r.author)) return false;
     const q = search.toLowerCase().trim();
@@ -2425,17 +2545,28 @@ function MainApp({ user, lang, toggleLang }) {
     <header className="app-header">
       <div className="logo">☕ Brewlog note</div>
       <div className="header-right">
-        <span
-          className={`nick-badge ${myRecipesOnly ? "active" : ""}`}
-          onClick={() => setMyRecipesOnly(v => !v)}
-          title={myRecipesOnly ? "전체 피드 보기" : "내 레시피만 보기"}
-        >
-          @{user.displayName}{myRecipesOnly ? " 👤" : ""}
-        </span>
-        {isAdmin && <button className="btn-admin-header" onClick={() => setAdminMode(true)}>관리자</button>}
-        <button className="btn-lang" onClick={toggleLang}>{lang === "ko" ? "EN" : "KO"}</button>
-        <button className="btn-my" onClick={() => setShowMyModal(true)}>MY</button>
-        <button className="btn-logout" onClick={() => signOut(auth)}>{I18N[lang].logout}</button>
+        {user ? (
+          <>
+            <span
+              className={`nick-badge ${myRecipesOnly ? "active" : ""}`}
+              onClick={() => setMyRecipesOnly(v => !v)}
+              title={myRecipesOnly ? "전체 피드 보기" : "내 레시피만 보기"}
+            >
+              @{user?.displayName}{myRecipesOnly ? " 👤" : ""}
+            </span>
+            {isAdmin && <button className="btn-admin-header" onClick={() => setAdminMode(true)}>관리자</button>}
+            <button className="btn-lang" onClick={toggleLang}>{lang === "ko" ? "EN" : "KO"}</button>
+            <button className="btn-my" onClick={() => setShowMyModal(true)}>MY</button>
+            <button className="btn-logout" onClick={() => signOut(auth)}>{I18N[lang].logout}</button>
+          </>
+        ) : (
+          <>
+            <button className="btn-lang" onClick={toggleLang}>{lang === "ko" ? "EN" : "KO"}</button>
+            <button className="btn-my" onClick={() => onRequireAuth?.()} style={{ color: "var(--accent)", borderColor: "var(--accent)" }}>
+              {lang === "en" ? "Login" : "로그인"}
+            </button>
+          </>
+        )}
       </div>
     </header>
     {/* 타이틀 + 베스트 */}
@@ -2505,7 +2636,7 @@ function MainApp({ user, lang, toggleLang }) {
             <span className="search-icon">🔍</span>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
           </div>
-          <button className="btn-new" onClick={() => setShowModal(true)}>{I18N[lang].newRecipe}</button>
+          <button className="btn-new" onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { setShowModal(true); } }}>{I18N[lang].newRecipe}</button>
         </div>
       </div>
     </div>
@@ -2519,7 +2650,7 @@ function MainApp({ user, lang, toggleLang }) {
 <p>{search ? (lang === "en" ? "No results found." : "검색 결과가 없어요.") : feedTab === "bookmarks" ? (lang === "en" ? "No bookmarks yet." : "즐겨찾기한 레시피가 없어요.") : feedTab === "following" ? (lang === "en" ? "No subscriptions yet. Subscribe to brewers you like!" : "구독한 브루어가 없어요. 마음에 드는 브루어를 구독해보세요!") : myRecipesOnly ? (lang === "en" ? "No recipes yet." : "아직 내 레시피가 없어요.") : (lang === "en" ? "No recipes yet. Be the first!" : "아직 레시피가 없어요.")}</p>
           </div>
         ) : filtered.map(r => (
-          <RecipeCard key={r.id} recipe={r} currentUid={user.uid} lang={lang}
+          <RecipeCard key={r.id} recipe={r} currentUid={user?.uid} lang={lang}
             onDelete={handleDelete}
             onLike={handleLike}
             onBookmark={toggleBookmark}
@@ -2534,7 +2665,9 @@ function MainApp({ user, lang, toggleLang }) {
     {detailRecipe && (
       <RecipeDetailModal
         recipe={detailRecipe}
-        currentUid={user.uid}
+        currentUid={user?.uid}
+        currentUser={user}
+        onRequireAuth={onRequireAuth}
         lang={lang}
         onClose={() => setDetailRecipe(null)}
         onLike={r => { handleLike(r); setDetailRecipe(null); }}
@@ -2650,7 +2783,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
       await addDoc(collection(db, "notices"), {
         title: noticeTitle.trim(),
         body: noticeBody.trim(),
-        author: user.displayName,
+        author: user?.displayName,
         createdAt: serverTimestamp(),
       });
     }
@@ -2807,7 +2940,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
                   <td style={{ color: "var(--muted)", fontSize: "0.8rem", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.securityQuestion}</td>
                   <td style={{ color: "var(--muted)", fontSize: "0.75rem", fontFamily: "monospace" }}>{u.id.slice(0, 12)}…</td>
                   <td>
-                    {u.id !== user.uid && (
+                    {u.id !== user?.uid && (
                       <button className="btn-danger" onClick={() => deleteUser(u.id, u.nickname)}>삭제</button>
                     )}
                   </td>
@@ -2949,11 +3082,19 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
 export default function App() {
   const [user, setUser] = useState(undefined);
   const [lang, setLang] = useState(() => localStorage.getItem("brewlog_lang") || "ko");
+  const [guestMode, setGuestMode] = useState(false);
+  const [authDefaultTab, setAuthDefaultTab] = useState("login");
 
   const toggleLang = () => {
     const next = lang === "ko" ? "en" : "ko";
     setLang(next);
     localStorage.setItem("brewlog_lang", next);
+  };
+
+  // 비회원이 레시피 올리기 버튼 클릭 시 호출
+  const requireAuth = () => {
+    setGuestMode(false);
+    setAuthDefaultTab("register");
   };
 
   useEffect(() => {
@@ -2985,7 +3126,10 @@ export default function App() {
       <style>{CSS}</style>
       {user
         ? <MainApp user={user} lang={lang} toggleLang={toggleLang} />
-        : <AuthScreen lang={lang} toggleLang={toggleLang} />}
+        : guestMode
+          ? <MainApp user={null} lang={lang} toggleLang={toggleLang} onRequireAuth={requireAuth} />
+          : <AuthScreen lang={lang} toggleLang={toggleLang} defaultTab={authDefaultTab}
+              onGuest={() => { setGuestMode(true); setAuthDefaultTab("login"); }} />}
     </LangContext.Provider>
   );
 }
