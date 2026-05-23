@@ -138,6 +138,9 @@ const CSS = `
     margin-bottom: 1.5rem;
     border-bottom: 1px solid var(--steam);
   }
+  @media (max-width: 600px) {
+    .toolbar-sticky { top: 48px; padding: 0.6rem 0; margin-bottom: 1rem; }
+  }
   .toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; max-width: 900px; margin: 0 auto; padding: 0 1.5rem; }
   .search-box { flex: 1; min-width: 180px; position: relative; }
   .search-box input {
@@ -361,17 +364,57 @@ const CSS = `
   }
   @media (max-width: 600px) {
     .modal-grid { grid-template-columns: 1fr; }
-    .app-header { padding: 0.8rem 1rem; }
-    .app-header .logo { font-size: 1.1rem; }
-    .main-wrap { padding: 1.2rem 0.8rem; }
+
+    /* 헤더 */
+    .app-header { padding: 0.65rem 0.9rem; }
+    .app-header .logo { font-size: 1rem; }
+    .header-right { gap: 0.5rem; }
+    .btn-lang, .btn-my, .btn-logout { padding: 0.25rem 0.55rem; font-size: 0.72rem; }
+    .btn-logout { display: none; } /* 모바일에서 로그아웃은 MY 설정 내에서 */
+
+    /* 메인 */
+    .main-wrap { padding: 1rem 0.75rem; }
     .recipes-grid { grid-template-columns: 1fr; }
-    .toolbar { flex-direction: column; align-items: stretch; }
-    .btn-new { text-align: center; }
+
+    /* 베스트 그리드 → 모바일 1열 스크롤 */
+    .best-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+    }
+    .best-card { padding: 0.9rem; }
+    .best-card-bean { font-size: 0.88rem; }
+
+    /* 탭 */
+    .bookmark-tab {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+      gap: 0.4rem;
+    }
+    .bookmark-tab::-webkit-scrollbar { display: none; }
+    .bookmark-tab-btn { white-space: nowrap; padding: 0.35rem 0.75rem; font-size: 0.78rem; flex-shrink: 0; }
+
+    /* 툴바 검색+버튼 */
+    .toolbar { flex-direction: column; align-items: stretch; gap: 0.6rem; padding: 0 0.75rem; }
+    .btn-new { text-align: center; padding: 0.7rem; }
+    .search-box input { font-size: 0.88rem; }
+
+    /* 카드 */
+    .recipe-card { padding: 1rem; }
+    .card-stats { gap: 0.3rem; }
+    .stat-val { font-size: 1.1rem; }
     .nick-badge { display: none; }
-    .modal { padding: 1.5rem 1rem; }
+
+    /* 모달 */
+    .modal { padding: 1.2rem 0.9rem; max-height: 92vh; }
+    .tab-btn { font-size: 0.72rem; padding: 0.5rem 0.3rem; }
   }
   @media (max-width: 380px) {
-    .tab-btn { font-size: 0.65rem; padding: 0.5rem 0.2rem; }
+    .tab-btn { font-size: 0.62rem; padding: 0.45rem 0.2rem; }
+    .best-grid { grid-template-columns: 1fr; }
+    .bookmark-tab-btn { font-size: 0.72rem; padding: 0.3rem 0.6rem; }
   }
 `;
 
