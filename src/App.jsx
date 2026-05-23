@@ -2253,6 +2253,54 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             </>)}
           </div>
         </div>
+
+        {/* 댓글 섹션 */}
+        <div style={{ borderTop: "1px solid var(--steam)", marginTop: "1.2rem", paddingTop: "1rem" }}>
+          <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--espresso)", marginBottom: "0.8rem" }}>
+            💬 {t.comments} {comments.length > 0 ? `(${comments.length})` : ""}
+          </div>
+          {comments.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", marginBottom: "0.8rem", maxHeight: "220px", overflowY: "auto" }}>
+              {comments.map(c => (
+                <div key={c.id} style={{ background: "var(--foam)", borderRadius: "2px", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem" }}>
+                    <div>
+                      <span style={{ fontWeight: 600, color: "var(--espresso)", marginRight: "0.4rem" }}>@{c.author}</span>
+                      <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
+                        {c.createdAt?.toDate?.()?.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US") || ""}
+                      </span>
+                    </div>
+                    {c.uid === currentUid && (
+                      <button onClick={() => deleteComment(c.id)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer", flexShrink: 0, padding: 0 }}>
+                        {t.commentDelete}
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ color: "var(--espresso)", marginTop: "0.3rem", lineHeight: 1.5 }}>{c.text}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {currentUser ? (
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <input
+                value={commentText}
+                onChange={e => setCommentText(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && !e.shiftKey && submitComment()}
+                placeholder={t.commentPlaceholder}
+                style={{ flex: 1, padding: "0.6rem 0.8rem", border: "1px solid var(--steam)", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", background: "var(--cream)", color: "var(--espresso)", outline: "none" }}
+              />
+              <button onClick={submitComment} disabled={commentLoading || !commentText.trim()}
+                style={{ padding: "0.6rem 1rem", background: "var(--espresso)", color: "var(--cream)", border: "none", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap", opacity: commentText.trim() ? 1 : 0.5 }}>
+                {t.commentSubmit}
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => onRequireAuth?.()} style={{ width: "100%", padding: "0.65rem", background: "none", border: "1px dashed var(--steam)", borderRadius: "2px", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer" }}>
+              🔒 {t.commentLogin}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -2361,59 +2409,6 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
             <button className="card-edit" onClick={() => onEdit(recipe)}>✏️</button>
             <button className="card-delete" onClick={() => onDelete(recipe.id)}>🗑</button>
           </>)}
-        </div>
-
-        {/* 댓글 섹션 */}
-        <div style={{ borderTop: "1px solid var(--steam)", marginTop: "1.2rem", paddingTop: "1rem" }}>
-          <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--espresso)", marginBottom: "0.8rem" }}>
-            💬 {t.comments} {comments.length > 0 ? `(${comments.length})` : ""}
-          </div>
-          {/* 댓글 목록 */}
-          {comments.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", marginBottom: "0.8rem", maxHeight: "220px", overflowY: "auto" }}>
-              {comments.map(c => (
-                <div key={c.id} style={{ background: "var(--foam)", borderRadius: "2px", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem" }}>
-                    <div>
-                      <span style={{ fontWeight: 600, color: "var(--espresso)", marginRight: "0.4rem" }}>@{c.author}</span>
-                      <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
-                        {c.createdAt?.toDate?.()?.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US") || ""}
-                      </span>
-                    </div>
-                    {(c.uid === currentUid) && (
-                      <button onClick={() => deleteComment(c.id)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer", flexShrink: 0, padding: 0 }}>
-                        {t.commentDelete}
-                      </button>
-                    )}
-                  </div>
-                  <div style={{ color: "var(--espresso)", marginTop: "0.3rem", lineHeight: 1.5 }}>{c.text}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          {/* 입력창 */}
-          {currentUser ? (
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <input
-                value={commentText}
-                onChange={e => setCommentText(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && !e.shiftKey && submitComment()}
-                placeholder={t.commentPlaceholder}
-                style={{ flex: 1, padding: "0.6rem 0.8rem", border: "1px solid var(--steam)", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", background: "var(--cream)", color: "var(--espresso)", outline: "none" }}
-              />
-              <button
-                onClick={submitComment}
-                disabled={commentLoading || !commentText.trim()}
-                style={{ padding: "0.6rem 1rem", background: "var(--espresso)", color: "var(--cream)", border: "none", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap", opacity: commentText.trim() ? 1 : 0.5 }}
-              >
-                {t.commentSubmit}
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => onRequireAuth?.()} style={{ width: "100%", padding: "0.65rem", background: "none", border: "1px dashed var(--steam)", borderRadius: "2px", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer" }}>
-              🔒 {t.commentLogin}
-            </button>
-          )}
         </div>
       </div>
     </div>
