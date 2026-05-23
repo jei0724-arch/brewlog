@@ -1086,7 +1086,11 @@ function saveMyGrinder(g) {
 }
 
 function loadMyMachine() {
-  try { return JSON.parse(localStorage.getItem(MACHINE_STORAGE_KEY) || "null"); } catch { return null; }
+  try {
+    const m = JSON.parse(localStorage.getItem(MACHINE_STORAGE_KEY) || "null");
+    if (m && !m.equipType) m.equipType = "machine"; // 기존 데이터 하위 호환
+    return m;
+  } catch { return null; }
 }
 function saveMyMachine(m) {
   try { localStorage.setItem(MACHINE_STORAGE_KEY, JSON.stringify(m)); } catch {}
@@ -1270,6 +1274,7 @@ const COFFEE_MENUS = [
   { id: "macchiato",  label: "마끼아또",   labelEn: "Macchiato",   emoji: "☕", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: true },
   { id: "cortado",    label: "코르타도",   labelEn: "Cortado",     emoji: "☕", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: false },
   { id: "cold_brew",  label: "콜드브루",   labelEn: "Cold Brew",   emoji: "🧊", needsDilute: true,  fixedDilute: null,  hasSyrup: true },
+  { id: "hand_drip",  label: "핸드드립",   labelEn: "Hand Drip",   emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
   { id: "other",      label: "기타",       labelEn: "Other",       emoji: "✨", needsDilute: true,  fixedDilute: null,  hasSyrup: false },
 ];
 
@@ -1396,16 +1401,20 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 
   // 저장된 내 머신 불러오기
   const savedMachine = loadMyMachine();
+  const isHandDrip = !isEdit && savedMachine?.equipType === "handdrip";
   const [machineLocked, setMachineLocked] = useState(!!savedMachine && !isEdit);
   const [machineBrand, setMachineBrand] = useState(
-    isEdit ? (editTarget.machineBrand || "") : (savedMachine?.brand || "")
+    isEdit ? (editTarget.machineBrand || "") : (isHandDrip ? "" : (savedMachine?.brand || ""))
   );
   const [machineModel, setMachineModel] = useState(
-    isEdit ? (editTarget.machineModel || "") : (savedMachine?.model || "")
+    isEdit ? (editTarget.machineModel || "") : (isHandDrip ? "" : (savedMachine?.model || ""))
   );
   const isCustomBrand = machineBrand === "기타 (직접 입력)";
   const [machineType, setMachineType] = useState(
-    isEdit ? (editTarget.machineType || "auto") : "auto"
+    isEdit ? (editTarget.machineType || "auto") : (isHandDrip ? "handdrip" : "auto")
+  );
+  const [handDripName, setHandDripName] = useState(
+    isEdit ? (editTarget.machine && editTarget.machineType === "handdrip" ? editTarget.machine : "") : (savedMachine?.handDripName || "")
   );
   // 전자동 전용 브랜드거나, 선택 가능 브랜드에서 전자동 선택 시
   const isAutoMode = isAutoMachine(machineBrand) && machineType === "auto";
@@ -1433,6 +1442,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     espressoMl: savedDefaults?.espressoMl || "",
     diluteMl: savedDefaults?.diluteMl || "",
     diluteType: savedDefaults?.diluteType || "물",
+    waterTemp: savedDefaults?.waterTemp || "93",
     syrup: "", note: ""
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -1441,7 +1451,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const [weather, setWeather] = useState(isEdit ? (editTarget.weather || null) : null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState(null);
-  const [selectedMenu, setSelectedMenu] = useState(isEdit ? (editTarget.menuId || "") : "");
+  const [selectedMenu, setSelectedMenu] = useState(isEdit ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : ""));
 
   const currentMenu = COFFEE_MENUS.find(m => m.id === selectedMenu);
   const needsDilute = !currentMenu || currentMenu.needsDilute;
@@ -1464,6 +1474,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       macchiato:  { seconds: "25", espressoMl: "30", diluteMl: "20",  diluteType: "우유" },
       cortado:    { seconds: "25", espressoMl: "30", diluteMl: "30",  diluteType: "우유" },
       cold_brew:  { seconds: "30", espressoMl: "60", diluteMl: "100", diluteType: "물" },
+      hand_drip:  { seconds: "180", espressoMl: "200", diluteMl: "",  diluteType: "" },
     };
     if (defaults[menu.id]) {
       setForm(f => ({ ...f, ...defaults[menu.id] }));
@@ -1482,9 +1493,9 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     }
   }, [machineBrand, machineModel]);
 
-  const machineDisplay = machineBrand
-    ? (machineModel ? `${machineBrand} ${machineModel}` : machineBrand)
-    : "";
+  const machineDisplay = machineType === "handdrip"
+    ? handDripName
+    : (machineBrand ? (machineModel ? `${machineBrand} ${machineModel}` : machineBrand) : "");
 
   const grinderDisplay = grinderBrand
     ? (grinderModel ? `${grinderBrand} ${grinderModel}` : grinderBrand)
@@ -1503,8 +1514,10 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       return;
     }
     setErrors({});
-    if (machineBrand && machineModel && !machineLocked) {
-      saveMyMachine({ brand: machineBrand, model: machineModel });
+    if (machineType === "handdrip") {
+      saveMyMachine({ brand: "", model: "", equipType: "handdrip", handDripName: handDripName.trim() });
+    } else if (machineBrand && machineModel && !machineLocked) {
+      saveMyMachine({ brand: machineBrand, model: machineModel, equipType: "machine", handDripName: "" });
     }
     if (grinderBrand && grinderModel && !grinderLocked) {
       saveMyGrinder({ brand: grinderBrand, model: grinderModel });
@@ -1514,7 +1527,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       saveMyBean({ company: form.company, bean: form.bean, roastDate: form.roastDate });
     }
     // 추출 기본값 저장
-    saveRecipeDefaults({ gram: form.gram, seconds: form.seconds, espressoMl: form.espressoMl, diluteMl: form.diluteMl, diluteType: form.diluteType });
+    saveRecipeDefaults({ gram: form.gram, seconds: form.seconds, espressoMl: form.espressoMl, diluteMl: form.diluteMl, diluteType: form.diluteType, waterTemp: form.waterTemp });
     setSaving(true);
     try {
       const pressureData = calcPressure(form.espressoMl, form.seconds);
@@ -1527,9 +1540,9 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         pumpBar: pressureData?.pumpBar || null,
         showerBar: pressureData?.showerBar || null,
         machine: machineDisplay,
-        machineBrand,
-        machineModel,
-        machineType: isAutoMachine(machineBrand) ? machineType : "manual",
+        machineBrand: machineType === "handdrip" ? "" : machineBrand,
+        machineModel: machineType === "handdrip" ? "" : machineModel,
+        machineType: machineType === "handdrip" ? "handdrip" : (isAutoMachine(machineBrand) ? machineType : "manual"),
         grinder: grinderDisplay,
         grinderBrand,
         grinderModel,
@@ -1556,81 +1569,67 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         <h2>{isEdit ? t.editTitle : t.recordTitle}</h2>
         <div className="modal-grid">
 
-          {/* 커피 머신 */}
-          {machineLocked ? (
-            <div className="field full">
-              <label>{t ? t.machine : "커피 머신"}</label>
+          {/* 커피 머신 / 핸드드립 */}
+          <div className="field full">
+            <label>{machineType === "handdrip" ? (lang === "en" ? "Hand Drip Equipment" : "핸드드립 기구") : (t ? t.machine : "커피 머신")}</label>
+            {/* 커피머신 / 핸드드립 탭 — 항상 표시 */}
+            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.8rem" }}>
+              <button
+                type="button"
+                onClick={() => { setMachineType("auto"); setMachineBrand(savedMachine?.equipType !== "handdrip" ? (savedMachine?.brand || "") : ""); setMachineModel(savedMachine?.equipType !== "handdrip" ? (savedMachine?.model || "") : ""); setMachineLocked(false); }}
+                style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: machineType !== "handdrip" ? "var(--espresso)" : "var(--foam)", color: machineType !== "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", cursor: "pointer", transition: "all 0.2s" }}
+              >🤖 {lang === "en" ? "Coffee Machine" : "커피 머신"}</button>
+              <button
+                type="button"
+                onClick={() => { setMachineType("handdrip"); setMachineBrand(""); setMachineModel(""); setMachineLocked(false); const hd = COFFEE_MENUS.find(m => m.id === "hand_drip"); if (hd) selectMenu(hd); }}
+                style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: machineType === "handdrip" ? "var(--espresso)" : "var(--foam)", color: machineType === "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", cursor: "pointer", transition: "all 0.2s" }}
+              >🫗 {lang === "en" ? "Hand Drip" : "핸드드립"}</button>
+            </div>
+            {machineType === "handdrip" ? (
+              <input
+                value={handDripName}
+                onChange={e => setHandDripName(e.target.value)}
+                placeholder={lang === "en" ? "e.g. Hario V60, Chemex …" : "예) 하리오 V60, 케멕스 …"}
+                style={{ width: "100%", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }}
+              />
+            ) : machineLocked ? (
               <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                <div style={{
-                  flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)",
-                  borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem",
-                  color: "var(--espresso)", fontWeight: 500,
-                }}>
+                <div style={{ flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>
                   🤖 {machineDisplay}
                 </div>
-                <button onClick={() => setMachineLocked(false)} style={{
-                  padding: "0.75rem 0.8rem", background: "none", border: "1px solid var(--steam)",
-                  borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem",
-                  color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
-                }}>{ lang === "en" ? "Edit" : "변경"}</button>
+                <button onClick={() => setMachineLocked(false)} style={{ padding: "0.75rem 0.8rem", background: "none", border: "1px solid var(--steam)", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                  {lang === "en" ? "Edit" : "변경"}
+                </button>
               </div>
-            </div>
-          ) : (
-            <>
-              <div className="field full">
-                <label>{t ? t.machineBrand : "커피 머신 브랜드"}</label>
+            ) : (
+              <>
                 <BrandInput
                   value={machineBrand}
                   onChange={v => { setMachineBrand(v); setMachineModel(""); }}
                   brands={MACHINE_BRANDS}
                   placeholder="브랜드 입력 또는 검색 (예: Breville, 드롱기…)"
                 />
-              </div>
-              {machineBrand && (
-                <>
-                  {/* 반자동/전자동 선택 가능한 브랜드인 경우 타입 선택 */}
-                  {isBothModeBrand(machineBrand) && (
-                    <div className="field full">
-                      <label>{t ? t.machineType : "머신 타입"}</label>
-                      <div style={{ display: "flex", gap: "0.5rem" }}>
-                        {[
-                          { val: "auto", label: t.autoType },
-                          { val: "manual", label: t.manualType },
-                        ].map(({ val, label }) => (
-                          <button
-                            key={val}
-                            type="button"
-                            onClick={() => setMachineType(val)}
-                            style={{
-                              flex: 1, padding: "0.65rem", border: "1px solid",
-                              borderColor: machineType === val ? "var(--accent)" : "var(--steam)",
-                              borderRadius: "2px", background: machineType === val ? "var(--accent)" : "var(--foam)",
-                              color: machineType === val ? "white" : "var(--muted)",
-                              fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem",
-                              cursor: "pointer", transition: "all 0.2s", fontWeight: machineType === val ? 500 : 400,
-                            }}
+                {machineBrand && (
+                  <>
+                    {isBothModeBrand(machineBrand) && (
+                      <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                        {[{ val: "auto", label: t.autoType }, { val: "manual", label: t.manualType }].map(({ val, label }) => (
+                          <button key={val} type="button" onClick={() => setMachineType(val)}
+                            style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderColor: machineType === val ? "var(--accent)" : "var(--steam)", borderRadius: "2px", background: machineType === val ? "var(--accent)" : "var(--foam)", color: machineType === val ? "white" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", cursor: "pointer", transition: "all 0.2s" }}
                           >{label}</button>
                         ))}
                       </div>
-                    </div>
-                  )}
-                  <div className="field full">
-                    <label>{t ? t.machineModel : "세부 모델명"}</label>
-                    <input
-                      value={machineModel}
-                      onChange={e => setMachineModel(e.target.value)}
-                      placeholder={isCustomBrand ? "브랜드명과 모델명 입력" : "예) Barista Express, Dedica …"}
-                    />
-                    {machineModel && (
-                      <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem" }}>
-                        💾 저장하면 다음에도 자동으로 채워져요
-                      </p>
                     )}
-                  </div>
-                </>
-              )}
-            </>
-          )}
+                    <input value={machineModel} onChange={e => setMachineModel(e.target.value)}
+                      placeholder={isCustomBrand ? "브랜드명과 모델명 입력" : "예) Barista Express, Dedica …"}
+                      style={{ width: "100%", marginTop: "0.5rem", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }}
+                    />
+                    {machineModel && <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem" }}>💾 저장하면 다음에도 자동으로 채워져요</p>}
+                  </>
+                )}
+              </>
+            )}
+          </div>
 
           {/* 그라인더 - 전자동이면 숨김 */}
           {!isAutoMode && (
@@ -1744,7 +1743,10 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               {t.coffeeMenu}
             </label>
             <div className="menu-selector" style={{ border: errors.menu ? "1px solid #c0392b" : "none", borderRadius: "2px", padding: errors.menu ? "0.5rem" : "0" }}>
-              {COFFEE_MENUS.map(m => (
+              {(machineType === "handdrip"
+                ? COFFEE_MENUS.filter(m => m.id === "hand_drip" || m.id === "other")
+                : COFFEE_MENUS
+              ).map(m => (
                 <button
                   key={m.id}
                   type="button"
@@ -1807,6 +1809,11 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               placeholder="36" min="0"
               style={{ borderColor: errors.espressoMl ? "#c0392b" : undefined }} />
             {errors.espressoMl && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
+          </div>
+          <div className="field">
+            <label>🌡️ {lang === "en" ? "Water Temp (°C)" : "물 온도 (°C)"}</label>
+            <input type="number" value={form.waterTemp} onChange={e => set("waterTemp", String(Math.max(0, Number(e.target.value))))}
+              placeholder="93" min="0" max="100" />
           </div>
           {needsDilute && (<>
             <div className="field">
@@ -1904,10 +1911,12 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 // ─── MyModal ──────────────────────────────────────────────────────
 function MyModal({ onClose, user, lang = 'ko' }) {
   // 머신
-  const [machine, setMachine] = useState(loadMyMachine() || { brand: "", model: "" });
-  const [machineEditing, setMachineEditing] = useState(!machine.brand);
+  const [machine, setMachine] = useState(loadMyMachine() || { brand: "", model: "", equipType: "machine" });
+  const [machineEditing, setMachineEditing] = useState(!machine.brand && !machine.handDripName);
   const [machineBrand, setMachineBrand] = useState(machine.brand || "");
   const [machineModel, setMachineModel] = useState(machine.model || "");
+  const [equipType, setEquipType] = useState(machine.equipType || "machine");
+  const [handDripName, setHandDripName] = useState(machine.handDripName || "");
 
   // 그라인더
   const [grinder, setGrinder] = useState(loadMyGrinder() || { brand: "", model: "" });
@@ -1926,9 +1935,13 @@ function MyModal({ onClose, user, lang = 'ko' }) {
   const [grinderMsg, setGrinderMsg] = useState(null);
 
   const saveMachine = () => {
-    if (!machineBrand) return setMachineMsg({ type: "error", text: "브랜드를 선택해주세요." });
-    saveMyMachine({ brand: machineBrand, model: machineModel });
-    setMachine({ brand: machineBrand, model: machineModel });
+    if (equipType === "machine" && !machineBrand) return setMachineMsg({ type: "error", text: "브랜드를 선택해주세요." });
+    if (equipType === "handdrip" && !handDripName.trim()) return setMachineMsg({ type: "error", text: "기구명을 입력해주세요." });
+    const data = equipType === "handdrip"
+      ? { brand: "", model: "", equipType: "handdrip", handDripName: handDripName.trim() }
+      : { brand: machineBrand, model: machineModel, equipType: "machine", handDripName: "" };
+    saveMyMachine(data);
+    setMachine(data);
     setMachineEditing(false);
     setMachineMsg({ type: "ok", text: "저장됐어요 ✓" });
     setTimeout(() => setMachineMsg(null), 2000);
@@ -1975,29 +1988,57 @@ function MyModal({ onClose, user, lang = 'ko' }) {
       <div className="modal">
         <h2>👤 MY 설정</h2>
 
-        {/* 커피 머신 */}
+        {/* 커피 머신 / 핸드드립 */}
         <div className="my-section">
-          <div className="my-section-title">🤖 커피 머신</div>
+          <div className="my-section-title">☕ {lang === "en" ? "Equipment" : "추출 기구"}</div>
           {!machineEditing ? (
             <div className="my-locked-row">
-              <div className="my-locked-val">{machine.brand ? `${machine.brand}${machine.model ? " " + machine.model : ""}` : "미설정"}</div>
-              <button className="btn-change" onClick={() => setMachineEditing(true)}>{ lang === "en" ? "Edit" : "변경"}</button>
+              <div className="my-locked-val">
+                {machine.equipType === "handdrip"
+                  ? (machine.handDripName ? `🫗 ${machine.handDripName}` : "미설정")
+                  : (machine.brand ? `🤖 ${machine.brand}${machine.model ? " " + machine.model : ""}` : "미설정")}
+              </div>
+              <button className="btn-change" onClick={() => setMachineEditing(true)}>{lang === "en" ? "Edit" : "변경"}</button>
             </div>
           ) : (
             <>
-              <div className="field">
-                <label>브랜드</label>
-                <BrandInput value={machineBrand} onChange={v => { setMachineBrand(v); setMachineModel(""); }} brands={MACHINE_BRANDS} />
+              {/* 타입 선택 탭 */}
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+                <button
+                  onClick={() => setEquipType("machine")}
+                  style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: equipType === "machine" ? "var(--espresso)" : "var(--foam)", color: equipType === "machine" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer", transition: "all 0.2s" }}
+                >
+                  🤖 {lang === "en" ? "Coffee Machine" : "커피 머신"}
+                </button>
+                <button
+                  onClick={() => setEquipType("handdrip")}
+                  style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: equipType === "handdrip" ? "var(--espresso)" : "var(--foam)", color: equipType === "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer", transition: "all 0.2s" }}
+                >
+                  🫗 {lang === "en" ? "Hand Drip" : "핸드드립"}
+                </button>
               </div>
-              {machineBrand && (
+              {equipType === "machine" ? (
+                <>
+                  <div className="field">
+                    <label>{lang === "en" ? "Brand" : "브랜드"}</label>
+                    <BrandInput value={machineBrand} onChange={v => { setMachineBrand(v); setMachineModel(""); }} brands={MACHINE_BRANDS} />
+                  </div>
+                  {machineBrand && (
+                    <div className="field">
+                      <label>{lang === "en" ? "Model" : "세부 모델명"}</label>
+                      <input value={machineModel} onChange={e => setMachineModel(e.target.value)} placeholder="예) Barista Express …" />
+                    </div>
+                  )}
+                </>
+              ) : (
                 <div className="field">
-                  <label>{t ? t.machineModel : "세부 모델명"}</label>
-                  <input value={machineModel} onChange={e => setMachineModel(e.target.value)} placeholder="예) Barista Express …" />
+                  <label>{lang === "en" ? "Equipment Name" : "기구명"}</label>
+                  <input value={handDripName} onChange={e => setHandDripName(e.target.value)} placeholder={lang === "en" ? "e.g. Hario V60, Chemex …" : "예) 하리오 V60, 케멕스 …"} />
                 </div>
               )}
               <div className="save-row">
-                {machine.brand && <button className="btn-change" style={{ marginRight: "0.5rem" }} onClick={() => { setMachineBrand(machine.brand); setMachineModel(machine.model); setMachineEditing(false); }}>취소</button>}
-                <button className="btn-save-sm" onClick={saveMachine}>저장</button>
+                {(machine.brand || machine.handDripName) && <button className="btn-change" style={{ marginRight: "0.5rem" }} onClick={() => { setMachineBrand(machine.brand); setMachineModel(machine.model); setEquipType(machine.equipType || "machine"); setHandDripName(machine.handDripName || ""); setMachineEditing(false); }}>취소</button>}
+                <button className="btn-save-sm" onClick={saveMachine}>{lang === "en" ? "Save" : "저장"}</button>
               </div>
             </>
           )}
@@ -2082,8 +2123,8 @@ function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDele
           <div>
             {recipe.machine && (
         <div className="card-machine">
-          {recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
-          {recipe.machineType && (
+          {recipe.machineType === "handdrip" ? "🫗" : recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
+          {recipe.machineType && recipe.machineType !== "handdrip" && (
             <span style={{ marginLeft: "0.4rem", fontSize: "0.68rem", background: recipe.machineType === "auto" ? "var(--latte)" : "var(--steam)", color: "var(--espresso)", padding: "0.1rem 0.4rem", borderRadius: "999px" }}>
               {recipe.machineType === "auto" ? (lang === "en" ? "Auto" : "전자동") : (lang === "en" ? "Semi-auto" : "반자동")}
             </span>
@@ -2101,10 +2142,11 @@ function RecipeDetailModal({ recipe, onClose, currentUid, onLike, onEdit, onDele
             🌱 {t.roasting} {new Date(recipe.roastDate).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US")}
           </div>
         )}
-        <div className="card-stats" style={{ marginBottom: "1rem" }}>
+        <div className="card-stats" style={{ marginBottom: "1rem", gridTemplateColumns: recipe.waterTemp ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
           <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
           <div className="stat"><span className="stat-val">{recipe.seconds}s</span><span className="stat-label">{t.statSeconds}</span></div>
           <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
+          {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">🌡️ {lang === "en" ? "Temp" : "물 온도"}</span></div>}
         </div>
         {recipe.diluteMl && (
           <div className="card-dilution">💧 {recipe.diluteType} {recipe.diluteMl}ml 희석</div>
@@ -2164,8 +2206,8 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
     <div className="recipe-card">
       {recipe.machine && (
         <div className="card-machine">
-          {recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
-          {recipe.machineType && (
+          {recipe.machineType === "handdrip" ? "🫗" : recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
+          {recipe.machineType && recipe.machineType !== "handdrip" && (
             <span style={{ marginLeft: "0.4rem", fontSize: "0.68rem", background: recipe.machineType === "auto" ? "var(--latte)" : "var(--steam)", color: "var(--espresso)", padding: "0.1rem 0.4rem", borderRadius: "999px" }}>
               {recipe.machineType === "auto" ? (lang === "en" ? "Auto" : "전자동") : (lang === "en" ? "Semi-auto" : "반자동")}
             </span>
@@ -2190,10 +2232,11 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
       <div className="card-company">{recipe.company}</div>
       <div className="card-bean">{recipe.bean}</div>
       {recipe.roastDate && <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.8rem" }}>🌱 {t.roasting} {new Date(recipe.roastDate).toLocaleDateString(lang === "en" ? "en-US" : "ko-KR")}</div>}
-      <div className="card-stats">
+      <div className="card-stats" style={{ gridTemplateColumns: recipe.waterTemp ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
         <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
         <div className="stat"><span className="stat-val">{recipe.seconds}s</span><span className="stat-label">{t.statSeconds}</span></div>
         <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
+        {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">🌡️ {lang === "en" ? "Temp" : "물 온도"}</span></div>}
       </div>
       {recipe.diluteMl && <div className="card-dilution">💧 {lang === "en" ? (recipe.diluteType === "물" ? "Water" : recipe.diluteType === "우유" ? "Milk" : recipe.diluteType === "두유" ? "Soy Milk" : recipe.diluteType) : recipe.diluteType} {recipe.diluteMl}ml {t.dilution}</div>}
       {recipe.syrup && <div className="card-dilution">🍯 {recipe.syrup}</div>}
