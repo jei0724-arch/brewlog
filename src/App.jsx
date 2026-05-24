@@ -405,6 +405,19 @@ const CSS = `
   .notice-item-date { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
   .btn-admin-header { background: none; border: 1px solid #ff000040; color: #ff6b6b; padding: 0.3rem 0.6rem; border-radius: 2px; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
   .btn-admin-header:hover { border-color: #ff6b6b; }
+  /* ── 알림 ── */
+  .notif-btn { position: relative; background: none; border: none; cursor: pointer; font-size: 1.2rem; color: var(--cream); padding: 0.2rem; line-height: 1; }
+  .notif-badge { position: absolute; top: -2px; right: -4px; background: #e74c3c; color: white; font-size: 0.55rem; font-weight: 700; min-width: 14px; height: 14px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 3px; font-family: 'DM Sans',sans-serif; }
+  .notif-dropdown { position: absolute; top: calc(100% + 8px); right: 0; width: 300px; background: var(--foam); border: 1px solid var(--steam); border-radius: 6px; box-shadow: 0 8px 24px #0002; z-index: 200; overflow: hidden; }
+  .notif-header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid var(--steam); font-family: 'DM Sans',sans-serif; font-size: 0.82rem; font-weight: 600; color: var(--espresso); }
+  .notif-list { max-height: 320px; overflow-y: auto; }
+  .notif-item { padding: 0.75rem 1rem; border-bottom: 1px solid var(--steam); cursor: pointer; transition: background 0.15s; }
+  .notif-item:hover { background: var(--cream); }
+  .notif-item.unread { background: #fff8f0; }
+  .notif-item-text { font-family: 'DM Sans',sans-serif; font-size: 0.8rem; color: var(--espresso); line-height: 1.4; margin-bottom: 0.2rem; }
+  .notif-item-time { font-family: 'DM Sans',sans-serif; font-size: 0.68rem; color: var(--muted); }
+  .notif-empty { padding: 2rem; text-align: center; font-family: 'DM Sans',sans-serif; font-size: 0.82rem; color: var(--muted); }
+
   .notice-banner { background: var(--espresso); color: var(--cream); padding: 0.6rem 2rem; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
   .notice-banner-close { background: none; border: none; color: var(--steam); cursor: pointer; font-size: 1rem; flex-shrink: 0; }
   @media (max-width: 600px) {
@@ -1673,6 +1686,23 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
           uid: user?.uid,
           createdAt: serverTimestamp(),
         });
+        // 작성자를 구독한 유저들에게 알림
+        try {
+          const followSnap = await getDocs(
+            query(collection(db, "users"), where("following", "array-contains", user?.uid))
+          );
+          const batch = followSnap.docs.map(d =>
+            addDoc(collection(db, "notifications"), {
+              toUid: d.id,
+              type: "newRecipe",
+              fromUser: user?.displayName,
+              beanName: payload.bean || "",
+              read: false,
+              createdAt: serverTimestamp(),
+            }).catch(() => {})
+          );
+          await Promise.all(batch);
+        } catch(e) { /* 구독자 없거나 오류 시 무시 */ }
       }
       onSave();
     } catch (e) { alert("저장 오류: " + e.message); }
@@ -2390,6 +2420,19 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
         text,
         createdAt: serverTimestamp(),
       });
+      // 레시피 작성자에게 알림 (본인 댓글 제외)
+      if (recipe.uid && recipe.uid !== currentUser.uid) {
+        await addDoc(collection(db, "notifications"), {
+          toUid: recipe.uid,
+          type: "comment",
+          fromUser: currentUser.displayName,
+          recipeId: recipe.id,
+          beanName: recipe.bean || "",
+          text: text.slice(0, 50),
+          read: false,
+          createdAt: serverTimestamp(),
+        }).catch(() => {});
+      }
       setCommentText("");
     } catch(e) { console.error(e); }
     setCommentLoading(false);
@@ -2717,6 +2760,26 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
 
 // ─── MainApp ───────────────────────────────────────────────────────
 function MainApp({ user, lang, toggleLang, onRequireAuth }) {
+  const [notifications, setNotifications] = useState([]);
+  const [showNotif, setShowNotif] = useState(false);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(collection(db, "notifications"), where("toUid", "==", user.uid));
+    const unsub = onSnapshot(q, snap => {
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      setNotifications(list.slice(0, 30));
+    }, () => {});
+    return unsub;
+  }, [user?.uid]);
+
+  const markAllRead = async () => {
+    const unread = notifications.filter(n => !n.read);
+    await Promise.all(unread.map(n => updateDoc(doc(db, "notifications", n.id), { read: true }).catch(() => {})));
+  };
+
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState("");
   const [myRecipesOnly, setMyRecipesOnly] = useState(false);
@@ -2854,6 +2917,35 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             </span>
             {isAdmin && <button className="btn-admin-header" onClick={() => setAdminMode(true)}>관리자</button>}
             <button className="btn-lang" onClick={toggleLang}>{lang === "ko" ? "EN" : "KO"}</button>
+            {/* 알림 버튼 */}
+            <div style={{ position: "relative" }}>
+              <button className="notif-btn" onClick={() => { setShowNotif(v => !v); if (!showNotif) markAllRead(); }}>
+                🔔
+                {unreadCount > 0 && <span className="notif-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+              </button>
+              {showNotif && (
+                <div className="notif-dropdown">
+                  <div className="notif-header">
+                    <span>{lang === "en" ? "Notifications" : "알림"}</span>
+                    <button onClick={() => setShowNotif(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "0.9rem" }}>✕</button>
+                  </div>
+                  <div className="notif-list">
+                    {notifications.length === 0 ? (
+                      <div className="notif-empty">{lang === "en" ? "No notifications" : "알림이 없어요"}</div>
+                    ) : notifications.map(n => (
+                      <div key={n.id} className={`notif-item ${n.read ? "" : "unread"}`} onClick={() => setShowNotif(false)}>
+                        <div className="notif-item-text">
+                          {n.type === "comment"
+                            ? (lang === "en" ? `${n.fromUser} commented on "${n.beanName}"` : `${n.fromUser}님이 "${n.beanName}" 레시피에 댓글을 남겼어요`)
+                            : (lang === "en" ? `${n.fromUser} posted a new recipe: "${n.beanName}"` : `구독 중인 ${n.fromUser}님이 "${n.beanName}" 레시피를 올렸어요`)}
+                        </div>
+                        <div className="notif-item-time">{n.createdAt?.toDate?.()?.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US") || ""}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <button className="btn-my" onClick={() => setShowMyModal(true)}>MY</button>
             <button className="btn-logout" onClick={() => signOut(auth)}>{I18N[lang].logout}</button>
           </>
