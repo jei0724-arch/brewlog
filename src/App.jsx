@@ -158,27 +158,76 @@ const CSS = `
   .btn-new:hover { background: var(--roast); }
 
   .recipes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+  /* ── 카드 공통 폰트 기준 ──────────────────────────────── */
+  /* label-xs : 0.68rem / label-sm : 0.75rem / body : 0.85rem / title : 1.05rem */
+
   .recipe-card {
-    background: var(--foam); border: 1px solid var(--steam); border-radius: 2px;
-    padding: 1.5rem; position: relative; transition: transform 0.2s, box-shadow 0.2s; overflow: hidden;
+    background: var(--foam); border: 1px solid var(--steam); border-radius: 6px;
+    padding: 1.4rem 1.5rem; position: relative;
+    transition: transform 0.2s, box-shadow 0.2s; overflow: hidden;
+    font-family: 'DM Sans', sans-serif; text-align: left;
   }
-  .recipe-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--latte), var(--accent)); }
+  .recipe-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--latte), var(--accent)); border-radius: 6px 6px 0 0; }
   .recipe-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px #2c181018; }
-  .card-machine { font-size: 0.7rem; color: var(--muted); margin-bottom: 0.2rem; }
-  .card-company { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.3rem; }
-  .card-bean { font-family: 'Playfair Display', serif; font-size: 1.15rem; color: var(--espresso); margin-bottom: 1rem; line-height: 1.3; }
-  .card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
-  .stat { background: var(--cream); padding: 0.5rem 0.4rem; border-radius: 2px; text-align: center; }
-  .stat-val { font-size: 1rem; font-weight: 500; color: var(--roast); display: block; }
-  .stat-label { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-top: 0.1rem; }
-  .card-dilution { font-size: 0.82rem; color: var(--muted); padding: 0.5rem 0.8rem; background: var(--cream); border-radius: 2px; margin-bottom: 0.8rem; }
-  .card-note { font-size: 0.82rem; color: var(--roast); font-style: italic; line-height: 1.5; border-left: 2px solid var(--latte); padding-left: 0.7rem; margin-bottom: 0.8rem; }
-  .card-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--muted); border-top: 1px solid var(--steam); padding-top: 0.8rem; }
-  .card-author { font-weight: 500; color: var(--roast); }
-  .card-actions { display: flex; gap: 0.5rem; }
-  .card-edit { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; transition: color 0.2s; }
+
+  /* 장비 칩 태그 */
+  .card-chip {
+    display: inline-flex; align-items: center; gap: 0.2rem;
+    font-family: 'DM Sans', sans-serif; font-size: 0.7rem; font-weight: 500;
+    color: var(--muted); background: var(--cream);
+    border: 1px solid var(--steam); border-radius: 999px;
+    padding: 0.18rem 0.55rem; white-space: nowrap; line-height: 1.4;
+  }
+
+  /* 머신 / 그라인더 */
+  .card-machine {
+    font-family: 'DM Sans', sans-serif; font-size: 0.75rem;
+    color: var(--muted); margin-bottom: 0.25rem; line-height: 1.4;
+  }
+  /* 원두 회사 */
+  .card-company {
+    font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.2rem; text-align: left;
+  }
+  /* 원두 이름 (card-bean - 하위호환용) */
+  .card-bean {
+    font-family: 'Playfair Display', serif; font-size: 1.05rem;
+    color: var(--espresso); margin-bottom: 0.3rem; line-height: 1.3; font-weight: 700; text-align: left;
+  }
+  /* 스탯 박스 */
+  .card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.9rem; }
+  .stat { background: var(--cream); padding: 0.55rem 0.4rem; border-radius: 4px; text-align: center; }
+  .stat-val {
+    font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 600;
+    color: var(--roast); display: block; letter-spacing: -0.01em;
+  }
+  .stat-label {
+    font-family: 'DM Sans', sans-serif; font-size: 0.68rem; color: var(--muted);
+    letter-spacing: 0.04em; display: block; margin-top: 0.15rem;
+  }
+  /* 희석 / 날씨 */
+  .card-dilution {
+    font-family: 'DM Sans', sans-serif; font-size: 0.78rem;
+    color: var(--muted); padding: 0.45rem 0.75rem;
+    background: var(--cream); border-radius: 4px; margin-bottom: 0.7rem;
+  }
+  /* 메모 */
+  .card-note {
+    font-family: 'DM Sans', sans-serif; font-size: 0.82rem;
+    color: var(--roast); font-style: italic; line-height: 1.6;
+    border-left: 2px solid var(--latte); padding-left: 0.75rem; margin-bottom: 0.8rem;
+  }
+  /* 푸터 */
+  .card-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: 'DM Sans', sans-serif; font-size: 0.75rem; color: var(--muted);
+    border-top: 1px solid var(--steam); padding-top: 0.75rem; margin-top: 0.1rem;
+  }
+  .card-author { font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--roast); }
+  .card-actions { display: flex; gap: 0.4rem; align-items: center; }
+  .card-edit { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.95rem; transition: color 0.2s; }
   .card-edit:hover { color: var(--accent); }
-  .card-delete { background: none; border: none; color: #c0392b55; cursor: pointer; font-size: 1rem; transition: color 0.2s; }
+  .card-delete { background: none; border: none; color: #c0392b55; cursor: pointer; font-size: 0.95rem; transition: color 0.2s; }
   .card-delete:hover { color: #c0392b; }
   .empty-state { text-align: center; padding: 5rem 2rem; color: var(--muted); grid-column: 1 / -1; }
   .empty-state span { font-size: 3rem; display: block; margin-bottom: 1rem; }
@@ -207,7 +256,7 @@ const CSS = `
   .weather-main { font-size: 0.88rem; color: var(--espresso); font-weight: 500; }
   .weather-detail { font-size: 0.78rem; color: var(--muted); }
   .weather-loading { color: var(--muted); font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
-  .card-weather { font-size: 0.75rem; color: var(--muted); padding: 0.3rem 0.6rem; background: var(--cream); border-radius: 2px; margin-bottom: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .card-weather { font-family: "DM Sans", sans-serif; font-size: 0.75rem; color: var(--muted); padding: 0.35rem 0.7rem; background: var(--cream); border-radius: 4px; margin-bottom: 0.6rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
   .menu-selector { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .menu-btn {
     padding: 0.45rem 0.9rem; border: 1px solid var(--steam); border-radius: 999px;
@@ -284,6 +333,7 @@ const CSS = `
     background: var(--foam); border: 1px solid var(--steam); border-radius: 2px;
     padding: 2.5rem 2rem; width: 100%; max-width: 500px; max-height: 90vh;
     overflow-y: auto; position: relative; animation: slideUp 0.2s ease;
+    text-align: left;
   }
   @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .modal::before { content: ''; position: absolute; top: 0; left: 2rem; right: 2rem; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); }
@@ -404,7 +454,9 @@ const CSS = `
     /* 카드 */
     .recipe-card { padding: 1rem; }
     .card-stats { gap: 0.3rem; }
-    .stat-val { font-size: 1.1rem; }
+    .stat-val { font-size: 0.95rem; }
+    .card-bean { font-size: 0.98rem; }
+    .card-machine { font-size: 0.72rem; }
     .nick-badge { display: none; }
 
     /* 모달 */
@@ -1233,9 +1285,9 @@ const I18N = {
     emptyMy: "아직 내 레시피가 없어요. 첫 번째 기록을 남겨보세요!",
     emptySearch: "검색 결과가 없어요.",
     bestTitle: "🏆 베스트 레시피",
-    recordTitle: "☕ 레시피 기록하기", editTitle: "✏️ 레시피 수정하기",
+    recordTitle: "레시피 기록하기", editTitle: "레시피 수정하기",
     machine: "커피 머신", machineBrand: "커피 머신 브랜드", machineModel: "세부 모델명",
-    machineType: "머신 타입", autoType: "🤖 전자동", manualType: "🔧 반자동",
+    machineType: "머신 타입", autoType: "전자동", manualType: "반자동",
     grinder: "그라인더", grinderBrand: "그라인더 브랜드",
     company: "원두 회사명 *", bean: "원두 이름 *", roastDate: "로스팅 일자",
     coffeeMenu: "커피 메뉴 *", gram: "원두량 (G) *", gramAuto: "원두 분쇄량 (콩 갯수) *",
@@ -1253,6 +1305,7 @@ const I18N = {
     timerStart: "추출 시작", timerStop: "정지", timerReset: "초기화", timerApply: "적용",
     follow: "구독", following: "구독중", unfollow: "구독취소", followingFeed: "구독",
     commentPlaceholder: "댓글을 남겨보세요…", commentSubmit: "등록", commentDelete: "삭제", commentLogin: "로그인 후 댓글 작성 가능해요", comments: "댓글",
+    report: "신고", reportDone: "신고가 접수됐어요", reportAlready: "이미 신고한 콘텐츠예요", reportReasons: ["스팸/홍보", "욕설/혐오", "부적절한 내용", "기타"],
     bookmarks: "즐겨찾기", bookmarkSave: "저장됨", bookmarkAdd: "즐겨찾기 추가", bookmarkRemove: "즐겨찾기 해제",
     allRecipes: "전체", myBookmarks: "즐겨찾기", myRecipes: "내 레시피",
     ratingLabels: ["평가 없음", "별로예요", "그저 그래요", "괜찮아요", "맛있어요", "최고예요!"],
@@ -1285,9 +1338,9 @@ const I18N = {
     emptyMy: "No recipes yet. Start sharing!",
     emptySearch: "No results found.",
     bestTitle: "🏆 Best Recipes",
-    recordTitle: "☕ Record Recipe", editTitle: "✏️ Edit Recipe",
+    recordTitle: "Record Recipe", editTitle: "Edit Recipe",
     machine: "Coffee Machine", machineBrand: "Machine Brand", machineModel: "Model Name",
-    machineType: "Machine Type", autoType: "🤖 Automatic", manualType: "🔧 Semi-auto",
+    machineType: "Machine Type", autoType: "Automatic", manualType: "Semi-auto",
     grinder: "Grinder", grinderBrand: "Grinder Brand",
     company: "Brand *", bean: "Bean Name *", roastDate: "Roast Date",
     coffeeMenu: "Coffee Menu *", gram: "Dose (G) *", gramAuto: "Bean Count *",
@@ -1305,6 +1358,7 @@ const I18N = {
     timerStart: "Start", timerStop: "Stop", timerReset: "Reset", timerApply: "Apply",
     follow: "Subscribe", following: "Subscribed", unfollow: "Unsubscribe", followingFeed: "Following",
     commentPlaceholder: "Leave a comment…", commentSubmit: "Post", commentDelete: "Delete", commentLogin: "Sign in to leave a comment", comments: "Comments",
+    report: "Report", reportDone: "Report submitted", reportAlready: "Already reported", reportReasons: ["Spam", "Hate speech", "Inappropriate content", "Other"],
     bookmarks: "Bookmarks", bookmarkSave: "Saved", bookmarkAdd: "Save recipe", bookmarkRemove: "Remove bookmark",
     allRecipes: "All", myBookmarks: "Bookmarks", myRecipes: "My Recipes",
     ratingLabels: ["No rating", "Poor", "Fair", "Good", "Great", "Excellent!"],
@@ -1640,12 +1694,12 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                 type="button"
                 onClick={() => { setMachineType("auto"); setMachineBrand(savedMachine?.equipType !== "handdrip" ? (savedMachine?.brand || "") : ""); setMachineModel(savedMachine?.equipType !== "handdrip" ? (savedMachine?.model || "") : ""); setMachineLocked(false); }}
                 style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: machineType !== "handdrip" ? "var(--espresso)" : "var(--foam)", color: machineType !== "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", cursor: "pointer", transition: "all 0.2s" }}
-              >🤖 {lang === "en" ? "Coffee Machine" : "커피 머신"}</button>
+              >{lang === "en" ? "Coffee Machine" : "커피 머신"}</button>
               <button
                 type="button"
                 onClick={() => { setMachineType("handdrip"); setMachineBrand(""); setMachineModel(""); setMachineLocked(false); const hd = COFFEE_MENUS.find(m => m.id === "hand_drip"); if (hd) selectMenu(hd); }}
                 style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: machineType === "handdrip" ? "var(--espresso)" : "var(--foam)", color: machineType === "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", cursor: "pointer", transition: "all 0.2s" }}
-              >🫗 {lang === "en" ? "Hand Drip" : "핸드드립"}</button>
+              >{lang === "en" ? "Hand Drip" : "핸드드립"}</button>
             </div>
             {machineType === "handdrip" ? (
               <input
@@ -1657,7 +1711,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             ) : machineLocked ? (
               <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                 <div style={{ flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>
-                  🤖 {machineDisplay}
+                  {machineDisplay}
                 </div>
                 <button onClick={() => setMachineLocked(false)} style={{ padding: "0.75rem 0.8rem", background: "none", border: "1px solid var(--steam)", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
                   {lang === "en" ? "Edit" : "변경"}
@@ -1704,7 +1758,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                     borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem",
                     color: "var(--espresso)", fontWeight: 500,
                   }}>
-                    ⚙️ {grinderDisplay}
+                    {grinderDisplay}
                   </div>
                   <button onClick={() => setGrinderLocked(false)} style={{
                     padding: "0.75rem 0.8rem", background: "none", border: "1px solid var(--steam)",
@@ -1746,7 +1800,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
           {/* 분쇄도 - 전자동이면 숨김 */}
           {!isAutoMode && (
             <div className="field full">
-              <label>⚙️ {lang === "en" ? "Grind Size" : "분쇄도"}</label>
+              <label>{lang === "en" ? "Grind Size" : "분쇄도"}</label>
               <input
                 value={form.grindSize}
                 onChange={e => set("grindSize", e.target.value)}
@@ -1805,7 +1859,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                   .catch(e => { setWeatherError(typeof e === "string" ? e : e.message); })
                   .finally(() => setWeatherLoading(false));
               }} style={{ padding: "0.75rem 1rem", background: "var(--cream)", border: "1px solid var(--latte)", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", color: "var(--roast)", cursor: "pointer", width: "100%", textAlign: "center" }}>
-                📍 {lang === "en" ? "Get Current Weather" : "현재 날씨 가져오기"}
+                {lang === "en" ? "Get Current Weather" : "현재 날씨 가져오기"}
               </button>
             )}
             {weatherError && <p style={{ fontSize: "0.78rem", color: "#e67e22", marginTop: "0.3rem" }}>⚠️ {lang === "en" ? "Could not get weather. " : "날씨를 가져올 수 없어요. "}{weatherError}</p>}
@@ -1839,7 +1893,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               <div className="bean-counter">
                 <span className="bean-counter-label">
                   {t.gramAuto}
-                  <span className="auto-badge">🤖 전자동</span>
+                  <span className="auto-badge">전자동</span>
                 </span>
                 <div className="bean-counter-display">
                   <div className="bean-icons">
@@ -1885,7 +1939,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             {errors.espressoMl && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
           </div>
           <div className="field">
-            <label>🌡️ {lang === "en" ? "Water Temp (°C)" : "물 온도 (°C)"}</label>
+            <label>{lang === "en" ? "Water Temp (°C)" : "물 온도 (°C)"}</label>
             <input type="number" value={form.waterTemp} onChange={e => set("waterTemp", String(Math.max(0, Number(e.target.value))))}
               placeholder="93" min="0" max="100" />
           </div>
@@ -1894,7 +1948,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               <label>{t ? t.diluteType : "희석 종류"}</label>
               {fixedDilute ? (
                 <div style={{ padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>
-                  💧 {lang === "en" ? (fixedDiluteEn || fixedDilute) : fixedDilute} {lang === "en" ? "(Fixed)" : "(고정)"}
+                  {lang === "en" ? (fixedDiluteEn || fixedDilute) : fixedDilute} {lang === "en" ? "(Fixed)" : "(고정)"}
                 </div>
               ) : (
                 <input
@@ -2210,8 +2264,103 @@ function MyModal({ onClose, user, lang = 'ko' }) {
   );
 }
 
+// ─── ReportModal ──────────────────────────────────────────────────
+function ReportModal({ type, targetId, currentUser, onClose, lang = "ko" }) {
+  const t = I18N[lang];
+  const [reason, setReason] = useState("");
+  const [custom, setCustom] = useState("");
+  const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (!reason) return;
+    setLoading(true);
+    try {
+      // 중복 신고 체크
+      const q = query(collection(db, "reports"),
+        where("targetId", "==", targetId),
+        where("uid", "==", currentUser.uid)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) { setDone("already"); setLoading(false); return; }
+
+      // 신고 등록
+      await addDoc(collection(db, "reports"), {
+        type, targetId, uid: currentUser.uid,
+        reason: reason === "기타" || reason === "Other" ? (custom || reason) : reason,
+        createdAt: serverTimestamp(), status: "pending",
+      });
+
+      // 신고 수 집계 후 3회 이상이면 비공개 처리
+      const allQ = query(collection(db, "reports"), where("targetId", "==", targetId));
+      const allSnap = await getDocs(allQ);
+      if (allSnap.size >= 3) {
+        if (type === "recipe") {
+          await updateDoc(doc(db, "recipes", targetId), { isPublic: false, reportHidden: true });
+        } else if (type === "comment") {
+          await updateDoc(doc(db, "comments", targetId), { hidden: true });
+        }
+      }
+      setDone("ok");
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: "340px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+          <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--espresso)" }}>🚨 {t.report}</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: "1.1rem", cursor: "pointer", color: "var(--muted)" }}>✕</button>
+        </div>
+        {done === "ok" ? (
+          <div style={{ textAlign: "center", padding: "1.5rem 0" }}>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>✅</div>
+            <p style={{ color: "var(--espresso)", fontSize: "0.9rem" }}>{t.reportDone}</p>
+            <button className="btn-primary" style={{ marginTop: "1rem", width: "auto", padding: "0.5rem 1.5rem" }} onClick={onClose}>확인</button>
+          </div>
+        ) : done === "already" ? (
+          <div style={{ textAlign: "center", padding: "1.5rem 0" }}>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>⚠️</div>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{t.reportAlready}</p>
+            <button className="btn-primary" style={{ marginTop: "1rem", width: "auto", padding: "0.5rem 1.5rem" }} onClick={onClose}>확인</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" }}>
+              {t.reportReasons.map(r => (
+                <button key={r} type="button" onClick={() => setReason(r)}
+                  style={{ padding: "0.6rem 1rem", border: "1px solid", borderRadius: "2px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", textAlign: "left", transition: "all 0.15s",
+                    borderColor: reason === r ? "var(--accent)" : "var(--steam)",
+                    background: reason === r ? "#fff3ee" : "var(--foam)",
+                    color: reason === r ? "var(--accent)" : "var(--espresso)", fontWeight: reason === r ? 600 : 400 }}>
+                  {reason === r ? "● " : "○ "}{r}
+                </button>
+              ))}
+            </div>
+            {(reason === "기타" || reason === "Other") && (
+              <input value={custom} onChange={e => setCustom(e.target.value)}
+                placeholder={lang === "en" ? "Please describe…" : "내용을 입력해주세요…"}
+                style={{ width: "100%", padding: "0.6rem 0.8rem", border: "1px solid var(--steam)", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", marginBottom: "0.8rem", background: "var(--cream)", color: "var(--espresso)", outline: "none" }}
+              />
+            )}
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={onClose}>{lang === "en" ? "Cancel" : "취소"}</button>
+              <button className="btn-primary" style={{ width: "auto", padding: "0.6rem 1.5rem", marginTop: 0, background: "#e74c3c", opacity: reason ? 1 : 0.5 }}
+                onClick={submit} disabled={loading || !reason}>
+                {loading ? "…" : t.report}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── RecipeDetailModal ────────────────────────────────────────────
 function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, lang = "ko" }) {
+  const [showReport, setShowReport] = useState(null); // { type, targetId }
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
@@ -2223,7 +2372,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       // 클라이언트에서 시간순 정렬 (Firestore 복합 인덱스 불필요)
       list.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
-      setComments(list);
+      setComments(list.filter(c => !c.hidden));
     });
     return unsub;
   }, [recipe?.id]);
@@ -2257,31 +2406,53 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
   const isOwner = recipe.uid === currentUid;
 
   return (
+    <>
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "460px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.2rem" }}>
-          <div>
-            {recipe.machine && (
-        <div className="card-machine">
-          {recipe.machineType === "handdrip" ? "🫗" : recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
-          {recipe.machineType && recipe.machineType !== "handdrip" && (
-            <span style={{ marginLeft: "0.4rem", fontSize: "0.68rem", background: recipe.machineType === "auto" ? "var(--latte)" : "var(--steam)", color: "var(--espresso)", padding: "0.1rem 0.4rem", borderRadius: "999px" }}>
-              {recipe.machineType === "auto" ? (lang === "en" ? "Auto" : "전자동") : (lang === "en" ? "Semi-auto" : "반자동")}
-            </span>
-          )}
+        {/* 닫기 버튼 */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.8rem" }}>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--muted)" }}>✕</button>
         </div>
-      )}
-            {recipe.grinder && <div className="card-machine">⚙️ {recipe.grinder}{recipe.grindSize ? <span style={{marginLeft:"0.5rem",fontSize:"0.8rem",color:"var(--muted)"}}>({recipe.grindSize})</span> : null}</div>}
-            <div className="card-company" style={{ marginTop: "0.3rem" }}>{recipe.company}</div>
-            <div className="card-bean" style={{ marginBottom: 0 }}>{recipe.bean}</div>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: "1.2rem", cursor: "pointer", color: "var(--muted)", flexShrink: 0, marginLeft: "1rem" }}>✕</button>
+
+        {/* 라벨 : 값 정보 */}
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1px 1fr", columnGap: "0.6rem", rowGap: "0.1rem", alignItems: "center", fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", lineHeight: 1.8, marginBottom: "0.8rem" }}>
+          {recipe.machine && (<>
+            <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Machine" : "커피머신"}</span>
+            <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+            <span>{recipe.machine}{recipe.machineType && recipe.machineType !== "handdrip" && (<span style={{ marginLeft: "0.3rem", fontSize: "0.65rem", background: recipe.machineType === "auto" ? "var(--latte)" : "var(--steam)", color: "var(--espresso)", padding: "0.05rem 0.3rem", borderRadius: "999px" }}>{recipe.machineType === "auto" ? (lang === "en" ? "Auto" : "전자동") : (lang === "en" ? "Semi" : "반자동")}</span>)}</span>
+          </>)}
+          {recipe.grinder && (<>
+            <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Grinder" : "그라인더"}</span>
+            <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+            <span>{recipe.grinder}</span>
+          </>)}
+          {recipe.grindSize && (<>
+            <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Grind" : "분쇄도"}</span>
+            <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+            <span>{recipe.grindSize}</span>
+          </>)}
+          {recipe.company && (<>
+            <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Brand" : "원두 회사"}</span>
+            <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+            <span>{recipe.company}</span>
+          </>)}
+          {recipe.roastDate && (<>
+            <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Roasted" : "로스팅"}</span>
+            <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+            <span>{new Date(recipe.roastDate).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US")}</span>
+          </>)}
+          {recipe.menuLabel && (<>
+            <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Menu" : "메뉴"}</span>
+            <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+            <span>{lang === "en" ? (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.labelEn || recipe.menuLabel) : recipe.menuLabel}</span>
+          </>)}
         </div>
-        {recipe.roastDate && (
-          <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "1rem" }}>
-            🌱 {t.roasting} {new Date(recipe.roastDate).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US")}
-          </div>
-        )}
+
+        {/* 원두명 */}
+        <div style={{ borderTop: "1px solid var(--steam)", paddingTop: "0.7rem", marginBottom: "1rem" }}>
+          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--roast)", opacity: 0.6, marginBottom: "0.15rem" }}>{lang === "en" ? "Product" : "제품명"}</div>
+          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.25rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1.25 }}>{recipe.bean}</div>
+        </div>
         <div className="card-stats" style={{ marginBottom: "1rem", gridTemplateColumns: recipe.waterTemp ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
           <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
           <div className="stat"><span className="stat-val">{recipe.seconds}s</span><span className="stat-label">{t.statSeconds}</span></div>
@@ -2327,6 +2498,12 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
               <button className="card-edit" onClick={() => { onClose(); onEdit(recipe); }}>✏️</button>
               <button className="card-delete" onClick={() => { onClose(); onDelete(recipe.id); }}>🗑</button>
             </>)}
+            {!isOwner && currentUser && (
+              <button onClick={() => setShowReport({ type: "recipe", targetId: recipe.id })}
+                style={{ background: "none", border: "1px solid #e74c3c40", borderRadius: "2px", fontSize: "0.75rem", color: "#e74c3c", cursor: "pointer", padding: "0.2rem 0.6rem", opacity: 0.8, fontFamily: "'DM Sans',sans-serif" }}>
+                {lang === "en" ? "Report" : "신고"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -2346,11 +2523,19 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                         {c.createdAt?.toDate?.()?.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US") || ""}
                       </span>
                     </div>
-                    {c.uid === currentUid && (
-                      <button onClick={() => deleteComment(c.id)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer", flexShrink: 0, padding: 0 }}>
-                        {t.commentDelete}
-                      </button>
-                    )}
+                    <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexShrink: 0 }}>
+                      {c.uid === currentUid && (
+                        <button onClick={() => deleteComment(c.id)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer", padding: 0 }}>
+                          {t.commentDelete}
+                        </button>
+                      )}
+                      {c.uid !== currentUid && currentUser && (
+                        <button onClick={() => setShowReport({ type: "comment", targetId: c.id })}
+                          style={{ background: "none", border: "1px solid #e74c3c40", borderRadius: "2px", color: "#e74c3c", fontSize: "0.7rem", cursor: "pointer", padding: "0.1rem 0.4rem", opacity: 0.8, fontFamily: "'DM Sans',sans-serif" }}>
+                          {lang === "en" ? "Report" : "신고"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div style={{ color: "var(--espresso)", marginTop: "0.3rem", lineHeight: 1.5 }}>{c.text}</div>
                 </div>
@@ -2379,6 +2564,16 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
         </div>
       </div>
     </div>
+    {showReport && currentUser && (
+      <ReportModal
+        type={showReport.type}
+        targetId={showReport.targetId}
+        currentUser={currentUser}
+        lang={lang}
+        onClose={() => setShowReport(null)}
+      />
+    )}
+    </>
   );
 }
 
@@ -2390,39 +2585,65 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
   const likeCount = (recipe.likedBy || []).length;
   const isOwner = recipe.uid === currentUid;
 
+  // Type C: 인라인 압축 구조
+  const machineLabel = recipe.machine
+    ? `${recipe.machineType === "handdrip" ? "🫗" : "🤖"} ${recipe.machine}${recipe.machineType && recipe.machineType !== "handdrip" ? ` · ${recipe.machineType === "auto" ? (lang === "en" ? "Auto" : "전자동") : (lang === "en" ? "Semi" : "반자동")}` : ""}`
+    : null;
+  const grinderLabel = recipe.grinder
+    ? `⚙️ ${recipe.grinder}${recipe.grindSize ? ` (${recipe.grindSize})` : ""}`
+    : null;
+  const menuEmoji = COFFEE_MENUS.find(m => m.id === recipe.menuId)?.emoji || "☕";
+  const menuName = lang === "en"
+    ? (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.labelEn || recipe.menuLabel)
+    : recipe.menuLabel;
+
   return (
     <div className="recipe-card" onClick={onCardClick} style={{ cursor: onCardClick ? "pointer" : "default" }}>
-      {recipe.isPublic === false && (
-        <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: "0.4rem" }}>🔒 {lang === "en" ? "Private" : "비공개"}</div>
-      )}
-      {recipe.machine && (
-        <div className="card-machine">
-          {recipe.machineType === "handdrip" ? "🫗" : recipe.machineType === "manual" ? "🔧" : "🤖"} {recipe.machine}
-          {recipe.machineType && recipe.machineType !== "handdrip" && (
-            <span style={{ marginLeft: "0.4rem", fontSize: "0.68rem", background: recipe.machineType === "auto" ? "var(--latte)" : "var(--steam)", color: "var(--espresso)", padding: "0.1rem 0.4rem", borderRadius: "999px" }}>
-              {recipe.machineType === "auto" ? (lang === "en" ? "Auto" : "전자동") : (lang === "en" ? "Semi-auto" : "반자동")}
-            </span>
-          )}
-        </div>
-      )}
-      {recipe.grinder && <div className="card-machine">⚙️ {recipe.grinder}{recipe.grindSize ? <span style={{marginLeft:"0.5rem",fontSize:"0.8rem",color:"var(--muted)"}}>({recipe.grindSize})</span> : null}</div>}
-      {recipe.weather && (
-        <div className="card-weather">
-          <span>{recipe.weather.icon} {recipe.weather.descKo} {recipe.weather.temp}°C</span>
-          <span>💧 {recipe.weather.humidity}%</span>
-          {(recipe.weather.country || recipe.weather.city) && (
-            <span>🌐 {recipe.weather.country || recipe.weather.city}</span>
-          )}
-        </div>
-      )}
-      {recipe.menuLabel && (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.75rem", background: "var(--espresso)", color: "var(--latte)", padding: "0.2rem 0.6rem", borderRadius: "999px", marginBottom: "0.4rem", fontWeight: 500 }}>
-          {COFFEE_MENUS.find(m => m.id === recipe.menuId)?.emoji || "☕"} {lang === "en" ? (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.labelEn || recipe.menuLabel) : recipe.menuLabel}
-        </div>
-      )}
-      <div className="card-company">{recipe.company}</div>
-      <div className="card-bean">{recipe.bean}</div>
-      {recipe.roastDate && <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.8rem" }}>🌱 {t.roasting} {new Date(recipe.roastDate).toLocaleDateString(lang === "en" ? "en-US" : "ko-KR")}</div>}
+
+      {/* ── 장비 / 원두 정보 라벨 영역 ── */}
+      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", lineHeight: 1.8, marginBottom: "0.6rem", display: "grid", gridTemplateColumns: "auto 1px 1fr", columnGap: "0.6rem", rowGap: "0.1rem", alignItems: "center", textAlign: "left" }}>
+        {recipe.machine && (<>
+          <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Machine" : "커피머신"}</span>
+          <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+          <span>{recipe.machine}{recipe.machineType && recipe.machineType !== "handdrip" && (<span style={{ marginLeft: "0.3rem", fontSize: "0.65rem", background: recipe.machineType === "auto" ? "var(--latte)" : "var(--steam)", color: "var(--espresso)", padding: "0.05rem 0.3rem", borderRadius: "999px" }}>{recipe.machineType === "auto" ? (lang === "en" ? "Auto" : "전자동") : (lang === "en" ? "Semi" : "반자동")}</span>)}</span>
+        </>)}
+        {recipe.grinder && (<>
+          <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Grinder" : "그라인더"}</span>
+          <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+          <span>{recipe.grinder}</span>
+        </>)}
+        {recipe.grindSize && (<>
+          <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Grind" : "분쇄도"}</span>
+          <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+          <span>{recipe.grindSize}</span>
+        </>)}
+        {recipe.company && (<>
+          <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Brand" : "원두 회사"}</span>
+          <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+          <span>{recipe.company}</span>
+        </>)}
+        {recipe.roastDate && (<>
+          <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Roasted" : "로스팅"}</span>
+          <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+          <span>{new Date(recipe.roastDate).toLocaleDateString(lang === "en" ? "en-US" : "ko-KR")}</span>
+        </>)}
+        {recipe.menuLabel && (<>
+          <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Menu" : "메뉴"}</span>
+          <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+          <span>{menuName}</span>
+        </>)}
+        {recipe.isPublic === false && (<>
+          <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Visibility" : "공개"}</span>
+          <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+          <span>{lang === "en" ? "Private" : "비공개"}</span>
+        </>)}
+      </div>
+
+      {/* ── 원두명 (핵심, 크게) ── */}
+      <div style={{ borderTop: "1px solid var(--steam)", paddingTop: "0.65rem", marginBottom: "1rem", textAlign: "left" }}>
+        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--roast)", opacity: 0.6, marginBottom: "0.15rem" }}>{lang === "en" ? "Product" : "제품명"}</div>
+        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.25rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1.25, letterSpacing: "-0.01em" }}>{recipe.bean}</div>
+      </div>
       <div className="card-stats" style={{ gridTemplateColumns: recipe.waterTemp ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
         <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
         <div className="stat"><span className="stat-val">{recipe.seconds}s</span><span className="stat-label">{t.statSeconds}</span></div>
@@ -2772,7 +2993,31 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
   const [users, setUsers] = useState([]);
   const [recipes, setRecipes] = useState([]);
   const [notices, setNotices] = useState([]);
+  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  const loadReports = async () => {
+    try {
+      const snap = await getDocs(query(collection(db, "reports"), orderBy("createdAt", "desc")));
+      setReports(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch(e) { console.error(e); }
+  };
+
+  const handleReportAction = async (report, action) => {
+    try {
+      if (report.type === "recipe") {
+        if (action === "restore") await updateDoc(doc(db, "recipes", report.targetId), { isPublic: true, reportHidden: false });
+        else if (action === "hide") await updateDoc(doc(db, "recipes", report.targetId), { isPublic: false, reportHidden: true });
+        else if (action === "delete") { if (!confirm("레시피를 삭제할까요?")) return; await deleteDoc(doc(db, "recipes", report.targetId)); }
+      } else if (report.type === "comment") {
+        if (action === "restore") await updateDoc(doc(db, "comments", report.targetId), { hidden: false });
+        else if (action === "hide") await updateDoc(doc(db, "comments", report.targetId), { hidden: true });
+        else if (action === "delete") { if (!confirm("댓글을 삭제할까요?")) return; await deleteDoc(doc(db, "comments", report.targetId)); }
+      }
+      await updateDoc(doc(db, "reports", report.id), { status: action, reviewedAt: serverTimestamp() });
+      loadReports();
+    } catch(e) { console.error(e); }
+  };
 
   // 공지사항 폼
   const [noticeTitle, setNoticeTitle] = useState("");
@@ -2835,7 +3080,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
   useEffect(() => { loadAll(); }, [loadAll]);
 
   // 공지사항 탭 전환 시 항상 새로 로드
-  useEffect(() => { if (tab === "notices") loadNotices(); }, [tab, loadNotices]);
+  useEffect(() => { if (tab === "notices") loadNotices(); if (tab === "reports") loadReports(); }, [tab, loadNotices]);
 
   const deleteUser = async (uid, nickname) => {
     if (!confirm(`"${nickname}" 유저의 데이터를 삭제할까요?
@@ -2943,6 +3188,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
 
   const TABS = [
     { key: "stats", label: "📊 통계" },
+    { key: "reports", label: "🚨 신고 관리" },
     { key: "users", label: "👥 회원 관리" },
     { key: "recipes", label: "📋 레시피 관리" },
     { key: "notices", label: "📢 공지사항" },
@@ -3032,6 +3278,65 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
             </tbody>
           </table>
           {users.length === 0 && <p style={{ color: "var(--muted)", textAlign: "center", padding: "2rem" }}>회원이 없어요.</p>}
+        </div>
+      )}
+
+      {/* ── 신고 관리 ── */}
+      {tab === "reports" && (
+        <div className="admin-card" style={{ overflowX: "auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+            <span style={{ fontWeight: 600, color: "var(--espresso)" }}>🚨 신고 목록 ({reports.length})</span>
+            <button className="btn-save-sm" onClick={loadReports}>새로고침</button>
+          </div>
+          {reports.length === 0 ? (
+            <p style={{ color: "var(--muted)", textAlign: "center", padding: "2rem" }}>신고된 콘텐츠가 없어요.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {reports.map(r => (
+                <div key={r.id} style={{ border: "1px solid var(--steam)", borderRadius: "2px", padding: "1rem", background: r.status && r.status !== "pending" ? "var(--foam)" : "#fff5f5" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem", marginBottom: "0.6rem" }}>
+                    <div>
+                      <span style={{ fontSize: "0.7rem", padding: "0.15rem 0.5rem", borderRadius: "999px", marginRight: "0.4rem",
+                        background: r.type === "recipe" ? "#e8f4fd" : "#fef9e7",
+                        color: r.type === "recipe" ? "#2980b9" : "#f39c12", fontWeight: 600 }}>
+                        {r.type === "recipe" ? "레시피" : "댓글"}
+                      </span>
+                      <span style={{ fontSize: "0.7rem", padding: "0.15rem 0.5rem", borderRadius: "999px",
+                        background: r.status === "pending" ? "#fdecea" : "#eafaf1",
+                        color: r.status === "pending" ? "#e74c3c" : "#27ae60", fontWeight: 600 }}>
+                        {r.status === "pending" ? "처리 대기" : r.status === "restore" ? "공개 복구" : r.status === "hide" ? "비공개 처리" : r.status === "delete" ? "삭제 처리" : r.status}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
+                      {r.createdAt?.toDate?.()?.toLocaleDateString("ko-KR") || ""}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "0.85rem", color: "var(--espresso)", marginBottom: "0.3rem" }}>
+                    <strong>사유:</strong> {r.reason}
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: "0.8rem" }}>
+                    <strong>신고자 UID:</strong> {r.uid?.slice(0,12)}… &nbsp;|&nbsp; <strong>대상 ID:</strong> {r.targetId?.slice(0,12)}…
+                  </div>
+                  {r.status === "pending" && (
+                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                      <button onClick={() => handleReportAction(r, "restore")}
+                        style={{ padding: "0.4rem 0.8rem", background: "#27ae60", color: "white", border: "none", borderRadius: "2px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                        ✅ 공개 유지
+                      </button>
+                      <button onClick={() => handleReportAction(r, "hide")}
+                        style={{ padding: "0.4rem 0.8rem", background: "#f39c12", color: "white", border: "none", borderRadius: "2px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                        🔒 비공개 처리
+                      </button>
+                      <button onClick={() => handleReportAction(r, "delete")}
+                        style={{ padding: "0.4rem 0.8rem", background: "#e74c3c", color: "white", border: "none", borderRadius: "2px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
+                        🗑 삭제
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
