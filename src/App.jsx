@@ -2403,6 +2403,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
+  const [replyTo, setReplyTo] = useState(null); // { id, author }
 
   useEffect(() => {
     if (!recipe?.id) return;
@@ -2427,8 +2428,11 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
         uid: currentUser.uid,
         author: currentUser.displayName,
         text,
+        parentId: replyTo?.id || null,
+        parentAuthor: replyTo?.author || null,
         createdAt: serverTimestamp(),
       });
+      setReplyTo(null);
       // 레시피 작성자에게 알림 (본인 댓글 제외)
       if (recipe.uid && recipe.uid !== currentUser.uid) {
         await addDoc(collection(db, "notifications"), {
@@ -2565,48 +2569,89 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             💬 {t.comments} {comments.length > 0 ? `(${comments.length})` : ""}
           </div>
           {comments.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", marginBottom: "0.8rem", maxHeight: "220px", overflowY: "auto" }}>
-              {comments.map(c => (
-                <div key={c.id} style={{ background: "var(--foam)", borderRadius: "2px", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem" }}>
-                    <div>
-                      <span style={{ fontWeight: 600, color: "var(--espresso)", marginRight: "0.4rem" }}>@{c.author}</span>
-                      <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
-                        {c.createdAt?.toDate?.()?.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US") || ""}
-                      </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "0.8rem", maxHeight: "300px", overflowY: "auto" }}>
+              {comments.filter(c => !c.parentId).map(c => (
+                <div key={c.id}>
+                  {/* 원댓글 */}
+                  <div style={{ background: "var(--foam)", borderRadius: "6px", padding: "0.6rem 0.8rem", fontSize: "0.85rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem" }}>
+                      <div>
+                        <span style={{ fontWeight: 600, color: "var(--espresso)", marginRight: "0.4rem" }}>@{c.author}</span>
+                        <span style={{ color: "var(--muted)", fontSize: "0.72rem" }}>{c.createdAt?.toDate?.()?.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US") || ""}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexShrink: 0 }}>
+                        {currentUser && (
+                          <button onClick={() => setReplyTo(replyTo?.id === c.id ? null : { id: c.id, author: c.author })}
+                            style={{ background: "none", border: "none", color: replyTo?.id === c.id ? "var(--accent)" : "var(--muted)", fontSize: "0.72rem", cursor: "pointer", padding: 0, fontFamily: "'DM Sans',sans-serif" }}>
+                            {lang === "en" ? "Reply" : "답글"}
+                          </button>
+                        )}
+                        {c.uid === currentUid && (
+                          <button onClick={() => deleteComment(c.id)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.72rem", cursor: "pointer", padding: 0 }}>
+                            {t.commentDelete}
+                          </button>
+                        )}
+                        {c.uid !== currentUid && currentUser && (
+                          <button onClick={() => setShowReport({ type: "comment", targetId: c.id })}
+                            style={{ background: "none", border: "1px solid #e74c3c40", borderRadius: "2px", color: "#e74c3c", fontSize: "0.68rem", cursor: "pointer", padding: "0.05rem 0.35rem", fontFamily: "'DM Sans',sans-serif" }}>
+                            {lang === "en" ? "Report" : "신고"}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexShrink: 0 }}>
-                      {c.uid === currentUid && (
-                        <button onClick={() => deleteComment(c.id)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.75rem", cursor: "pointer", padding: 0 }}>
-                          {t.commentDelete}
-                        </button>
-                      )}
-                      {c.uid !== currentUid && currentUser && (
-                        <button onClick={() => setShowReport({ type: "comment", targetId: c.id })}
-                          style={{ background: "none", border: "1px solid #e74c3c40", borderRadius: "2px", color: "#e74c3c", fontSize: "0.7rem", cursor: "pointer", padding: "0.1rem 0.4rem", opacity: 0.8, fontFamily: "'DM Sans',sans-serif" }}>
-                          {lang === "en" ? "Report" : "신고"}
-                        </button>
-                      )}
-                    </div>
+                    <div style={{ color: "var(--espresso)", marginTop: "0.25rem", lineHeight: 1.5 }}>{c.text}</div>
                   </div>
-                  <div style={{ color: "var(--espresso)", marginTop: "0.3rem", lineHeight: 1.5 }}>{c.text}</div>
+                  {/* 대댓글 */}
+                  {comments.filter(r => r.parentId === c.id).map(r => (
+                    <div key={r.id} style={{ marginLeft: "1.2rem", marginTop: "0.3rem", background: "var(--cream)", borderLeft: "2px solid var(--latte)", borderRadius: "0 6px 6px 0", padding: "0.5rem 0.8rem", fontSize: "0.82rem" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem" }}>
+                        <div>
+                          <span style={{ fontWeight: 600, color: "var(--espresso)", marginRight: "0.3rem" }}>@{r.author}</span>
+                          <span style={{ color: "var(--latte)", fontSize: "0.7rem", marginRight: "0.3rem" }}>→ @{r.parentAuthor}</span>
+                          <span style={{ color: "var(--muted)", fontSize: "0.7rem" }}>{r.createdAt?.toDate?.()?.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US") || ""}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: "0.3rem", flexShrink: 0 }}>
+                          {r.uid === currentUid && (
+                            <button onClick={() => deleteComment(r.id)} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.7rem", cursor: "pointer", padding: 0 }}>
+                              {t.commentDelete}
+                            </button>
+                          )}
+                          {r.uid !== currentUid && currentUser && (
+                            <button onClick={() => setShowReport({ type: "comment", targetId: r.id })}
+                              style={{ background: "none", border: "1px solid #e74c3c40", borderRadius: "2px", color: "#e74c3c", fontSize: "0.65rem", cursor: "pointer", padding: "0.05rem 0.3rem", fontFamily: "'DM Sans',sans-serif" }}>
+                              {lang === "en" ? "Report" : "신고"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ color: "var(--espresso)", marginTop: "0.2rem", lineHeight: 1.5 }}>{r.text}</div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
           )}
           {currentUser ? (
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <input
-                value={commentText}
-                onChange={e => setCommentText(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && !e.shiftKey && submitComment()}
-                placeholder={t.commentPlaceholder}
-                style={{ flex: 1, padding: "0.6rem 0.8rem", border: "1px solid var(--steam)", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", background: "var(--cream)", color: "var(--espresso)", outline: "none" }}
-              />
-              <button onClick={submitComment} disabled={commentLoading || !commentText.trim()}
-                style={{ padding: "0.6rem 1rem", background: "var(--espresso)", color: "var(--cream)", border: "none", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap", opacity: commentText.trim() ? 1 : 0.5 }}>
-                {t.commentSubmit}
-              </button>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              {replyTo && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.75rem", color: "var(--muted)", background: "var(--cream)", padding: "0.3rem 0.7rem", borderRadius: "999px" }}>
+                  <span>↩ @{replyTo.author}에게 답글</span>
+                  <button onClick={() => setReplyTo(null)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0, fontSize: "0.8rem" }}>✕</button>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <input
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && !e.shiftKey && submitComment()}
+                  placeholder={replyTo ? `@${replyTo.author}에게 답글…` : t.commentPlaceholder}
+                  style={{ flex: 1, padding: "0.6rem 0.8rem", border: "1px solid var(--steam)", borderRadius: "999px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", background: "var(--cream)", color: "var(--espresso)", outline: "none" }}
+                />
+                <button onClick={submitComment} disabled={commentLoading || !commentText.trim()}
+                  style={{ padding: "0.6rem 1rem", background: "var(--espresso)", color: "var(--cream)", border: "none", borderRadius: "999px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", cursor: "pointer", whiteSpace: "nowrap", opacity: commentText.trim() ? 1 : 0.5 }}>
+                  {t.commentSubmit}
+                </button>
+              </div>
             </div>
           ) : (
             <button onClick={() => onRequireAuth?.()} style={{ width: "100%", padding: "0.65rem", background: "none", border: "1px dashed var(--steam)", borderRadius: "2px", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer" }}>
