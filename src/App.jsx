@@ -122,7 +122,7 @@ const CSS = `
   .nick-badge.active { background: var(--latte); color: var(--espresso); border-color: var(--latte); font-weight: 600; }
   .btn-logout {
     background: none; border: 1px solid #ffffff30; color: var(--steam);
-    padding: 0.3rem 0.6rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
+    padding: 0.3rem 0.8rem; border-radius: 999px; font-family: 'DM Sans', sans-serif;
     font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap;
   }
   .btn-logout:hover { border-color: var(--latte); color: var(--latte); }
@@ -141,19 +141,22 @@ const CSS = `
   @media (max-width: 600px) {
     .toolbar-sticky { top: 48px; padding: 0.6rem 0; margin-bottom: 1rem; }
   }
-  .toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; max-width: 900px; margin: 0 auto; padding: 0 1.5rem; }
+  .toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; max-width: 900px; margin: 0 auto; padding: 0 1.5rem; }
   .search-box { flex: 1; min-width: 180px; position: relative; }
   .search-box input {
-    width: 100%; padding: 0.75rem 1rem 0.75rem 2.8rem; border: 1px solid var(--steam);
-    border-radius: 2px; background: var(--foam); font-family: 'DM Sans', sans-serif;
-    font-size: 0.9rem; color: var(--espresso); outline: none; transition: border-color 0.2s;
+    width: 100%; padding: 0 1rem 0 2.6rem; height: 36px; min-height: 36px; box-sizing: border-box;
+    border: 1px solid var(--steam); border-radius: 999px; background: var(--foam);
+    font-family: 'DM Sans', sans-serif; font-size: 0.85rem; color: var(--espresso);
+    outline: none; transition: border-color 0.2s;
   }
   .search-box input:focus { border-color: var(--latte); }
   .search-icon { position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); font-size: 1rem; color: var(--muted); pointer-events: none; }
   .btn-new {
-    padding: 0.75rem 1.5rem; background: var(--accent); color: white; border: none;
-    border-radius: 2px; font-family: 'DM Sans', sans-serif; font-size: 0.88rem;
+    padding: 0 1.3rem; height: 36px; min-height: 36px; box-sizing: border-box;
+    background: var(--espresso); color: var(--cream); border: none;
+    border-radius: 999px; font-family: 'DM Sans', sans-serif; font-size: 0.85rem;
     font-weight: 500; cursor: pointer; white-space: nowrap; transition: background 0.2s;
+    display: inline-flex; align-items: center;
   }
   .btn-new:hover { background: var(--roast); }
 
@@ -303,8 +306,9 @@ const CSS = `
   .follow-btn:hover { border-color: var(--accent); color: var(--accent); }
   .follow-btn.following { background: var(--espresso); color: var(--cream); border-color: var(--espresso); }
   .follow-btn.following:hover { background: #c0392b; border-color: #c0392b; }
-  .bookmark-tab { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-  .bookmark-tab-btn { padding: 0.4rem 1rem; border: 1px solid var(--steam); border-radius: 999px; background: var(--foam); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+  .bookmark-tab { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+  .bookmark-tab-btn { padding: 0 1.1rem; height: 36px; min-height: 36px; box-sizing: border-box; border: 1px solid var(--steam); border-radius: 999px; background: var(--foam); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; color: var(--muted); cursor: pointer; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; }
+  .bookmark-tab-btn:hover { border-color: var(--latte); color: var(--espresso); }
   .bookmark-tab-btn.active { background: var(--espresso); color: var(--cream); border-color: var(--espresso); }
   .btn-heart { background: none; border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.3rem; color: var(--muted); transition: all 0.15s; padding: 0; line-height: 1; }
   .btn-heart:hover { transform: scale(1.15); }
@@ -350,14 +354,14 @@ const CSS = `
   .loading-wrap p { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--muted); }
   .btn-lang {
     background: none; border: 1px solid #ffffff30; color: var(--steam);
-    padding: 0.3rem 0.6rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
+    padding: 0.3rem 0.8rem; border-radius: 999px; font-family: 'DM Sans', sans-serif;
     font-size: 0.72rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em;
     white-space: nowrap;
   }
   .btn-lang:hover { border-color: var(--latte); color: var(--latte); }
   .btn-my {
     background: none; border: 1px solid #ffffff30; color: var(--steam);
-    padding: 0.3rem 0.6rem; border-radius: 2px; font-family: 'DM Sans', sans-serif;
+    padding: 0.3rem 0.8rem; border-radius: 999px; font-family: 'DM Sans', sans-serif;
     font-size: 0.72rem; cursor: pointer; transition: all 0.2s; font-weight: 500;
     white-space: nowrap;
   }
@@ -403,7 +407,7 @@ const CSS = `
   .notice-item-title { font-weight: 500; color: var(--espresso); margin-bottom: 0.3rem; }
   .notice-item-body { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
   .notice-item-date { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
-  .btn-admin-header { background: none; border: 1px solid #ff000040; color: #ff6b6b; padding: 0.3rem 0.6rem; border-radius: 2px; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .btn-admin-header { background: none; border: 1px solid #ff000040; color: #ff6b6b; padding: 0.3rem 0.8rem; border-radius: 999px; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
   .btn-admin-header:hover { border-color: #ff6b6b; }
   /* ── 알림 ── */
   .notif-btn { position: relative; background: none; border: none; cursor: pointer; font-size: 1.2rem; color: var(--cream); padding: 0.2rem; line-height: 1; }
@@ -460,9 +464,9 @@ const CSS = `
     .bookmark-tab-btn { white-space: nowrap; padding: 0.35rem 0.75rem; font-size: 0.78rem; flex-shrink: 0; }
 
     /* 툴바 검색+버튼 */
-    .toolbar { flex-direction: column; align-items: stretch; gap: 0.6rem; padding: 0 0.75rem; }
-    .btn-new { text-align: center; padding: 0.7rem; }
-    .search-box input { font-size: 0.88rem; }
+    .toolbar { flex-direction: row; align-items: center; gap: 0.5rem; padding: 0 0.75rem; }
+    .btn-new { padding: 0 1rem; flex-shrink: 0; }
+    .search-box input { font-size: 0.85rem; }
 
     /* 카드 */
     .recipe-card { padding: 1rem; }
@@ -1903,7 +1907,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             <div className="menu-selector" style={{ border: errors.menu ? "1px solid #c0392b" : "none", borderRadius: "2px", padding: errors.menu ? "0.5rem" : "0" }}>
               {(machineType === "handdrip"
                 ? COFFEE_MENUS.filter(m => m.id === "hand_drip" || m.id === "other")
-                : COFFEE_MENUS
+                : COFFEE_MENUS.filter(m => m.id !== "hand_drip")
               ).map(m => (
                 <button
                   key={m.id}
@@ -2095,7 +2099,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 }
 
 // ─── MyModal ──────────────────────────────────────────────────────
-function MyModal({ onClose, user, lang = 'ko' }) {
+function MyModal({ onClose, user, lang = 'ko', onLogout }) {
   // 머신
   const [machine, setMachine] = useState(loadMyMachine() || { brand: "", model: "", equipType: "machine" });
   const [machineEditing, setMachineEditing] = useState(!machine.brand && !machine.handDripName);
@@ -2286,8 +2290,13 @@ function MyModal({ onClose, user, lang = 'ko' }) {
           {pwMsg && <p className={pwMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "0.5rem" }}>{pwMsg.text}</p>}
         </div>}
 
-        <div className="modal-actions">
-          <button className="btn-cancel" onClick={onClose}>닫기</button>
+        <div className="modal-actions" style={{ justifyContent: "space-between" }}>
+          <button className="btn-cancel" onClick={onClose}>{lang === "en" ? "Close" : "닫기"}</button>
+          {onLogout && (
+            <button onClick={onLogout} style={{ background: "none", border: "1px solid #c0392b55", borderRadius: "2px", color: "#c0392b", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", padding: "0.5rem 1rem", cursor: "pointer" }}>
+              {lang === "en" ? "Logout" : "로그아웃"}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -2775,6 +2784,18 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     return unsub;
   }, [user?.uid]);
 
+  // 알림 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!showNotif) return;
+    const handler = (e) => {
+      if (!e.target.closest('.notif-dropdown') && !e.target.closest('.notif-btn')) {
+        setShowNotif(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showNotif]);
+
   const markAllRead = async () => {
     const unread = notifications.filter(n => !n.read);
     await Promise.all(unread.map(n => updateDoc(doc(db, "notifications", n.id), { read: true }).catch(() => {})));
@@ -2917,7 +2938,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             </span>
             {isAdmin && <button className="btn-admin-header" onClick={() => setAdminMode(true)}>관리자</button>}
             <button className="btn-lang" onClick={toggleLang}>{lang === "ko" ? "EN" : "KO"}</button>
-            {/* 알림 버튼 */}
+            <button className="btn-my" onClick={() => setShowMyModal(true)}>MY</button>
+            {/* 알림 버튼 - 맨 오른쪽 */}
             <div style={{ position: "relative" }}>
               <button className="notif-btn" onClick={() => { setShowNotif(v => !v); if (!showNotif) markAllRead(); }}>
                 🔔
@@ -2933,7 +2955,21 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                     {notifications.length === 0 ? (
                       <div className="notif-empty">{lang === "en" ? "No notifications" : "알림이 없어요"}</div>
                     ) : notifications.map(n => (
-                      <div key={n.id} className={`notif-item ${n.read ? "" : "unread"}`} onClick={() => setShowNotif(false)}>
+                      <div key={n.id} className={`notif-item ${n.read ? "" : "unread"}`}
+                        onClick={async () => {
+                          setShowNotif(false);
+                          // 읽음 처리
+                          if (!n.read) await updateDoc(doc(db, "notifications", n.id), { read: true }).catch(() => {});
+                          // 해당 레시피로 이동
+                          if (n.recipeId) {
+                            const snap = await getDoc(doc(db, "recipes", n.recipeId)).catch(() => null);
+                            if (snap?.exists()) setDetailRecipe({ id: snap.id, ...snap.data() });
+                          } else if (n.type === "newRecipe") {
+                            // 작성자 레시피 피드로 이동
+                            setFeedTab("all");
+                            setSearch(n.fromUser || "");
+                          }
+                        }}>
                         <div className="notif-item-text">
                           {n.type === "comment"
                             ? (lang === "en" ? `${n.fromUser} commented on "${n.beanName}"` : `${n.fromUser}님이 "${n.beanName}" 레시피에 댓글을 남겼어요`)
@@ -2946,8 +2982,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                 </div>
               )}
             </div>
-            <button className="btn-my" onClick={() => setShowMyModal(true)}>MY</button>
-            <button className="btn-logout" onClick={() => signOut(auth)}>{I18N[lang].logout}</button>
           </>
         ) : (
           <>
@@ -3015,6 +3049,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
     {/* 검색바 sticky 고정 */}
     <div className="toolbar-sticky">
+      {/* 1행: 탭 */}
       <div className="toolbar">
         <div className="bookmark-tab">
           <button className={`bookmark-tab-btn ${feedTab === "all" ? "active" : ""}`} onClick={() => { setFeedTab("all"); setMyRecipesOnly(false); }}>{I18N[lang].allRecipes}</button>
@@ -3022,13 +3057,14 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           <button className={`bookmark-tab-btn ${feedTab === "bookmarks" ? "active" : ""}`} onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); }}>🔖 {I18N[lang].myBookmarks} {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}</button>
           {user && <button className={`bookmark-tab-btn ${feedTab === "mine" ? "active" : ""}`} onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); }}>👤 {I18N[lang].myRecipes}</button>}
         </div>
-        <div style={{ display: "flex", gap: "1rem", flex: 1, flexWrap: "wrap", alignItems: "center" }}>
-          <div className="search-box">
-            <span className="search-icon">🔍</span>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
-          </div>
-          <button className="btn-new" onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { setShowModal(true); } }}>{I18N[lang].newRecipe}</button>
+      </div>
+      {/* 2행: 검색 + 버튼 */}
+      <div className="toolbar" style={{ marginTop: "0.5rem" }}>
+        <div className="search-box" style={{ flex: 1 }}>
+          <span className="search-icon">🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
         </div>
+        <button className="btn-new" onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { setShowModal(true); } }}>{I18N[lang].newRecipe}</button>
       </div>
     </div>
 
@@ -3053,7 +3089,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         ))}
       </div>
     </div>
-    {showMyModal && <MyModal user={user} lang={lang} onClose={() => setShowMyModal(false)} />}
+    {showMyModal && <MyModal user={user} lang={lang} onClose={() => setShowMyModal(false)} onLogout={() => { setShowMyModal(false); signOut(auth); }} />}
     {detailRecipe && (
       <RecipeDetailModal
         recipe={detailRecipe}
