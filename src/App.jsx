@@ -3045,8 +3045,24 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     <div className="main-wrap">
       <div className="section-title">{myRecipesOnly ? I18N[lang].myFeedTitle : I18N[lang].feedTitle}</div>
       <div className="section-sub">{myRecipesOnly ? I18N[lang].myFeedSub : I18N[lang].feedSub}</div>
+      {/* 탭 + 검색 + 버튼 - 타이틀 바로 아래 */}
+      {(<>
+        <div className="bookmark-tab" style={{ margin: "1rem 0 0.6rem" }}>
+          <button className={`bookmark-tab-btn ${feedTab === "all" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].allRecipes}</button>
+          <button className={`bookmark-tab-btn ${feedTab === "following" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("following"); setMyRecipesOnly(false); setShowRanking(false); }}>📡 {I18N[lang].followingFeed} {following.length > 0 ? `(${following.length})` : ""}</button>
+          <button className={`bookmark-tab-btn ${feedTab === "bookmarks" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); setShowRanking(false); }}>🔖 {I18N[lang].myBookmarks} {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}</button>
+          {user && <button className={`bookmark-tab-btn ${feedTab === "mine" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); setShowRanking(false); }}>👤 {I18N[lang].myRecipes}</button>}
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.2rem" }}>
+          <div className="search-box" style={{ flex: 1 }}>
+            <span className="search-icon">🔍</span>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
+          </div>
+          <button className="btn-new" onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { setShowModal(true); } }}>{I18N[lang].newRecipe}</button>
+        </div>
+      </>)}
       <div className="divider" style={{ marginBottom: "1.5rem" }} />
-      {(() => {
+      {feedTab === "all" && !myRecipesOnly && !showRanking && (() => {
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfWeek = new Date(startOfDay);
@@ -3146,10 +3162,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         <div className="main-wrap" style={{ paddingTop: "1rem" }}>
           {/* 헤더 */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1.2rem" }}>
-            <button onClick={() => setShowRanking(false)}
-              style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "999px", padding: "0.3rem 0.8rem", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "var(--muted)", cursor: "pointer" }}>
-              ← {lang === "en" ? "Back" : "돌아가기"}
-            </button>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.2rem", color: "var(--espresso)", fontWeight: 700 }}>
               🏆 {PERIOD_LABELS[bestPeriod]} {lang === "en" ? "Best" : "베스트"}
             </div>
@@ -3199,26 +3211,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       );
     })()}
 
-    {/* 검색바 sticky 고정 - 랭킹 페이지에선 숨김 */}
-    {!showRanking && <div className="toolbar-sticky">
-      {/* 1행: 탭 */}
-      <div className="toolbar">
-        <div className="bookmark-tab">
-          <button className={`bookmark-tab-btn ${feedTab === "all" ? "active" : ""}`} onClick={() => { setFeedTab("all"); setMyRecipesOnly(false); }}>{I18N[lang].allRecipes}</button>
-          <button className={`bookmark-tab-btn ${feedTab === "following" ? "active" : ""}`} onClick={() => { setFeedTab("following"); setMyRecipesOnly(false); }}>📡 {I18N[lang].followingFeed} {following.length > 0 ? `(${following.length})` : ""}</button>
-          <button className={`bookmark-tab-btn ${feedTab === "bookmarks" ? "active" : ""}`} onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); }}>🔖 {I18N[lang].myBookmarks} {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}</button>
-          {user && <button className={`bookmark-tab-btn ${feedTab === "mine" ? "active" : ""}`} onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); }}>👤 {I18N[lang].myRecipes}</button>}
-        </div>
-      </div>
-      {/* 2행: 검색 + 버튼 */}
-      <div className="toolbar" style={{ marginTop: "0.5rem" }}>
-        <div className="search-box" style={{ flex: 1 }}>
-          <span className="search-icon">🔍</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
-        </div>
-        <button className="btn-new" onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { setShowModal(true); } }}>{I18N[lang].newRecipe}</button>
-      </div>
-    </div>}
+
 
     {/* 레시피 목록 - 랭킹 페이지에선 숨김 */}
     {!showRanking && <div className="main-wrap" style={{ paddingTop: "1rem" }}>
