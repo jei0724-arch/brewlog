@@ -3264,22 +3264,22 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
         const StatBox = ({ label, min, max, avg, globalAvg, unit }) => {
           const Row = ({ tag, val, bold }) => (
-            <div style={{ display: "flex", alignItems: "center", height: STAT_ROW_H }}>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", width: LABEL_W, flexShrink: 0 }}>{tag}</span>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: bold ? "1rem" : "0.82rem", fontWeight: bold ? 700 : 500, color: bold ? "var(--espresso)" : "var(--roast)", whiteSpace: "nowrap", width: "4.5rem", textAlign: "right", display: "inline-block", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ display: "flex", alignItems: "center", height: STAT_ROW_H, width: "100%" }}>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", flexShrink: 0, minWidth: "2.4rem" }}>{tag}</span>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: bold ? "0.95rem" : "0.8rem", fontWeight: bold ? 700 : 500, color: bold ? "var(--espresso)" : "var(--roast)", whiteSpace: "nowrap", flex: 1, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {val ?? "-"}<span style={{ fontSize: "0.58rem", fontWeight: 400, color: "var(--muted)", marginLeft: "1px" }}>{unit}</span>
               </span>
             </div>
           );
           return (
-            <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.8rem 1rem", boxSizing: "border-box" }}>
+            <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 0.8rem", boxSizing: "border-box", minWidth: 0, overflow: "hidden" }}>
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)", marginBottom: "0.3rem", letterSpacing: "0.04em", textAlign: "center" }}>{label}</div>
               <Row tag={lang === "en" ? "avg" : "평균"} val={avg} bold />
               <Row tag={lang === "en" ? "min" : "최소"} val={min} />
               <Row tag={lang === "en" ? "max" : "최대"} val={max} />
               <div style={{ borderTop: "1px solid var(--steam)", marginTop: "0.2rem", paddingTop: "0.2rem", display: "flex", alignItems: "center", height: STAT_ROW_H, visibility: globalAvg ? "visible" : "hidden" }}>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", width: LABEL_W, flexShrink: 0, whiteSpace: "nowrap" }}>{lang === "en" ? "All avg" : "브루어 평균"}</span>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--latte)", whiteSpace: "nowrap", flex: 1, textAlign: "right" }}>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", flexShrink: 0, minWidth: "2.4rem", whiteSpace: "nowrap" }}>{lang === "en" ? "All avg" : "브루어 평균"}</span>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--latte)", whiteSpace: "nowrap", flex: 1, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {globalAvg}<span style={{ fontSize: "0.58rem", fontWeight: 400, marginLeft: "1px" }}>{unit}</span>
                 </span>
               </div>
@@ -3329,7 +3329,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         );
 
         return (
-          <div style={{ marginBottom: "2rem", background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "12px", padding: "1.2rem 1.2rem 1rem", boxSizing: "border-box" }}>
+          <div style={{ marginBottom: "2rem", background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "12px", padding: "1rem", boxSizing: "border-box", overflow: "hidden" }}>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "1rem", paddingBottom: "0.7rem", borderBottom: "1px solid var(--steam)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span>📊 {lang === "en" ? "My Stats" : "나의 통계"}</span>
               <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 400, color: "var(--muted)" }}>총 {mine.length}개 레시피</span>
