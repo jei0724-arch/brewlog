@@ -2855,6 +2855,9 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [detailRecipe, setDetailRecipe] = useState(null);
   const [feedTab, setFeedTab] = useState("all"); // "all" | "bookmarks" | "following"
+  const [bestPeriod, setBestPeriod] = useState("month"); // "day" | "week" | "month"
+  const [showRanking, setShowRanking] = useState(false); // true면 TOP100 페이지
+  const [statModeVal, setStatModeVal] = useState("machine"); // "machine" | "handdrip"
   const [following, setFollowing] = useState(() => {
     try { return user?.uid ? JSON.parse(localStorage.getItem("brewlog_following_" + user?.uid) || "[]") : []; } catch { return []; }
   });
@@ -3050,50 +3053,154 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        const getTop = (since) => {
+        const getTopList = (since) => {
           const filtered = [...recipes].filter(r => {
             if ((r.likedBy || []).length === 0) return false;
             if (!since) return true;
             const created = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
             return created && created >= since;
           });
-          return filtered.sort((a, b) => (b.likedBy?.length || 0) - (a.likedBy?.length || 0))[0] || null;
+          return filtered.sort((a, b) => (b.likedBy?.length || 0) - (a.likedBy?.length || 0)).slice(0, 100);
         };
 
-        const periods = [
-          { label: lang === "en" ? "🌅 Today" : "🌅 오늘", recipe: getTop(startOfDay) },
-          { label: lang === "en" ? "📅 This Week" : "📅 이번 주", recipe: getTop(startOfWeek) },
-          { label: lang === "en" ? "🗓 This Month" : "🗓 이번 달", recipe: getTop(startOfMonth) },
-        ].filter(p => p.recipe);
+        const PERIODS = [
+          { key: "day",   label: lang === "en" ? "Today" : "오늘",    since: startOfDay },
+          { key: "week",  label: lang === "en" ? "This Week" : "이번 주", since: startOfWeek },
+          { key: "month", label: lang === "en" ? "This Month" : "이번 달", since: startOfMonth },
+        ];
 
-        if (periods.length === 0) return null;
+        const curList = getTopList(PERIODS.find(p => p.key === bestPeriod)?.since || startOfMonth);
+
+        const top3 = curList.slice(0, 3);
+        const medals = ["🥇", "🥈", "🥉"];
+
         return (
           <div className="best-section">
-            <div className="best-title">{I18N[lang].bestTitle}</div>
-            <div className="best-grid">
-              {periods.map((p, i) => (
-                <div key={i} className="best-card" onClick={() => setDetailRecipe(p.recipe)}>
-                  <div style={{
-                    fontSize: "0.72rem", fontFamily: "'DM Sans',sans-serif",
-                    color: "var(--latte)", letterSpacing: "0.12em", textTransform: "uppercase",
-                    marginBottom: "0.6rem", fontWeight: 600,
-                  }}>{p.label}</div>
-                  {p.recipe.machine && <div className="best-card-machine">🤖 {p.recipe.machine}</div>}
-                  <div className="best-card-company">{p.recipe.company}</div>
-                  <div className="best-card-bean">{p.recipe.bean}</div>
-                  <div className="best-card-author">@{p.recipe.author}</div>
-                  <div className="best-card-heart">❤️ {(p.recipe.likedBy || []).length}</div>
-                </div>
-              ))}
+            {/* 헤더: 타이틀 + 탭 */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.8rem", flexWrap: "wrap", gap: "0.5rem" }}>
+              <div className="best-title" style={{ margin: 0 }}>{I18N[lang].bestTitle}</div>
+              <div style={{ display: "flex", gap: "0.4rem" }}>
+                {PERIODS.map(p => (
+                  <button key={p.key} onClick={() => setBestPeriod(p.key)}
+                    style={{ padding: "0.25rem 0.8rem", borderRadius: "999px", border: "1px solid var(--steam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.75rem", cursor: "pointer", transition: "all 0.2s",
+                      background: bestPeriod === p.key ? "var(--espresso)" : "var(--foam)",
+                      color: bestPeriod === p.key ? "var(--cream)" : "var(--muted)",
+                      fontWeight: bestPeriod === p.key ? 600 : 400 }}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="divider" style={{ marginTop: "2rem", marginBottom: 0 }} />
+            {/* TOP 3 미니 리스트 */}
+            {top3.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0", background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", overflow: "hidden", marginBottom: "0.5rem" }}>
+                {top3.map((r, i) => (
+                  <div key={r.id} onClick={() => setDetailRecipe(r)}
+                    style={{ display: "flex", alignItems: "center", gap: "0.7rem", padding: "0.6rem 0.9rem", borderBottom: i < 2 ? "1px solid var(--steam)" : "none", cursor: "pointer", transition: "background 0.15s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--cream)"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <span style={{ fontSize: "1rem", flexShrink: 0 }}>{medals[i]}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.9rem", fontWeight: 600, color: "var(--espresso)" }}>{r.bean}</span>
+                    </div>
+                    <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", flexShrink: 0 }}>@{r.author}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: "0.78rem", color: "var(--muted)", padding: "0.5rem 0", marginBottom: "0.5rem" }}>
+                {lang === "en" ? "No recipes yet." : "이 기간에 레시피가 없어요."}
+              </p>
+            )}
+            {top3.length > 0 && (
+              <div style={{ textAlign: "right" }}>
+                <button onClick={() => setShowRanking(true)}
+                  style={{ background: "none", border: "none", fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "2px" }}>
+                  {lang === "en" ? "View all →" : "전체 보기 →"}
+                </button>
+              </div>
+            )}
+            <div className="divider" style={{ marginTop: "0.8rem", marginBottom: 0 }} />
           </div>
         );
       })()}
     </div>
 
-    {/* 검색바 sticky 고정 */}
-    <div className="toolbar-sticky">
+    {/* 랭킹 페이지 */}
+    {showRanking && (() => {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(startOfDay); startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const sinceMap = { day: startOfDay, week: startOfWeek, month: startOfMonth };
+      const since = sinceMap[bestPeriod];
+      const PERIOD_LABELS = { day: lang === "en" ? "Today" : "오늘", week: lang === "en" ? "This Week" : "이번 주", month: lang === "en" ? "This Month" : "이번 달" };
+
+      const rankList = [...recipes].filter(r => {
+        if ((r.likedBy || []).length === 0) return false;
+        const created = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+        return created && created >= since;
+      }).sort((a, b) => (b.likedBy?.length || 0) - (a.likedBy?.length || 0)).slice(0, 100);
+
+      return (
+        <div className="main-wrap" style={{ paddingTop: "1rem" }}>
+          {/* 헤더 */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1.2rem" }}>
+            <button onClick={() => setShowRanking(false)}
+              style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "999px", padding: "0.3rem 0.8rem", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "var(--muted)", cursor: "pointer" }}>
+              ← {lang === "en" ? "Back" : "돌아가기"}
+            </button>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.2rem", color: "var(--espresso)", fontWeight: 700 }}>
+              🏆 {PERIOD_LABELS[bestPeriod]} {lang === "en" ? "Best" : "베스트"}
+            </div>
+            <div style={{ marginLeft: "auto", fontSize: "0.75rem", color: "var(--muted)" }}>
+              {rankList.length}{lang === "en" ? " recipes" : "개"}
+            </div>
+          </div>
+
+          {/* 랭킹 리스트 */}
+          {rankList.length === 0 ? (
+            <p style={{ color: "var(--muted)", textAlign: "center", padding: "3rem 0", fontSize: "0.88rem" }}>
+              {lang === "en" ? "No recipes for this period yet." : "이 기간에 레시피가 없어요."}
+            </p>
+          ) : (
+            <div style={{ borderRadius: "8px", border: "1px solid var(--steam)", overflow: "hidden", background: "var(--foam)" }}>
+              {rankList.map((r, i) => (
+                <div key={r.id} onClick={() => setDetailRecipe(r)}
+                  style={{ display: "flex", alignItems: "center", gap: "0.9rem", padding: "0.8rem 1rem", borderBottom: i < rankList.length - 1 ? "1px solid var(--steam)" : "none", cursor: "pointer", transition: "background 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "var(--cream)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  {/* 순위 */}
+                  <div style={{ minWidth: "2.2rem", textAlign: "center", fontFamily: "'DM Sans',sans-serif", fontWeight: 700,
+                    fontSize: i < 3 ? "1.2rem" : "0.85rem",
+                    color: i === 0 ? "#f39c12" : i === 1 ? "#95a5a6" : i === 2 ? "#cd6133" : "var(--muted)" }}>
+                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
+                  </div>
+                  {/* 원두 정보 */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 600, color: "var(--espresso)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {r.bean}
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", display: "flex", gap: "0.35rem", alignItems: "center", marginTop: "0.15rem", flexWrap: "wrap" }}>
+                      {r.company && <span>{r.company}</span>}
+                      {r.machine && <><span>·</span><span>{r.machine}</span></>}
+                      <span>·</span><span style={{ color: "var(--roast)", fontWeight: 500 }}>@{r.author}</span>
+                    </div>
+                  </div>
+                  {/* 좋아요 */}
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "#e74c3c", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.2rem", flexShrink: 0 }}>
+                    ❤️ {(r.likedBy || []).length}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    })()}
+
+    {/* 검색바 sticky 고정 - 랭킹 페이지에선 숨김 */}
+    {!showRanking && <div className="toolbar-sticky">
       {/* 1행: 탭 */}
       <div className="toolbar">
         <div className="bookmark-tab">
@@ -3111,10 +3218,194 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         </div>
         <button className="btn-new" onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { setShowModal(true); } }}>{I18N[lang].newRecipe}</button>
       </div>
-    </div>
+    </div>}
 
-    {/* 레시피 목록 */}
-    <div className="main-wrap" style={{ paddingTop: "1rem" }}>
+    {/* 레시피 목록 - 랭킹 페이지에선 숨김 */}
+    {!showRanking && <div className="main-wrap" style={{ paddingTop: "1rem" }}>
+
+      {/* ── 내 레시피 통계 ── */}
+      {feedTab === "mine" && (() => {
+        const mine = recipes.filter(r => r.uid === user?.uid);
+        if (mine.length === 0) return null;
+
+        // 메뉴 빈도
+        const menuCount = {};
+        mine.forEach(r => { if (r.menuLabel) menuCount[r.menuLabel] = (menuCount[r.menuLabel] || 0) + 1; });
+        const topMenus = Object.entries(menuCount).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+        // 원두 빈도
+        const beanCount = {};
+        mine.forEach(r => { if (r.bean) beanCount[r.bean] = (beanCount[r.bean] || 0) + 1; });
+        const topBeans = Object.entries(beanCount).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+        // 머신 타입별 분리
+        const machineRecipes = mine.filter(r => r.machineType !== "handdrip");
+        const handDripRecipes = mine.filter(r => r.machineType === "handdrip");
+        const [statMode, setStatMode] = [statModeVal, setStatModeVal]; // 외부 state 사용
+
+        const calcStats = (list) => {
+          const withGram = list.filter(r => r.gram);
+          const withSec = list.filter(r => r.seconds);
+          const withMl = list.filter(r => r.espressoMl);
+          const withTemp = list.filter(r => r.waterTemp);
+          return {
+            gram: withGram.length ? { avg: (withGram.reduce((s,r)=>s+Number(r.gram),0)/withGram.length).toFixed(1), min: Math.min(...withGram.map(r=>Number(r.gram))), max: Math.max(...withGram.map(r=>Number(r.gram))) } : null,
+            sec:  withSec.length  ? { avg: Math.round(withSec.reduce((s,r)=>s+Number(r.seconds),0)/withSec.length), min: Math.min(...withSec.map(r=>Number(r.seconds))), max: Math.max(...withSec.map(r=>Number(r.seconds))) } : null,
+            ml:   withMl.length   ? { avg: (withMl.reduce((s,r)=>s+Number(r.espressoMl),0)/withMl.length).toFixed(1), min: Math.min(...withMl.map(r=>Number(r.espressoMl))), max: Math.max(...withMl.map(r=>Number(r.espressoMl))) } : null,
+            temp: withTemp.length  ? { avg: (withTemp.reduce((s,r)=>s+Number(r.waterTemp),0)/withTemp.length).toFixed(1), min: Math.min(...withTemp.map(r=>Number(r.waterTemp))), max: Math.max(...withTemp.map(r=>Number(r.waterTemp))) } : null,
+          };
+        };
+
+        const curList = statMode === "handdrip" ? handDripRecipes : machineRecipes;
+        const stats = calcStats(curList);
+        const { gram: gramS, sec: secS, ml: mlS, temp: tempS } = stats;
+
+        // 전체 평균 (모드별)
+        const globalList = statMode === "handdrip"
+          ? recipes.filter(r => r.machineType === "handdrip")
+          : recipes.filter(r => r.machineType !== "handdrip");
+        const globalStats = calcStats(globalList);
+
+        // 머신 빈도
+        const machineCount = {};
+        mine.forEach(r => { if (r.machine) machineCount[r.machine] = (machineCount[r.machine] || 0) + 1; });
+        const topMachine = Object.entries(machineCount).sort((a, b) => b[1] - a[1])[0];
+
+        // 평균 별점 (전체 기준 유지)
+        const rated = mine.filter(r => r.rating > 0);
+        const avgRating = rated.length ? (rated.reduce((s, r) => s + r.rating, 0) / rated.length).toFixed(1) : null;
+
+        // 총 좋아요 (전체 기준 유지)
+        const totalLikes = mine.reduce((s, r) => s + (r.likedBy?.length || 0), 0);
+
+        // 전체 평균 계산 (다른 사람 포함)
+        const allRecipes = recipes;
+        const globalAvgGram = allRecipes.filter(r => r.gram).length
+          ? (allRecipes.filter(r => r.gram).reduce((s, r) => s + Number(r.gram), 0) / allRecipes.filter(r => r.gram).length).toFixed(1) : null;
+        const globalAvgSec = allRecipes.filter(r => r.seconds).length
+          ? Math.round(allRecipes.filter(r => r.seconds).reduce((s, r) => s + Number(r.seconds), 0) / allRecipes.filter(r => r.seconds).length) : null;
+        const globalAvgMl = allRecipes.filter(r => r.espressoMl).length
+          ? (allRecipes.filter(r => r.espressoMl).reduce((s, r) => s + Number(r.espressoMl), 0) / allRecipes.filter(r => r.espressoMl).length).toFixed(1) : null;
+        const globalAvgTemp = allRecipes.filter(r => r.waterTemp).length
+          ? (allRecipes.filter(r => r.waterTemp).reduce((s, r) => s + Number(r.waterTemp), 0) / allRecipes.filter(r => r.waterTemp).length).toFixed(1) : null;
+
+        const StatBox = ({ label, min, max, avg, globalAvg, unit }) => {
+          const Val = ({ val, bold }) => (
+            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: bold ? "1rem" : "0.82rem", fontWeight: bold ? 700 : 500, color: bold ? "var(--espresso)" : "var(--roast)", whiteSpace: "nowrap" }}>
+              {val}<span style={{ fontSize: "0.6rem", fontWeight: 400, color: "var(--muted)", marginLeft: "1px" }}>{unit}</span>
+            </span>
+          );
+          const Row = ({ tag, val, bold }) => (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.2rem 0" }}>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", flexShrink: 0, marginRight: "0.5rem" }}>{tag}</span>
+              <Val val={val} bold={bold} />
+            </div>
+          );
+          return (
+            <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.8rem 1rem", flex: "1 1 calc(25% - 0.5rem)", minWidth: "100px" }}>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)", marginBottom: "0.5rem", letterSpacing: "0.04em" }}>{label}</div>
+              <Row tag={lang === "en" ? "avg" : "평균"} val={avg} bold />
+              <Row tag={lang === "en" ? "min" : "최소"} val={min} />
+              <Row tag={lang === "en" ? "max" : "최대"} val={max} />
+              {globalAvg && (
+                <div style={{ borderTop: "1px solid var(--steam)", marginTop: "0.3rem", paddingTop: "0.3rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.6rem", color: "var(--muted)", flexShrink: 0, marginRight: "0.5rem" }}>{lang === "en" ? "Brewers avg" : "브루어 평균"}</span>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--latte)", whiteSpace: "nowrap" }}>{globalAvg}<span style={{ fontSize: "0.58rem", fontWeight: 400, marginLeft: "1px" }}>{unit}</span></span>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        const TopList = ({ label, items }) => (
+          <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.8rem 1rem", flex: "1 1 calc(50% - 0.5rem)", minWidth: "140px" }}>
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+            {items.map(([name, cnt], i) => (
+              <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: i < items.length - 1 ? "0.3rem" : 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: i === 0 ? "var(--accent)" : "var(--muted)", fontWeight: 700 }}>{i + 1}</span>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "130px" }}>{name}</span>
+                </div>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", flexShrink: 0 }}>{cnt}회</span>
+              </div>
+            ))}
+          </div>
+        );
+
+        return (
+          <div style={{ marginBottom: "2rem", background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "12px", padding: "1.2rem 1.2rem 1rem" }}>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "1rem", paddingBottom: "0.7rem", borderBottom: "1px solid var(--steam)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span>📊 {lang === "en" ? "My Stats" : "나의 통계"}</span>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 400, color: "var(--muted)" }}>총 {mine.length}개 레시피</span>
+            </div>
+            {/* 머신 / 핸드드립 탭 */}
+            <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.8rem" }}>
+              {machineRecipes.length > 0 && (
+                <button onClick={() => setStatModeVal("machine")}
+                  style={{ padding: "0.3rem 0.9rem", borderRadius: "999px", border: "1px solid var(--steam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.2s",
+                    background: statMode === "machine" ? "var(--espresso)" : "var(--foam)",
+                    color: statMode === "machine" ? "var(--cream)" : "var(--muted)", fontWeight: statMode === "machine" ? 600 : 400 }}>
+                  {lang === "en" ? "Coffee Machine" : "커피 머신"} ({machineRecipes.length})
+                </button>
+              )}
+              {handDripRecipes.length > 0 && (
+                <button onClick={() => setStatModeVal("handdrip")}
+                  style={{ padding: "0.3rem 0.9rem", borderRadius: "999px", border: "1px solid var(--steam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.2s",
+                    background: statMode === "handdrip" ? "var(--espresso)" : "var(--foam)",
+                    color: statMode === "handdrip" ? "var(--cream)" : "var(--muted)", fontWeight: statMode === "handdrip" ? 600 : 400 }}>
+                  {lang === "en" ? "Hand Drip" : "핸드드립"} ({handDripRecipes.length})
+                </button>
+              )}
+            </div>
+
+            {/* 수치 통계 */}
+            {curList.length === 0 ? (
+              <p style={{ color: "var(--muted)", fontSize: "0.82rem", padding: "0.5rem 0" }}>
+                {lang === "en" ? "No data for this category." : "해당 기기 레시피가 없어요."}
+              </p>
+            ) : (
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.8rem" }}>
+              {gramS && <StatBox label={lang === "en" ? "Dose (g)" : "원두량"} min={gramS.min} avg={gramS.avg} max={gramS.max} globalAvg={globalStats.gram?.avg} unit="g" />}
+              {secS && <StatBox label={lang === "en" ? "Time (s)" : "추출시간"} min={secS.min} avg={secS.avg} max={secS.max} globalAvg={globalStats.sec?.avg} unit="s" />}
+              {mlS && <StatBox label={lang === "en" ? "Yield (ml)" : "추출량"} min={mlS.min} avg={mlS.avg} max={mlS.max} globalAvg={globalStats.ml?.avg} unit="ml" />}
+              {tempS && <StatBox label={lang === "en" ? "Water Temp" : "물온도"} min={tempS.min} avg={tempS.avg} max={tempS.max} globalAvg={globalStats.temp?.avg} unit="°C" />}
+            </div>
+            )}
+            {/* 별점 + 좋아요 요약 */}
+            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.8rem" }}>
+              {avgRating && (
+                <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 1rem", flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>{lang === "en" ? "Avg Rating" : "평균 별점"}</span>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1rem", fontWeight: 700, color: "var(--latte)" }}>{avgRating} ★</span>
+                </div>
+              )}
+              <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 1rem", flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>{lang === "en" ? "Total Likes" : "받은 좋아요"}</span>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1rem", fontWeight: 700, color: "#e74c3c" }}>❤️ {totalLikes}</span>
+              </div>
+            </div>
+            {/* 자주 쓴 메뉴 / 원두 */}
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              {topMenus.length > 0 && <TopList label={lang === "en" ? "Fav Menu" : "자주 마신 메뉴"} items={topMenus} />}
+              {topBeans.length > 0 && <TopList label={lang === "en" ? "Fav Bean" : "자주 쓴 원두"} items={topBeans} />}
+              {topMachine && (
+                <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.8rem 1rem", flex: "1 1 100%" }}>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", marginBottom: "0.3rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{lang === "en" ? "Main Machine" : "주로 쓰는 기기"}</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", color: "var(--espresso)", fontWeight: 500 }}>{topMachine[0]} <span style={{ color: "var(--muted)", fontSize: "0.72rem" }}>({topMachine[1]}회)</span></div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 내 레시피 목록 타이틀 */}
+      {feedTab === "mine" && (
+        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          📋 {lang === "en" ? "My Recipes" : "내 레시피"}
+        </div>
+      )}
+
       <div className="recipes-grid">
         {filtered.length === 0 ? (
           <div className="empty-state">
@@ -3133,7 +3424,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             onCardClick={() => setDetailRecipe(r)} />
         ))}
       </div>
-    </div>
+    </div>}
     {showMyModal && <MyModal user={user} lang={lang} onClose={() => setShowMyModal(false)} onLogout={() => { setShowMyModal(false); signOut(auth); }} />}
     {detailRecipe && (
       <RecipeDetailModal
