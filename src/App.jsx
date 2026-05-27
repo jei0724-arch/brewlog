@@ -3282,28 +3282,30 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         const globalAvgTemp = allRecipes.filter(r => r.waterTemp).length
           ? (allRecipes.filter(r => r.waterTemp).reduce((s, r) => s + Number(r.waterTemp), 0) / allRecipes.filter(r => r.waterTemp).length).toFixed(1) : null;
 
-        const ROW_H = "1.9rem";
         const StatBox = ({ label, min, max, avg, globalAvg, unit }) => {
+          const Val = ({ val, bold }) => (
+            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: bold ? "1rem" : "0.82rem", fontWeight: bold ? 700 : 500, color: bold ? "var(--espresso)" : "var(--roast)", whiteSpace: "nowrap" }}>
+              {val}<span style={{ fontSize: "0.6rem", fontWeight: 400, color: "var(--muted)", marginLeft: "1px" }}>{unit}</span>
+            </span>
+          );
           const Row = ({ tag, val, bold }) => (
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: ROW_H }}>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", flexShrink: 0, minWidth: "2rem" }}>{tag}</span>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: bold ? "1rem" : "0.82rem", fontWeight: bold ? 700 : 500, color: bold ? "var(--espresso)" : "var(--roast)", whiteSpace: "nowrap", textAlign: "right" }}>
-                {val}<span style={{ fontSize: "0.58rem", fontWeight: 400, color: "var(--muted)", marginLeft: "1px" }}>{unit}</span>
-              </span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.2rem 0" }}>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", flexShrink: 0, marginRight: "0.5rem" }}>{tag}</span>
+              <Val val={val} bold={bold} />
             </div>
           );
           return (
-            <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.75rem 1rem", minWidth: 0 }}>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)", marginBottom: "0.4rem", letterSpacing: "0.04em", textAlign: "center" }}>{label}</div>
+            <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.8rem 1rem", minWidth: 0 }}>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)", marginBottom: "0.5rem", letterSpacing: "0.04em" }}>{label}</div>
               <Row tag={lang === "en" ? "avg" : "평균"} val={avg} bold />
               <Row tag={lang === "en" ? "min" : "최소"} val={min} />
               <Row tag={lang === "en" ? "max" : "최대"} val={max} />
-              <div style={{ borderTop: "1px solid var(--steam)", marginTop: "0.3rem", paddingTop: "0.3rem", display: "flex", justifyContent: "space-between", alignItems: "center", height: ROW_H, opacity: globalAvg ? 1 : 0 }}>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.6rem", color: "var(--muted)" }}>{lang === "en" ? "Brewers avg" : "브루어 평균"}</span>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--latte)", whiteSpace: "nowrap" }}>
-                  {globalAvg || "-"}<span style={{ fontSize: "0.58rem", fontWeight: 400, marginLeft: "1px" }}>{unit}</span>
-                </span>
-              </div>
+              {globalAvg && (
+                <div style={{ borderTop: "1px solid var(--steam)", marginTop: "0.3rem", paddingTop: "0.3rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.6rem", color: "var(--muted)", flexShrink: 0, marginRight: "0.5rem" }}>{lang === "en" ? "Brewers avg" : "브루어 평균"}</span>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--latte)", whiteSpace: "nowrap" }}>{globalAvg}<span style={{ fontSize: "0.58rem", fontWeight: 400, marginLeft: "1px" }}>{unit}</span></span>
+                </div>
+              )}
             </div>
           );
         };
