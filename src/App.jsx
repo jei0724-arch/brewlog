@@ -3295,7 +3295,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             </div>
           );
           return (
-            <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.8rem 1rem", flex: "1 1 calc(25% - 0.5rem)", minWidth: "100px" }}>
+            <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.8rem 1rem", minWidth: 0 }}>
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)", marginBottom: "0.5rem", letterSpacing: "0.04em" }}>{label}</div>
               <Row tag={lang === "en" ? "avg" : "평균"} val={avg} bold />
               <Row tag={lang === "en" ? "min" : "최소"} val={min} />
@@ -3311,7 +3311,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         };
 
         const TopList = ({ label, items }) => (
-          <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.8rem 1rem", flex: "1 1 calc(50% - 0.5rem)", minWidth: "140px" }}>
+          <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.8rem 1rem", minWidth: 0 }}>
             <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
             {items.map(([name, cnt], i) => (
               <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: i < items.length - 1 ? "0.3rem" : 0 }}>
@@ -3357,7 +3357,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                 {lang === "en" ? "No data for this category." : "해당 기기 레시피가 없어요."}
               </p>
             ) : (
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.8rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem", marginBottom: "0.8rem" }}>
               {gramS && <StatBox label={lang === "en" ? "Dose (g)" : "원두량"} min={gramS.min} avg={gramS.avg} max={gramS.max} globalAvg={globalStats.gram?.avg} unit="g" />}
               {secS && <StatBox label={lang === "en" ? "Time (s)" : "추출시간"} min={secS.min} avg={secS.avg} max={secS.max} globalAvg={globalStats.sec?.avg} unit="s" />}
               {mlS && <StatBox label={lang === "en" ? "Yield (ml)" : "추출량"} min={mlS.min} avg={mlS.avg} max={mlS.max} globalAvg={globalStats.ml?.avg} unit="ml" />}
@@ -3365,20 +3365,20 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             </div>
             )}
             {/* 별점 + 좋아요 요약 */}
-            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.8rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem", marginBottom: "0.8rem" }}>
               {avgRating && (
-                <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 1rem", flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>{lang === "en" ? "Avg Rating" : "평균 별점"}</span>
                   <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1rem", fontWeight: 700, color: "var(--latte)" }}>{avgRating} ★</span>
                 </div>
               )}
-              <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 1rem", flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>{lang === "en" ? "Total Likes" : "받은 좋아요"}</span>
                 <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1rem", fontWeight: 700, color: "#e74c3c" }}>❤️ {totalLikes}</span>
               </div>
             </div>
             {/* 자주 쓴 메뉴 / 원두 */}
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.5rem" }}>
               {topMenus.length > 0 && <TopList label={lang === "en" ? "Fav Menu" : "자주 마신 메뉴"} items={topMenus} />}
               {topBeans.length > 0 && <TopList label={lang === "en" ? "Fav Bean" : "자주 쓴 원두"} items={topBeans} />}
               {topMachine && (
