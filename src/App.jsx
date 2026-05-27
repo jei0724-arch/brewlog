@@ -53,25 +53,31 @@ setPersistence(auth, browserLocalPersistence).catch(() => {});
 
 // ─── Styles ────────────────────────────────────────────────────────
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --cream: #f5efe6; --latte: #d4a96a; --espresso: #2c1810;
-    --roast: #5c3317; --foam: #fdf8f2; --steam: #e8ddd0;
-    --accent: #c8873a; --muted: #8a7060;
+    --cream:   #FBFBFA;
+    --foam:    #FFFFFF;
+    --steam:   #EDEBE8;
+    --divider: #F0EFEF;
+    --espresso:#1A1A1A;
+    --roast:   #3D2B1F;
+    --latte:   #B07D54;
+    --accent:  #3D2B1F;
+    --muted:   #8C8480;
+    --r8: 8px;
   }
-  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; -webkit-font-smoothing: antialiased; }
 
   .auth-wrap {
     min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    background: radial-gradient(ellipse 80% 60% at 50% 30%, #d4a96a33, transparent),
-                radial-gradient(ellipse 60% 80% at 80% 80%, #5c331722, transparent), var(--cream);
-    padding: 1rem;
+    background: var(--cream);
+    padding: 16px;
   }
   .auth-card {
-    background: var(--foam); border: 1px solid var(--steam); border-radius: 2px;
+    background: var(--foam); border: 1px solid var(--steam); border-radius: 8px;
     padding: clamp(1.5rem, 5vw, 3rem) clamp(1.2rem, 5vw, 2.5rem);
-    width: 100%; max-width: 440px; box-shadow: 0 8px 60px #2c181015; position: relative;
+    width: 100%; max-width: 440px; box-shadow: 0 16px 48px #1A1A1A08; position: relative;
   }
   .auth-card::before {
     content: ''; position: absolute; top: 0; left: 2rem; right: 2rem; height: 2px;
@@ -94,112 +100,188 @@ const CSS = `
   .field { margin-bottom: 1.2rem; }
   .field label { display: block; font-size: 0.75rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.4rem; }
   .field input, .field select {
-    width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--steam); border-radius: 2px;
+    width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--steam); border-radius: 8px;
     background: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.95rem;
     color: var(--espresso); outline: none; transition: border-color 0.2s;
   }
   .field input:focus, .field select:focus { border-color: var(--latte); }
 
   .btn-primary {
-    width: 100%; padding: 0.85rem; background: var(--espresso); color: var(--cream);
-    border: none; border-radius: 2px; font-family: 'DM Sans', sans-serif;
-    font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: background 0.2s; margin-top: 0.5rem;
+    width: 100%; padding: 0.85rem; background: var(--espresso); color: var(--foam);
+    border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; margin-top: 0.5rem;
+    letter-spacing: 0.01em;
   }
-  .btn-primary:hover { background: var(--roast); }
+  .btn-primary:hover { background: #2D1E15; }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .msg-error { color: #c0392b; font-size: 0.82rem; margin-top: 0.8rem; text-align: center; }
   .msg-ok { color: #27ae60; font-size: 0.82rem; margin-top: 0.8rem; text-align: center; }
 
   .app-header {
-    background: var(--espresso); padding: 1rem 2rem;
+    background: var(--foam);
+    padding: 0 24px;
+    height: 56px;
     display: flex; align-items: center; justify-content: space-between;
-    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 20px #0006;
+    position: sticky; top: 0; z-index: 100;
+    border-bottom: 1px solid var(--divider);
   }
-  .app-header .logo { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: var(--latte); }
-  .header-right { display: flex; align-items: center; gap: 1rem; }
-  .nick-badge { font-size: 0.72rem; color: var(--steam); padding: 0.25rem 0.6rem; border: 1px solid #ffffff20; border-radius: 999px; cursor: pointer; transition: all 0.2s; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .nick-badge:hover { border-color: var(--latte); color: var(--latte); }
-  .nick-badge.active { background: var(--latte); color: var(--espresso); border-color: var(--latte); font-weight: 600; }
-  .btn-logout {
-    background: none; border: 1px solid #ffffff30; color: var(--steam);
-    padding: 0.3rem 0.8rem; border-radius: 999px; font-family: 'DM Sans', sans-serif;
-    font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  .app-header .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.15rem;
+    color: var(--espresso);
+    letter-spacing: -0.02em;
+    display: flex; align-items: center; gap: 8px;
   }
-  .btn-logout:hover { border-color: var(--latte); color: var(--latte); }
+  .header-right { display: flex; align-items: center; gap: 8px; }
 
-  .main-wrap { max-width: 900px; margin: 0 auto; padding: 2.5rem 1.5rem; }
-  .section-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; color: var(--espresso); margin-bottom: 0.3rem; }
-  .section-sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 2rem; }
-  .divider { height: 1px; background: var(--steam); margin: 0.5rem 0 2rem; }
+  /* 헤더 공통 버튼 base — 모두 border-radius: 8px, 높이 32px */
+  .header-btn-base {
+    height: 32px;
+    padding: 0 12px;
+    background: none;
+    border: 1px solid var(--steam);
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+    white-space: nowrap;
+    display: inline-flex; align-items: center;
+  }
+  .header-btn-base:hover { border-color: var(--espresso); color: var(--espresso); }
+
+  .nick-badge {
+    height: 32px; padding: 0 12px;
+    background: none; border: 1px solid var(--steam); border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.72rem; color: var(--muted);
+    cursor: pointer; transition: all 0.2s; max-width: 110px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    display: inline-flex; align-items: center;
+  }
+  .nick-badge:hover { border-color: var(--latte); color: var(--espresso); }
+  .nick-badge.active { background: var(--espresso); color: var(--foam); border-color: var(--espresso); font-weight: 500; }
+
+  .btn-logout {
+    height: 32px; padding: 0 12px;
+    background: none; border: 1px solid var(--steam); color: var(--muted);
+    border-radius: 8px; font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    display: inline-flex; align-items: center;
+  }
+  .btn-logout:hover { border-color: var(--espresso); color: var(--espresso); }
+  .btn-lang {
+    height: 32px; padding: 0 12px;
+    background: none; border: 1px solid var(--steam); color: var(--muted);
+    border-radius: 8px; font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em;
+    white-space: nowrap; display: inline-flex; align-items: center;
+  }
+  .btn-lang:hover { border-color: var(--espresso); color: var(--espresso); }
+  .btn-my {
+    height: 32px; padding: 0 12px;
+    background: none; border: 1px solid var(--steam); color: var(--muted);
+    border-radius: 8px; font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem; cursor: pointer; transition: all 0.2s; font-weight: 500;
+    white-space: nowrap; display: inline-flex; align-items: center;
+  }
+  .btn-my:hover { border-color: var(--espresso); color: var(--espresso); }
+
+  .main-wrap { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.75rem;
+    color: var(--espresso);
+    margin-bottom: 4px;
+    letter-spacing: -0.03em;
+    font-weight: 700;
+  }
+  .section-sub {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 24px;
+    font-weight: 300;
+    letter-spacing: 0.01em;
+    opacity: 0.85;
+  }
+  .divider { height: 1px; background: var(--divider); margin: 0.5rem 0 2rem; }
 
   .toolbar-sticky {
     position: sticky; top: 56px; z-index: 90;
-    background: var(--cream); padding: 0.8rem 0;
-    margin-bottom: 1.5rem;
-    border-bottom: 1px solid var(--steam);
+    background: var(--cream); padding: 12px 0;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--divider);
   }
   @media (max-width: 600px) {
-    .toolbar-sticky { top: 48px; padding: 0.6rem 0; margin-bottom: 1rem; }
+    .toolbar-sticky { top: 48px; padding: 8px 0; margin-bottom: 16px; }
   }
-  .toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; max-width: 900px; margin: 0 auto; padding: 0 1.5rem; }
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; max-width: 900px; margin: 0 auto; padding: 0 24px; }
   .search-box { flex: 1; min-width: 180px; position: relative; }
   .search-box input {
-    width: 100%; padding: 0 1rem 0 2.6rem; height: 36px; min-height: 36px; box-sizing: border-box;
-    border: 1px solid var(--steam); border-radius: 999px; background: var(--foam);
+    width: 100%; padding: 0 16px 0 40px; height: 36px;
+    border: 1px solid var(--steam); border-radius: 8px; background: var(--foam);
     font-family: 'DM Sans', sans-serif; font-size: 0.85rem; color: var(--espresso);
     outline: none; transition: border-color 0.2s;
   }
   .search-box input:focus { border-color: var(--latte); }
-  .search-icon { position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); font-size: 1rem; color: var(--muted); pointer-events: none; }
-  .btn-new {
-    padding: 0 1.3rem; height: 36px; min-height: 36px; box-sizing: border-box;
-    background: var(--espresso); color: var(--cream); border: none;
-    border-radius: 999px; font-family: 'DM Sans', sans-serif; font-size: 0.85rem;
-    font-weight: 500; cursor: pointer; white-space: nowrap; transition: background 0.2s;
-    display: inline-flex; align-items: center;
+  .search-icon {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); pointer-events: none;
+    display: flex; align-items: center;
   }
-  .btn-new:hover { background: var(--roast); }
 
-  .recipes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+  /* btn-new: editorial style */
+  .btn-new {
+    padding: 0 16px; height: 36px;
+    background: var(--espresso); color: var(--foam);
+    border: 1px solid var(--espresso);
+    border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.8rem;
+    font-weight: 500; cursor: pointer; white-space: nowrap; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 7px; letter-spacing: 0.02em;
+  }
+  .btn-new:hover { background: var(--roast); border-color: var(--roast); }
+
+  .recipes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
   /* ── 카드 공통 폰트 기준 ──────────────────────────────── */
   /* label-xs : 0.68rem / label-sm : 0.75rem / body : 0.85rem / title : 1.05rem */
 
   .recipe-card {
-    background: var(--foam); border: 1px solid var(--steam); border-radius: 6px;
-    padding: 1.4rem 1.5rem; position: relative;
-    transition: transform 0.2s, box-shadow 0.2s; overflow: hidden;
+    background: var(--foam); border: 1px solid var(--divider); border-radius: 8px;
+    padding: 24px;
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; overflow: hidden;
     font-family: 'DM Sans', sans-serif; text-align: left;
   }
-  .recipe-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--latte), var(--accent)); border-radius: 6px 6px 0 0; }
-  .recipe-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px #2c181018; }
+  .recipe-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px #1A1A1A06; border-color: #DEDAD6; }
 
   /* 장비 칩 태그 */
   .card-chip {
-    display: inline-flex; align-items: center; gap: 0.2rem;
-    font-family: 'DM Sans', sans-serif; font-size: 0.7rem; font-weight: 500;
+    display: inline-flex; align-items: center; gap: 3px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.7rem; font-weight: 400;
     color: var(--muted); background: var(--cream);
-    border: 1px solid var(--steam); border-radius: 999px;
-    padding: 0.18rem 0.55rem; white-space: nowrap; line-height: 1.4;
+    border: 1px solid var(--steam); border-radius: 4px;
+    padding: 2px 8px; white-space: nowrap; line-height: 1.4;
   }
 
   /* 머신 / 그라인더 */
   .card-machine {
     font-family: 'DM Sans', sans-serif; font-size: 0.75rem;
-    color: var(--muted); margin-bottom: 0.25rem; line-height: 1.4;
+    color: var(--muted); margin-bottom: 4px; line-height: 1.4;
   }
   /* 원두 회사 */
   .card-company {
-    font-family: 'DM Sans', sans-serif; font-size: 0.72rem;
-    color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.2rem; text-align: left;
+    font-family: 'DM Sans', sans-serif; font-size: 0.7rem;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; text-align: left;
+    opacity: 0.7;
   }
   /* 원두 이름 (card-bean - 하위호환용) */
   .card-bean {
-    font-family: 'Playfair Display', serif; font-size: 1.05rem;
-    color: var(--espresso); margin-bottom: 0.3rem; line-height: 1.3; font-weight: 700; text-align: left;
+    font-family: 'Playfair Display', serif; font-size: 1.1rem;
+    color: var(--espresso); margin-bottom: 4px; line-height: 1.3; font-weight: 700; text-align: left;
   }
   /* 스탯 박스 */
-  .card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.9rem; }
-  .stat { background: var(--cream); padding: 0.55rem 0.4rem; border-radius: 4px; text-align: center; }
+  .card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+  .stat { background: var(--cream); padding: 8px 6px; border-radius: 6px; text-align: center; border: 1px solid var(--divider); }
   .stat-val {
     font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 600;
     color: var(--roast); display: block; letter-spacing: -0.01em;
@@ -232,9 +314,27 @@ const CSS = `
   .card-edit:hover { color: var(--accent); }
   .card-delete { background: none; border: none; color: #c0392b55; cursor: pointer; font-size: 0.95rem; transition: color 0.2s; }
   .card-delete:hover { color: #c0392b; }
-  .empty-state { text-align: center; padding: 5rem 2rem; color: var(--muted); grid-column: 1 / -1; }
-  .empty-state span { font-size: 3rem; display: block; margin-bottom: 1rem; }
-  .empty-state p { font-family: 'Playfair Display', serif; font-size: 1.1rem; }
+  .empty-state {
+    grid-column: 1 / -1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 64px 24px 80px;
+    text-align: center;
+  }
+  .empty-state-icon {
+    width: 56px; height: 56px; margin-bottom: 20px;
+    color: var(--steam);
+  }
+  .empty-state-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem; font-weight: 600;
+    color: var(--espresso); margin-bottom: 6px;
+    letter-spacing: -0.01em;
+  }
+  .empty-state-sub {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; color: var(--muted);
+    line-height: 1.6; max-width: 260px;
+  }
   .pressure-box {
     background: var(--foam); color: var(--espresso); border-radius: 2px;
     padding: 0.8rem 1rem; margin-top: 0.5rem; font-size: 0.82rem; line-height: 1.7;
@@ -258,16 +358,35 @@ const CSS = `
   .weather-info { display: flex; flex-direction: column; gap: 0.1rem; }
   .weather-main { font-size: 0.88rem; color: var(--espresso); font-weight: 500; }
   .weather-detail { font-size: 0.78rem; color: var(--muted); }
-  .weather-loading { color: var(--muted); font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
+  .weather-loading { color: var(--muted); font-size: 0.82rem; display: flex; align-items: center; gap: 6px; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .card-weather { font-family: "DM Sans", sans-serif; font-size: 0.75rem; color: var(--muted); padding: 0.35rem 0.7rem; background: var(--cream); border-radius: 4px; margin-bottom: 0.6rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-  .menu-selector { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-  .menu-btn {
-    padding: 0.45rem 0.9rem; border: 1px solid var(--steam); border-radius: 999px;
-    background: var(--foam); font-family: 'DM Sans', sans-serif; font-size: 0.82rem;
-    color: var(--muted); cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  .menu-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
   }
-  .menu-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .menu-btn.selected { background: var(--espresso); color: var(--cream); border-color: var(--espresso); font-weight: 500; }
+  .menu-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 6px;
+    padding: 12px 8px 10px;
+    border: 1px solid var(--steam); border-radius: 8px;
+    background: var(--foam);
+    font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 400;
+    color: var(--muted); cursor: pointer; transition: all 0.18s;
+    line-height: 1.2; text-align: center; white-space: nowrap;
+  }
+  .menu-btn:hover {
+    border-color: var(--latte); color: var(--espresso);
+    background: #FDF9F6;
+  }
+  .menu-btn:hover svg { color: var(--latte); }
+  .menu-btn.selected {
+    background: var(--espresso); color: var(--cream);
+    border-color: var(--espresso); font-weight: 500;
+  }
+  .menu-btn.selected svg { color: var(--cream); opacity: 0.9; }
+  .menu-btn svg { flex-shrink: 0; transition: color 0.18s; }
   .timer-box { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 1rem 1rem 0.8rem; background: var(--cream); border: 1px solid var(--steam); border-radius: 2px; margin-top: 0.5rem; }
   .timer-display { font-family: 'Playfair Display', serif; font-size: 3rem; color: var(--espresso); letter-spacing: 0.08em; line-height: 1; min-width: 4rem; text-align: center; }
   .timer-display.running { color: var(--accent); }
@@ -299,73 +418,119 @@ const CSS = `
     color: var(--espresso); cursor: pointer; transition: background 0.1s;
   }
   .autocomplete-item:hover, .autocomplete-item.active { background: var(--cream); color: var(--roast); }
-  .btn-bookmark { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted); transition: all 0.15s; padding: 0; line-height: 1; display: inline-flex; align-items: center; }
-  .btn-bookmark:hover { color: var(--latte); transform: scale(1.15); }
+  .btn-bookmark { background: none; border: none; cursor: pointer; font-size: 0.95rem; color: var(--muted); transition: all 0.15s; padding: 0; line-height: 1; display: inline-flex; align-items: center; }
+  .btn-bookmark:hover { color: var(--latte); transform: scale(1.1); }
   .btn-bookmark.saved { color: var(--latte); }
-  .follow-btn { background: none; border: 1px solid var(--steam); border-radius: 999px; padding: 0.2rem 0.7rem; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; color: var(--muted); white-space: nowrap; }
-  .follow-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .follow-btn { background: none; border: 1px solid var(--steam); border-radius: 8px; padding: 0 10px; height: 24px; font-family: 'DM Sans',sans-serif; font-size: 0.7rem; cursor: pointer; transition: all 0.2s; color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; }
+  .follow-btn:hover { border-color: var(--espresso); color: var(--espresso); }
   .follow-btn.following { background: var(--espresso); color: var(--cream); border-color: var(--espresso); }
   .follow-btn.following:hover { background: #c0392b; border-color: #c0392b; }
-  .bookmark-tab { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
-  .bookmark-tab-btn { padding: 0 1.1rem; height: 36px; min-height: 36px; box-sizing: border-box; border: 1px solid var(--steam); border-radius: 999px; background: var(--foam); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; color: var(--muted); cursor: pointer; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; }
-  .bookmark-tab-btn:hover { border-color: var(--latte); color: var(--espresso); }
-  .bookmark-tab-btn.active { background: var(--espresso); color: var(--cream); border-color: var(--espresso); }
-  .btn-heart { background: none; border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 0.3rem; color: var(--muted); transition: all 0.15s; padding: 0; line-height: 1; }
-  .btn-heart:hover { transform: scale(1.15); }
-  .btn-heart.liked { color: #e74c3c; }
-  .btn-heart span { font-size: 0.75rem; font-family: 'DM Sans', sans-serif; }
-  .best-section { margin-bottom: 2.5rem; }
-  .best-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--espresso); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
-  .best-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
-  .best-card { background: linear-gradient(135deg, var(--espresso) 0%, var(--roast) 100%); border-radius: 2px; padding: 1.2rem; position: relative; overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
-  .best-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px #2c181040; }
-  .best-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
-  .best-rank { font-size: 0.72rem; color: var(--latte); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.6rem; font-weight: 600; }
-  .best-card-machine { font-size: 0.68rem; color: #ffffff60; margin-bottom: 0.2rem; }
-  .best-card-company { font-size: 0.68rem; color: #ffffff80; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.2rem; }
-  .best-card-bean { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--cream); margin-bottom: 0.8rem; line-height: 1.3; }
-  .best-card-author { font-size: 0.75rem; color: #ffffff70; margin-bottom: 0.5rem; }
-  .best-card-heart { display: flex; align-items: center; gap: 0.3rem; color: #ff6b8a; font-size: 0.85rem; font-weight: 500; }
+  .bookmark-tab { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .bookmark-tab-btn {
+    padding: 0 16px; height: 34px;
+    border: 1px solid var(--steam); border-radius: 8px; background: var(--foam);
+    font-family: 'DM Sans', sans-serif; font-size: 0.8rem; color: var(--muted);
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .bookmark-tab-btn:hover { border-color: #C5BFB8; color: var(--espresso); background: var(--cream); }
+  .bookmark-tab-btn.active { background: var(--espresso); color: var(--foam); border-color: var(--espresso); font-weight: 500; }
+
+  /* 하트 버튼 — 이모지 제거, 라인 아이콘 + 단색 */
+  .btn-heart {
+    background: none; border: none; cursor: pointer;
+    display: flex; align-items: center; gap: 5px;
+    color: var(--muted); transition: all 0.15s; padding: 0; line-height: 1;
+  }
+  .btn-heart:hover { color: #C0625A; }
+  .btn-heart.liked { color: #C0625A; }
+  .btn-heart span { font-size: 0.72rem; font-family: 'DM Sans', sans-serif; }
+
+  /* ── 베스트 섹션 — 매거진 리스트 스타일 ── */
+  .best-section { margin-bottom: 40px; }
+  .best-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.9rem;
+    color: var(--espresso);
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase;
+  }
+
+  /* 베스트 리스트 행 */
+  .best-row {
+    display: flex; align-items: center; gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--divider);
+    cursor: pointer; transition: background 0.15s;
+    position: relative;
+  }
+  .best-row:last-child { border-bottom: none; }
+  .best-row:hover { background: #FAFAF8; }
+
+  /* 순위 번호 — Playfair Serif, 매거진 스타일 */
+  .best-rank-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.3rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    min-width: 40px;
+    text-align: right;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .best-rank-num.rank-1 { color: var(--espresso); font-weight: 700; }
+  .best-rank-num.rank-2 { color: var(--latte); }
+  .best-rank-num.rank-3 { color: var(--muted); }
+
+  .best-row-content { flex: 1; min-width: 0; }
+  .best-row-bean {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem; font-weight: 600;
+    color: var(--espresso); line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+  .best-row-meta {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.72rem;
+    color: var(--muted);
+    opacity: 0.75;
+    display: flex; gap: 6px; align-items: center;
+  }
+  .best-row-right {
+    display: flex; align-items: center; gap: 5px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem; font-weight: 500;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
 
   .modal-backdrop {
-    position: fixed; inset: 0; background: #1a0f08cc; z-index: 200;
-    display: flex; align-items: center; justify-content: center; padding: 1rem;
+    position: fixed; inset: 0; background: #1A1A1ACC; z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
     backdrop-filter: blur(4px); animation: fadeIn 0.15s ease;
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .modal {
-    background: var(--foam); border: 1px solid var(--steam); border-radius: 2px;
-    padding: 2.5rem 2rem; width: 100%; max-width: 500px; max-height: 90vh;
+    background: var(--foam); border: 1px solid var(--steam); border-radius: 8px;
+    padding: 32px 28px; width: 100%; max-width: 500px; max-height: 90vh;
     overflow-y: auto; position: relative; animation: slideUp 0.2s ease;
-    text-align: left;
+    text-align: left; box-shadow: 0 24px 48px #1A1A1A10;
   }
   @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-  .modal::before { content: ''; position: absolute; top: 0; left: 2rem; right: 2rem; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); }
-  .modal h2 { font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 1.5rem; color: var(--espresso); }
-  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+  .modal::before { content: ''; position: absolute; top: 0; left: 2rem; right: 2rem; height: 2px; background: linear-gradient(90deg, transparent, var(--latte), transparent); }
+  .modal h2 { font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 24px; color: var(--espresso); }
+  .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .modal-grid .field { margin-bottom: 0; }
   .field.full { grid-column: 1 / -1; }
-  .modal-actions { display: flex; gap: 0.8rem; margin-top: 1.5rem; justify-content: flex-end; }
-  .btn-cancel { padding: 0.7rem 1.5rem; background: none; border: 1px solid var(--steam); border-radius: 2px; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; color: var(--muted); cursor: pointer; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 24px; justify-content: flex-end; }
+  .btn-cancel { padding: 0.7rem 1.5rem; background: none; border: 1px solid var(--steam); border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; color: var(--muted); cursor: pointer; transition: all 0.2s; }
   .btn-cancel:hover { border-color: var(--muted); }
   textarea { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--steam); border-radius: 2px; background: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--espresso); outline: none; resize: vertical; min-height: 80px; }
   textarea:focus { border-color: var(--latte); }
   .loading-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--cream); }
   .loading-wrap p { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--muted); }
-  .btn-lang {
-    background: none; border: 1px solid #ffffff30; color: var(--steam);
-    padding: 0.3rem 0.8rem; border-radius: 999px; font-family: 'DM Sans', sans-serif;
-    font-size: 0.72rem; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em;
-    white-space: nowrap;
-  }
-  .btn-lang:hover { border-color: var(--latte); color: var(--latte); }
-  .btn-my {
-    background: none; border: 1px solid #ffffff30; color: var(--steam);
-    padding: 0.3rem 0.8rem; border-radius: 999px; font-family: 'DM Sans', sans-serif;
-    font-size: 0.72rem; cursor: pointer; transition: all 0.2s; font-weight: 500;
-    white-space: nowrap;
-  }
-  .btn-my:hover { border-color: var(--latte); color: var(--latte); }
   .my-section { margin-bottom: 1.8rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--steam); }
   .my-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
   .my-section-title { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--espresso); margin-bottom: 1rem; }
@@ -407,10 +572,11 @@ const CSS = `
   .notice-item-title { font-weight: 500; color: var(--espresso); margin-bottom: 0.3rem; }
   .notice-item-body { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
   .notice-item-date { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
-  .btn-admin-header { background: none; border: 1px solid #ff000040; color: #ff6b6b; padding: 0.3rem 0.8rem; border-radius: 999px; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .btn-admin-header { background: none; border: 1px solid #e74c3c40; color: #c0392b; padding: 0 12px; height: 32px; border-radius: 8px; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; }
   .btn-admin-header:hover { border-color: #ff6b6b; }
   /* ── 알림 ── */
-  .notif-btn { position: relative; background: none; border: none; cursor: pointer; font-size: 1.2rem; color: var(--cream); padding: 0.2rem; line-height: 1; }
+  .notif-btn { position: relative; background: none; border: none; cursor: pointer; font-size: 1.1rem; color: var(--muted); padding: 0.2rem; line-height: 1; transition: color 0.2s; }
+  .notif-btn:hover { color: var(--espresso); }
   .notif-badge { position: absolute; top: -2px; right: -4px; background: #e74c3c; color: white; font-size: 0.55rem; font-weight: 700; min-width: 14px; height: 14px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 3px; font-family: 'DM Sans',sans-serif; }
   .notif-dropdown { position: absolute; top: calc(100% + 8px); right: 0; width: 300px; background: var(--foam); border: 1px solid var(--steam); border-radius: 6px; box-shadow: 0 8px 24px #0002; z-index: 200; overflow: hidden; }
   .notif-header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid var(--steam); font-family: 'DM Sans',sans-serif; font-size: 0.82rem; font-weight: 600; color: var(--espresso); }
@@ -433,23 +599,21 @@ const CSS = `
     .modal-grid { grid-template-columns: 1fr; }
 
     /* 헤더 */
-    .app-header { padding: 0.65rem 0.9rem; }
+    .app-header { padding: 0 12px; height: 48px; }
     .app-header .logo { font-size: 1rem; }
-    .header-right { gap: 0.5rem; }
-    .btn-lang, .btn-my, .btn-logout { padding: 0.25rem 0.55rem; font-size: 0.72rem; }
+    .header-right { gap: 6px; }
+    .btn-lang, .btn-my, .btn-logout { padding: 0 10px; height: 28px; font-size: 0.68rem; }
     .btn-logout { display: none; } /* 모바일에서 로그아웃은 MY 설정 내에서 */
+    .nick-badge { height: 28px; padding: 0 10px; font-size: 0.68rem; }
 
     /* 메인 */
-    .main-wrap { padding: 1rem 0.75rem; }
+    .main-wrap { padding: 16px 12px; }
     .recipes-grid { grid-template-columns: 1fr; }
+    .recipe-card { padding: 16px; }
 
-    /* 베스트 그리드 → 모바일 1열 스크롤 */
-    .best-grid {
-      grid-template-columns: 1fr 1fr;
-      gap: 0.6rem;
-    }
-    .best-card { padding: 0.9rem; }
-    .best-card-bean { font-size: 0.88rem; }
+    /* 베스트 */
+    .best-row { padding: 14px 16px; gap: 12px; }
+    .best-rank-num { font-size: 1rem; min-width: 28px; }
 
     /* 탭 */
     .bookmark-tab {
@@ -458,32 +622,35 @@ const CSS = `
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
       padding-bottom: 2px;
-      gap: 0.4rem;
+      gap: 6px;
     }
     .bookmark-tab::-webkit-scrollbar { display: none; }
-    .bookmark-tab-btn { white-space: nowrap; padding: 0.35rem 0.75rem; font-size: 0.78rem; flex-shrink: 0; }
+    .bookmark-tab-btn { white-space: nowrap; padding: 0 12px; font-size: 0.75rem; flex-shrink: 0; height: 30px; }
 
     /* 툴바 검색+버튼 */
-    .toolbar { flex-direction: row; align-items: center; gap: 0.5rem; padding: 0 0.75rem; }
-    .btn-new { padding: 0 1rem; flex-shrink: 0; }
+    .toolbar { flex-direction: row; align-items: center; gap: 8px; padding: 0 12px; }
+    .btn-new { padding: 0 12px; flex-shrink: 0; }
     .search-box input { font-size: 0.85rem; }
 
+    /* 메뉴 선택 그리드 */
+    .menu-selector { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .menu-btn { padding: 10px 6px 8px; font-size: 0.7rem; gap: 4px; }
+    .menu-btn svg { width: 16px; height: 16px; }
+
     /* 카드 */
-    .recipe-card { padding: 1rem; }
-    .card-stats { gap: 0.3rem; }
+    .card-stats { gap: 6px; }
     .stat-val { font-size: 0.95rem; }
     .card-bean { font-size: 0.98rem; }
     .card-machine { font-size: 0.72rem; }
     .nick-badge { display: none; }
 
     /* 모달 */
-    .modal { padding: 1.2rem 0.9rem; max-height: 92vh; }
+    .modal { padding: 20px 14px; max-height: 92vh; }
     .tab-btn { font-size: 0.72rem; padding: 0.5rem 0.3rem; }
   }
   @media (max-width: 380px) {
     .tab-btn { font-size: 0.62rem; padding: 0.45rem 0.2rem; }
-    .best-grid { grid-template-columns: 1fr; }
-    .bookmark-tab-btn { font-size: 0.72rem; padding: 0.3rem 0.6rem; }
+    .bookmark-tab-btn { font-size: 0.72rem; padding: 0 10px; }
   }
 `;
 
@@ -1292,16 +1459,20 @@ const I18N = {
     findStep1: "다음", findStep2: "확인",
     findDone: "본인 확인 완료!", findDoneDesc: "보안상 비밀번호를 직접 표시할 수 없어요. 새 비밀번호로 로그인하려면 다시 가입하거나 관리자에게 문의해주세요.",
     goLogin: "로그인하러 가기",
-    feedTitle: "레시피 피드", myFeedTitle: "내 레시피",
-    feedSub: "다른 브루어들의 추출 레시피를 둘러보세요.",
-    myFeedSub: "내가 올린 레시피 목록이에요. 닉네임을 다시 클릭하면 전체 피드로 돌아가요.",
+    feedTitle: "Brew Archive", myFeedTitle: "My Brews",
+    feedSub: "브루어들의 추출 기록을 살펴보세요.",
+    myFeedSub: "내가 기록한 추출 노트입니다.",
+    followingFeedTitle: "Following",
+    followingFeedSub: "구독 중인 브루어의 최신 기록이에요.",
+    bookmarksFeedTitle: "Saved",
+    bookmarksFeedSub: "저장해둔 레시피를 모아봤어요.",
     searchPlaceholder: "메뉴, 머신, 원두, 닉네임, 메모 검색 …",
-    newRecipe: "+ 레시피 올리기",
+    newRecipe: "기록하기",
     logout: "로그아웃", myBtn: "MY",
     emptyFeed: "아직 레시피가 없어요. 첫 번째 기록을 남겨보세요!",
     emptyMy: "아직 내 레시피가 없어요. 첫 번째 기록을 남겨보세요!",
     emptySearch: "검색 결과가 없어요.",
-    bestTitle: "🏆 베스트 레시피",
+    bestTitle: "베스트 레시피",
     recordTitle: "레시피 기록하기", editTitle: "레시피 수정하기",
     machine: "커피 머신", machineBrand: "커피 머신 브랜드", machineModel: "세부 모델명",
     machineType: "머신 타입", autoType: "전자동", manualType: "반자동",
@@ -1311,13 +1482,13 @@ const I18N = {
     seconds: "추출 시간 (초) *", espressoMl: "추출량 (ML) *",
     diluteType: "희석 종류", diluteMl: "희석량 (ML)", syrup: "시럽 / 추가 재료",
     rating: "레시피 평가", note: "맛 노트 · 메모",
-    pressureTitle: "📊 예상 추출 압력", brewPressure: "추출 압력",
+    pressureTitle: "예상 추출 압력", brewPressure: "추출 압력",
     pressureGood: "✅ 적정 압력", pressureHigh: "⚠️ 압력 높음", pressureLow: "⚠️ 압력 낮음",
     pressureRange: "적정: 9~11 bar",
     save: "기록 저장", update: "수정 저장", saving: "저장 중…", cancel: "취소",
     deleteConfirm: "이 레시피를 삭제할까요?",
-    mySettings: "👤 MY 설정", myMachine: "🤖 커피 머신", myGrinder: "⚙️ 그라인더",
-    myPw: "🔒 비밀번호 변경", curPw: "현재 비밀번호", newPw: "새 비밀번호", newPwConfirm: "새 비밀번호 확인",
+    mySettings: "MY 설정", myMachine: "커피 머신", myGrinder: "그라인더",
+    myPw: "비밀번호 변경", curPw: "현재 비밀번호", newPw: "새 비밀번호", newPwConfirm: "새 비밀번호 확인",
     changePw: "비밀번호 변경", changing: "변경 중…", close: "닫기", changeBtn: "변경",
     timerStart: "추출 시작", timerStop: "정지", timerReset: "초기화", timerApply: "적용",
     follow: "구독", following: "구독중", unfollow: "구독취소", followingFeed: "구독",
@@ -1345,16 +1516,20 @@ const I18N = {
     findStep1: "Next", findStep2: "Confirm",
     findDone: "Identity Verified!", findDoneDesc: "For security, we can't display your password. Please re-register or contact admin.",
     goLogin: "Go to Login",
-    feedTitle: "Recipe Feed", myFeedTitle: "My Recipes",
-    feedSub: "Browse extraction recipes from other brewers.",
-    myFeedSub: "Your uploaded recipes. Click your nickname again to return.",
+    feedTitle: "Brew Archive", myFeedTitle: "My Brews",
+    feedSub: "Explore extraction notes from the community.",
+    myFeedSub: "Your personal brew log.",
+    followingFeedTitle: "Following",
+    followingFeedSub: "Latest records from brewers you follow.",
+    bookmarksFeedTitle: "Saved",
+    bookmarksFeedSub: "Recipes you've bookmarked.",
     searchPlaceholder: "Search menu, machine, bean, nickname, note …",
-    newRecipe: "+ Add Recipe",
+    newRecipe: "Record",
     logout: "Logout", myBtn: "MY",
     emptyFeed: "No recipes yet. Be the first to share!",
     emptyMy: "No recipes yet. Start sharing!",
     emptySearch: "No results found.",
-    bestTitle: "🏆 Best Recipes",
+    bestTitle: "Best Recipes",
     recordTitle: "Record Recipe", editTitle: "Edit Recipe",
     machine: "Coffee Machine", machineBrand: "Machine Brand", machineModel: "Model Name",
     machineType: "Machine Type", autoType: "Automatic", manualType: "Semi-auto",
@@ -1364,13 +1539,13 @@ const I18N = {
     seconds: "Extraction Time (s) *", espressoMl: "Yield (ML) *",
     diluteType: "Dilution Type", diluteMl: "Dilution (ML)", syrup: "Syrup / Add-ons",
     rating: "Rating", note: "Tasting Notes",
-    pressureTitle: "📊 Est. Brew Pressure", brewPressure: "Brew Pressure",
+    pressureTitle: "Est. Brew Pressure", brewPressure: "Brew Pressure",
     pressureGood: "✅ Optimal", pressureHigh: "⚠️ Too High", pressureLow: "⚠️ Too Low",
     pressureRange: "Optimal: 9~11 bar",
     save: "Save", update: "Update", saving: "Saving…", cancel: "Cancel",
     deleteConfirm: "Delete this recipe?",
-    mySettings: "👤 My Settings", myMachine: "🤖 Coffee Machine", myGrinder: "⚙️ Grinder",
-    myPw: "🔒 Change Password", curPw: "Current Password", newPw: "New Password", newPwConfirm: "Confirm New Password",
+    mySettings: "My Settings", myMachine: "Coffee Machine", myGrinder: "Grinder",
+    myPw: "Change Password", curPw: "Current Password", newPw: "New Password", newPwConfirm: "Confirm New Password",
     changePw: "Change Password", changing: "Changing…", close: "Close", changeBtn: "Edit",
     timerStart: "Start", timerStop: "Stop", timerReset: "Reset", timerApply: "Apply",
     follow: "Subscribe", following: "Subscribed", unfollow: "Unsubscribe", followingFeed: "Following",
@@ -1391,20 +1566,121 @@ const LangContext = React.createContext("ko");
 function useLang() { return React.useContext(LangContext); }
 
 // ─── 커피 메뉴 정의 ────────────────────────────────────────────────
+// ─── 커피 메뉴 SVG 아이콘 ──────────────────────────────────────────
+const MenuIcons = {
+  espresso: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 7h10l-1 7H6L5 7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M7 7V5.5C7 4.67 7.67 4 8.5 4h3c.83 0 1.5.67 1.5 1.5V7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M7 16h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M9 10.5c0-.5.5-.8 1-.5s1 .5 1 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  ),
+  ristretto: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 8h8l-.8 5.5H6.8L6 8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M8 8V6.5C8 5.67 8.67 5 9.5 5h1c.83 0 1.5.67 1.5 1.5V8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M7.5 15h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  ),
+  lungo: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 6h10l-1.5 9H6.5L5 6z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M7 6V4.5C7 3.67 7.67 3 8.5 3h3c.83 0 1.5.67 1.5 1.5V6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M7 17h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  ),
+  americano: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="6" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M16 9h1.5a1.5 1.5 0 0 1 0 3H16" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M8 3.5C8 3.5 8.5 2.5 10 2.5s2 1 2 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M7 10h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.4"/>
+    </svg>
+  ),
+  long_black: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="6" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M16 9h1.5a1.5 1.5 0 0 1 0 3H16" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M7 9.5h6M7 12h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.35"/>
+    </svg>
+  ),
+  latte: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 5h12l-1.5 11H5.5L4 5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M4 8c2 1 4 1 6 0s4-1 6 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <ellipse cx="10" cy="8.5" rx="2" ry="1" stroke="currentColor" strokeWidth="1" opacity="0.4"/>
+    </svg>
+  ),
+  cappuccino: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 7h10l-1 8H6L5 7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M5 9c1.5-1 3.5-1.5 5-1.5s3.5.5 5 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+      <path d="M8 7C8 5.5 9 4.5 10 4.5S12 5.5 12 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  ),
+  flatwhite: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 7h10l-1 8H6L5 7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M6 9.5c1-0.8 2.5-1.2 4-1.2s3 .4 4 1.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M8.5 11.5c.5-.3 1-.5 1.5-.5s1 .2 1.5.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" opacity="0.5"/>
+    </svg>
+  ),
+  macchiato: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 8h8l-.8 6H6.8L6 8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M6.5 10c1-.7 2-.9 3.5-.9s2.5.2 3.5.9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <circle cx="10" cy="8.5" r="1.2" stroke="currentColor" strokeWidth="1.1"/>
+      <path d="M8 16h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  ),
+  cortado: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 7h8l-1 8H7L6 7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M6.5 10c1-.7 2-1 3.5-1s2.5.3 3.5 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M8.5 8C8.5 6.5 9.2 5.5 10 5.5s1.5 1 1.5 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  ),
+  cold_brew: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5.5" y="4" width="9" height="13" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M8 4V3M12 4V3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+      <path d="M7.5 9.5c.7-.5 1.3-.5 2 0s1.3.5 2 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M7.5 12c.7-.5 1.3-.5 2 0s1.3.5 2 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M8.5 7h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.4"/>
+    </svg>
+  ),
+  hand_drip: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 4h8l-1 5H7L6 4z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M10 9v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M7 13h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+      <path d="M6 15h8l.5 1.5H5.5L6 15z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+    </svg>
+  ),
+  other: (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M10 7v3l2 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="10" cy="10" r="1" fill="currentColor" opacity="0.3"/>
+    </svg>
+  ),
+};
+
 const COFFEE_MENUS = [
-  { id: "espresso",   label: "에스프레소", labelEn: "Espresso",    emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
-  { id: "ristretto",  label: "리스트레토", labelEn: "Ristretto",   emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
-  { id: "lungo",      label: "룽고",       labelEn: "Lungo",       emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
-  { id: "americano",  label: "아메리카노", labelEn: "Americano",   emoji: "🥤", needsDilute: true,  fixedDilute: "물",  fixedDiluteEn: "Water",  hasSyrup: false },
-  { id: "long_black", label: "롱블랙",     labelEn: "Long Black",  emoji: "🥤", needsDilute: true,  fixedDilute: "물",  fixedDiluteEn: "Water",  hasSyrup: false },
-  { id: "latte",      label: "카페라떼",   labelEn: "Latte",       emoji: "🥛", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: true },
-  { id: "cappuccino", label: "카푸치노",   labelEn: "Cappuccino",  emoji: "☕", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: false },
-  { id: "flatwhite",  label: "플랫화이트", labelEn: "Flat White",  emoji: "🥛", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: false },
-  { id: "macchiato",  label: "마끼아또",   labelEn: "Macchiato",   emoji: "☕", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: true },
-  { id: "cortado",    label: "코르타도",   labelEn: "Cortado",     emoji: "☕", needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: false },
-  { id: "cold_brew",  label: "콜드브루",   labelEn: "Cold Brew",   emoji: "🧊", needsDilute: true,  fixedDilute: null,  hasSyrup: true },
-  { id: "hand_drip",  label: "핸드드립",   labelEn: "Hand Drip",   emoji: "☕", needsDilute: false, fixedDilute: null,  hasSyrup: false },
-  { id: "other",      label: "기타",       labelEn: "Other",       emoji: "✨", needsDilute: true,  fixedDilute: null,  hasSyrup: false },
+  { id: "espresso",   label: "에스프레소", labelEn: "Espresso",    needsDilute: false, fixedDilute: null,  hasSyrup: false },
+  { id: "ristretto",  label: "리스트레토", labelEn: "Ristretto",   needsDilute: false, fixedDilute: null,  hasSyrup: false },
+  { id: "lungo",      label: "룽고",       labelEn: "Lungo",       needsDilute: false, fixedDilute: null,  hasSyrup: false },
+  { id: "americano",  label: "아메리카노", labelEn: "Americano",   needsDilute: true,  fixedDilute: "물",  fixedDiluteEn: "Water",  hasSyrup: false },
+  { id: "long_black", label: "롱블랙",     labelEn: "Long Black",  needsDilute: true,  fixedDilute: "물",  fixedDiluteEn: "Water",  hasSyrup: false },
+  { id: "latte",      label: "카페라떼",   labelEn: "Latte",       needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: true },
+  { id: "cappuccino", label: "카푸치노",   labelEn: "Cappuccino",  needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: false },
+  { id: "flatwhite",  label: "플랫화이트", labelEn: "Flat White",  needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: false },
+  { id: "macchiato",  label: "마끼아또",   labelEn: "Macchiato",   needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: true },
+  { id: "cortado",    label: "코르타도",   labelEn: "Cortado",     needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk", hasSyrup: false },
+  { id: "cold_brew",  label: "콜드브루",   labelEn: "Cold Brew",   needsDilute: true,  fixedDilute: null,  hasSyrup: true },
+  { id: "hand_drip",  label: "핸드드립",   labelEn: "Hand Drip",   needsDilute: false, fixedDilute: null,  hasSyrup: false },
+  { id: "other",      label: "기타",       labelEn: "Other",       needsDilute: true,  fixedDilute: null,  hasSyrup: false },
 ];
 
 
@@ -1774,7 +2050,10 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                       placeholder={isCustomBrand ? "브랜드명과 모델명 입력" : "예) Barista Express, Dedica …"}
                       style={{ width: "100%", marginTop: "0.5rem", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }}
                     />
-                    {machineModel && <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem" }}>💾 저장하면 다음에도 자동으로 채워져요</p>}
+                    {machineModel && <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4 7h6M4 9.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><rect x="3" y="1" width="8" height="3" rx="1" fill="currentColor" opacity="0.35"/></svg>
+                      저장하면 다음에도 자동으로 채워져요
+                    </p>}
                   </>
                 )}
               </>
@@ -1821,8 +2100,9 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                       placeholder={isCustomGrinderBrand ? "브랜드명과 모델명 입력" : "예) Encore, C40, Nano …"}
                     />
                     {grinderModel && (
-                      <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem" }}>
-                        💾 저장하면 다음에도 자동으로 채워져요
+                      <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem", display: "flex", alignItems: "center", gap: "4px" }}>
+                        <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4 7h6M4 9.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><rect x="3" y="1" width="8" height="3" rx="1" fill="currentColor" opacity="0.35"/></svg>
+                        저장하면 다음에도 자동으로 채워져요
                       </p>
                     )}
                   </div>
@@ -1850,7 +2130,10 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               style={{ borderColor: errors.company ? "#c0392b" : undefined }} />
             {errors.company && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
             {savedBean?.company && form.company === savedBean.company && !errors.company && (
-              <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.3rem" }}>💾 {lang === "ko" ? "이전 기록에서 불러왔어요" : "Loaded from last record"}</p>
+              <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.3rem", display: "flex", alignItems: "center", gap: "4px" }}>
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4 7h6M4 9.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><rect x="3" y="1" width="8" height="3" rx="1" fill="currentColor" opacity="0.35"/></svg>
+                {lang === "ko" ? "이전 기록에서 불러왔어요" : "Loaded from last record"}
+              </p>
             )}
           </div>
           <div className="field">
@@ -1866,13 +2149,24 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
           {/* 날씨 정보 */}
           <div className="field full">
             <label>{lang === "en" ? "Weather at Brew Time" : "추출 시점 날씨"}</label>
-            {weatherLoading && <div className="weather-loading">⏳ {lang === "en" ? "Getting weather…" : "날씨 불러오는 중…"}</div>}
+            {weatherLoading && <div className="weather-loading">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ animation: "spin 1s linear infinite" }}>
+                <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 25" strokeLinecap="round"/>
+              </svg>
+              {lang === "en" ? "Getting weather…" : "날씨 불러오는 중…"}
+            </div>}
             {weather && (
               <div className="weather-box">
                 <span className="weather-icon">{weather.icon}</span>
                 <div className="weather-info">
                   <span className="weather-main">{weather.descKo} {weather.temp}°C</span>
-                  <span className="weather-detail">💧 {lang === "en" ? "Humidity" : "습도"} {weather.humidity}% · 🌐 {weather.country}</span>
+                  <span className="weather-detail" style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                    <svg width="11" height="13" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 1C5.5 1 1 5.5 1 8.5a4.5 4.5 0 0 0 9 0C10 5.5 5.5 1 5.5 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>
+                    {lang === "en" ? "Humidity" : "습도"} {weather.humidity}%
+                    <span style={{ opacity: 0.4 }}>·</span>
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 1.5C7 1.5 9 4 9 7s-2 5.5-2 5.5M7 1.5C7 1.5 5 4 5 7s2 5.5 2 5.5M1.5 7h11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                    {weather.country}
+                  </span>
                 </div>
                 <button type="button" onClick={() => {
                   setWeatherError(null);
@@ -1881,7 +2175,12 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                     .then(w => { setWeather(w); setWeatherError(null); })
                     .catch(e => { setWeatherError(typeof e === "string" ? e : e.message); })
                     .finally(() => setWeatherLoading(false));
-                }} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "0.8rem" }}>🔄</button>
+                }} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "inline-flex", alignItems: "center", padding: "2px" }}>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M13.5 8a5.5 5.5 0 1 1-1.1-3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                    <path d="M13.5 3v2.5H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
               </div>
             )}
             {!weather && !weatherLoading && (
@@ -1915,7 +2214,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                   className={`menu-btn ${selectedMenu === m.id ? "selected" : ""}`}
                   onClick={() => { selectMenu(m); setErrors(p => ({...p, menu: false})); }}
                 >
-                  {m.emoji} {lang === "en" ? m.labelEn : m.label}
+                  {MenuIcons[m.id]}
+                  {lang === "en" ? m.labelEn : m.label}
                 </button>
               ))}
             </div>
@@ -2065,19 +2365,21 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             <div style={{ display: "flex", gap: "0.5rem" }}>
               <button type="button"
                 onClick={() => set("isPublic", true)}
-                style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "2px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s",
+                style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
                   borderColor: form.isPublic !== false ? "var(--latte)" : "var(--steam)",
                   background: form.isPublic !== false ? "var(--latte)" : "var(--foam)",
                   color: form.isPublic !== false ? "var(--espresso)" : "var(--muted)", fontWeight: form.isPublic !== false ? 600 : 400 }}>
-                🌍 {lang === "en" ? "Public" : "공개"}
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3"/><path d="M8 2C8 2 10 5 10 8s-2 6-2 6M8 2C8 2 6 5 6 8s2 6 2 6M2 8h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                {lang === "en" ? "Public" : "공개"}
               </button>
               <button type="button"
                 onClick={() => set("isPublic", false)}
-                style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "2px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s",
+                style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
                   borderColor: form.isPublic === false ? "var(--espresso)" : "var(--steam)",
                   background: form.isPublic === false ? "var(--espresso)" : "var(--foam)",
                   color: form.isPublic === false ? "var(--cream)" : "var(--muted)", fontWeight: form.isPublic === false ? 600 : 400 }}>
-                🔒 {lang === "en" ? "Private" : "비공개"}
+                <svg width="13" height="14" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                {lang === "en" ? "Private" : "비공개"}
               </button>
             </div>
             <p style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: "0.4rem" }}>
@@ -2176,17 +2478,24 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
   return (
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <h2>👤 MY 설정</h2>
+        <h2>MY 설정</h2>
 
         {/* 커피 머신 / 핸드드립 */}
         <div className="my-section">
-          <div className="my-section-title">☕ {lang === "en" ? "Equipment" : "추출 기구"}</div>
+          <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 4h10v5a5 5 0 0 1-10 0V4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+              <path d="M13 6h1.5a1.5 1.5 0 0 1 0 3H13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              <path d="M6 13.8V15M10 13.8V15M4 15h8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            {lang === "en" ? "Equipment" : "추출 기구"}
+          </div>
           {!machineEditing ? (
             <div className="my-locked-row">
               <div className="my-locked-val">
                 {machine.equipType === "handdrip"
-                  ? (machine.handDripName ? `🫗 ${machine.handDripName}` : "미설정")
-                  : (machine.brand ? `🤖 ${machine.brand}${machine.model ? " " + machine.model : ""}` : "미설정")}
+                  ? (machine.handDripName ? machine.handDripName : "미설정")
+                  : (machine.brand ? `${machine.brand}${machine.model ? " " + machine.model : ""}` : "미설정")}
               </div>
               <button className="btn-change" onClick={() => setMachineEditing(true)}>{lang === "en" ? "Edit" : "변경"}</button>
             </div>
@@ -2198,13 +2507,13 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
                   onClick={() => setEquipType("machine")}
                   style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: equipType === "machine" ? "var(--espresso)" : "var(--foam)", color: equipType === "machine" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer", transition: "all 0.2s" }}
                 >
-                  🤖 {lang === "en" ? "Coffee Machine" : "커피 머신"}
+                  {lang === "en" ? "Coffee Machine" : "커피 머신"}
                 </button>
                 <button
                   onClick={() => setEquipType("handdrip")}
                   style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: equipType === "handdrip" ? "var(--espresso)" : "var(--foam)", color: equipType === "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer", transition: "all 0.2s" }}
                 >
-                  🫗 {lang === "en" ? "Hand Drip" : "핸드드립"}
+                  {lang === "en" ? "Hand Drip" : "핸드드립"}
                 </button>
               </div>
               {equipType === "machine" ? (
@@ -2237,7 +2546,7 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
 
         {/* 그라인더 */}
         <div className="my-section">
-          <div className="my-section-title">⚙️ 그라인더</div>
+          <div className="my-section-title">{lang === "en" ? "Grinder" : "그라인더"}</div>
           {!grinderEditing ? (
             <div className="my-locked-row">
               <div className="my-locked-val">{grinder.brand ? `${grinder.brand}${grinder.model ? " " + grinder.model : ""}` : "미설정"}</div>
@@ -2266,7 +2575,13 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
 
         {/* 비밀번호 변경 - 구글 로그인 유저는 숨김 */}
         {!user?.providerData?.some(p => p.providerId === "google.com") && <div className="my-section">
-          <div className="my-section-title">🔒 비밀번호 변경</div>
+          <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <svg width="13" height="14" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M4.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            비밀번호 변경
+          </div>
           <div className="field">
             <label>현재 비밀번호</label>
             <input type="password" value={curPw} onChange={e => setCurPw(e.target.value)} placeholder="••••••••" />
@@ -2513,10 +2828,10 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
           <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
           <div className="stat"><span className="stat-val">{recipe.seconds}s</span><span className="stat-label">{t.statSeconds}</span></div>
           <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
-          {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">🌡️ {lang === "en" ? "Temp" : "물 온도"}</span></div>}
+          {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang === "en" ? "Temp" : "물 온도"}</span></div>}
         </div>
         {recipe.diluteMl && (
-          <div className="card-dilution">💧 {recipe.diluteType} {recipe.diluteMl}ml 희석</div>
+          <div className="card-dilution">{recipe.diluteType} {recipe.diluteMl}ml 희석</div>
         )}
         {recipe.rating > 0 && (
         <div style={{ display: "flex", gap: "0.15rem", marginBottom: "0.5rem" }}>
@@ -2548,11 +2863,30 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
               style={{ cursor: isOwner ? "default" : "pointer", opacity: isOwner ? 0.4 : 1 }}
               title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}
             >
-              {liked ? "❤️" : "🤍"}<span>{likeCount > 0 ? likeCount : ""}</span>
+              {liked ? (
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z"/>
+                </svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+                </svg>
+              )}
+              <span>{likeCount > 0 ? likeCount : ""}</span>
             </button>
             {isOwner && (<>
-              <button className="card-edit" onClick={() => { onClose(); onEdit(recipe); }}>✏️</button>
-              <button className="card-delete" onClick={() => { onClose(); onDelete(recipe.id); }}>🗑</button>
+              <button className="card-edit" onClick={() => { onClose(); onEdit(recipe); }}
+                style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center" }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11.5 2.5l2 2-8 8H3.5v-2l8-8z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <button className="card-delete" onClick={() => { onClose(); onDelete(recipe.id); }}
+                style={{ background: "none", border: "none", color: "#c0392b55", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center" }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 4h10M5 4V2.5C5 2.224 5.224 2 5.5 2h5c.276 0 .5.224.5.5V4M6 7v5M10 7v5M4 4l.8 9.2c.02.44.38.8.82.8h6.76c.44 0 .8-.36.82-.8L14 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
             </>)}
             {!isOwner && currentUser && (
               <button onClick={() => setShowReport({ type: "recipe", targetId: recipe.id })}
@@ -2684,12 +3018,11 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
 
   // Type C: 인라인 압축 구조
   const machineLabel = recipe.machine
-    ? `${recipe.machineType === "handdrip" ? "🫗" : "🤖"} ${recipe.machine}${recipe.machineType && recipe.machineType !== "handdrip" ? ` · ${recipe.machineType === "auto" ? (lang === "en" ? "Auto" : "전자동") : (lang === "en" ? "Semi" : "반자동")}` : ""}`
+    ? `${recipe.machine}${recipe.machineType && recipe.machineType !== "handdrip" ? ` · ${recipe.machineType === "auto" ? (lang === "en" ? "Auto" : "전자동") : (lang === "en" ? "Semi" : "반자동")}` : ""}`
     : null;
   const grinderLabel = recipe.grinder
-    ? `⚙️ ${recipe.grinder}${recipe.grindSize ? ` (${recipe.grindSize})` : ""}`
+    ? `${recipe.grinder}${recipe.grindSize ? ` (${recipe.grindSize})` : ""}`
     : null;
-  const menuEmoji = COFFEE_MENUS.find(m => m.id === recipe.menuId)?.emoji || "☕";
   const menuName = lang === "en"
     ? (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.labelEn || recipe.menuLabel)
     : recipe.menuLabel;
@@ -2745,20 +3078,20 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
         <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
         <div className="stat"><span className="stat-val">{recipe.seconds}s</span><span className="stat-label">{t.statSeconds}</span></div>
         <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
-        {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">🌡️ {lang === "en" ? "Temp" : "물 온도"}</span></div>}
+        {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang === "en" ? "Temp" : "물 온도"}</span></div>}
       </div>
-      {recipe.diluteMl && <div className="card-dilution">💧 {lang === "en" ? (recipe.diluteType === "물" ? "Water" : recipe.diluteType === "우유" ? "Milk" : recipe.diluteType === "두유" ? "Soy Milk" : recipe.diluteType) : recipe.diluteType} {recipe.diluteMl}ml {t.dilution}</div>}
-      {recipe.syrup && <div className="card-dilution">🍯 {recipe.syrup}</div>}
+      {recipe.diluteMl && <div className="card-dilution">{lang === "en" ? (recipe.diluteType === "물" ? "Water" : recipe.diluteType === "우유" ? "Milk" : recipe.diluteType === "두유" ? "Soy Milk" : recipe.diluteType) : recipe.diluteType} {recipe.diluteMl}ml {t.dilution}</div>}
+      {recipe.syrup && <div className="card-dilution">{recipe.syrup}</div>}
       {recipe.showerBar && (
         <div style={{
-          fontSize: "0.78rem", padding: "0.4rem 0.8rem", borderRadius: "2px", marginBottom: "0.5rem",
-          background: recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "#27ae6015" : "#e74c3c15",
+          fontSize: "0.78rem", padding: "0.4rem 0.8rem", borderRadius: "6px", marginBottom: "0.5rem",
+          background: recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "#27ae6010" : "#e74c3c10",
           color: recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "#27ae60" : "#e74c3c",
-          border: `1px solid ${recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "#27ae6030" : "#e74c3c30"}`,
-          display: "flex", justifyContent: "space-between",
+          border: `1px solid ${recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "#27ae6025" : "#e74c3c25"}`,
+          display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
-          <span>📊 {t.brewPressure}</span>
-          <span style={{ fontWeight: 600 }}>{recipe.showerBar} bar {recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "✅" : "⚠️"}</span>
+          <span>{t.brewPressure}</span>
+          <span style={{ fontWeight: 600 }}>{recipe.showerBar} bar {recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "·  OK" : "·  Check"}</span>
         </div>
       )}
       {recipe.rating > 0 && (
@@ -2792,7 +3125,16 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
             style={{ cursor: isOwner ? "default" : "pointer", opacity: isOwner ? 0.4 : 1 }}
             title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}
           >
-            {liked ? "❤️" : "🤍"}<span>{likeCount > 0 ? likeCount : ""}</span>
+            {liked ? (
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z"/>
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+              </svg>
+            )}
+            <span>{likeCount > 0 ? likeCount : ""}</span>
           </button>
           <button
             className={`btn-bookmark ${isBookmarked ? "saved" : ""}`}
@@ -2800,11 +3142,29 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
             title={isBookmarked ? t.bookmarkRemove : t.bookmarkAdd}
             style={{ color: isBookmarked ? "var(--latte)" : "var(--muted)" }}
           >
-            {isBookmarked ? "🔖" : "🏷️"}
+            {isBookmarked ? (
+              <svg width="13" height="15" viewBox="0 0 13 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 1.5C1 1.224 1.224 1 1.5 1h10c.276 0 .5.224.5.5v13l-5-3-5 3V1.5z"/>
+              </svg>
+            ) : (
+              <svg width="13" height="15" viewBox="0 0 13 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 1.5C1 1.224 1.224 1 1.5 1h10c.276 0 .5.224.5.5v13l-5-3-5 3V1.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+              </svg>
+            )}
           </button>
           {isOwner && (<>
-            <button className="card-edit" onClick={e => { e.stopPropagation(); onEdit(recipe); }}>✏️</button>
-            <button className="card-delete" onClick={e => { e.stopPropagation(); onDelete(recipe.id); }}>🗑</button>
+            <button className="card-edit" onClick={e => { e.stopPropagation(); onEdit(recipe); }}
+              style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center" }}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11.5 2.5l2 2-8 8H3.5v-2l8-8z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <button className="card-delete" onClick={e => { e.stopPropagation(); onDelete(recipe.id); }}
+              style={{ background: "none", border: "none", color: "#c0392b55", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center" }}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 4h10M5 4V2.5C5 2.224 5.224 2 5.5 2h5c.276 0 .5.224.5.5V4M6 7v5M10 7v5M4 4l.8 9.2c.02.44.38.8.82.8h6.76c.44 0 .8-.36.82-.8L14 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
           </>)}
         </div>
       </div>
@@ -2968,12 +3328,18 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   return (<>
     {notices.length > 0 && !noticeDismissed && (
       <div className="notice-banner">
-        <span>📢 {notices[0].title} — {notices[0].body}</span>
+        <span style={{ fontSize: "0.82rem" }}>{notices[0].title} — {notices[0].body}</span>
         <button className="notice-banner-close" onClick={() => setNoticeDismissed(true)}>✕</button>
       </div>
     )}
     <header className="app-header">
-      <div className="logo">☕ Brewlog note</div>
+      <div className="logo">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="9" cy="9" r="8" stroke="var(--espresso)" strokeWidth="1.5"/>
+          <path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="var(--latte)" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+        Brewlog note
+      </div>
       <div className="header-right">
         {user ? (
           <>
@@ -2982,7 +3348,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
               onClick={() => setMyRecipesOnly(v => !v)}
               title={myRecipesOnly ? "전체 피드 보기" : "내 레시피만 보기"}
             >
-              @{user?.displayName}{myRecipesOnly ? " 👤" : ""}
+              @{user?.displayName}{myRecipesOnly ? " ·" : ""}
             </span>
             {isAdmin && <button className="btn-admin-header" onClick={() => setAdminMode(true)}>관리자</button>}
             <button className="btn-lang" onClick={toggleLang}>{lang === "ko" ? "EN" : "KO"}</button>
@@ -2990,7 +3356,10 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             {/* 알림 버튼 - 맨 오른쪽 */}
             <div style={{ position: "relative" }}>
               <button className="notif-btn" onClick={() => { setShowNotif(v => !v); if (!showNotif) markAllRead(); }}>
-                🔔
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 2C6.24 2 4 4.24 4 7v4l-1.5 2h13L14 11V7C14 4.24 11.76 2 9 2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+                  <path d="M7.5 15.5C7.5 16.33 8.17 17 9 17s1.5-.67 1.5-1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
                 {unreadCount > 0 && <span className="notif-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}
               </button>
               {showNotif && (
@@ -3043,22 +3412,48 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     </header>
     {/* 타이틀 + 베스트 */}
     <div className="main-wrap">
-      <div className="section-title">{myRecipesOnly ? I18N[lang].myFeedTitle : I18N[lang].feedTitle}</div>
-      <div className="section-sub">{myRecipesOnly ? I18N[lang].myFeedSub : I18N[lang].feedSub}</div>
+      {/* 타이틀 */}
+      {(() => {
+        let title, sub;
+        if (myRecipesOnly || feedTab === "mine") {
+          title = I18N[lang].myFeedTitle; sub = I18N[lang].myFeedSub;
+        } else if (feedTab === "following") {
+          title = I18N[lang].followingFeedTitle; sub = I18N[lang].followingFeedSub;
+        } else if (feedTab === "bookmarks") {
+          title = I18N[lang].bookmarksFeedTitle; sub = I18N[lang].bookmarksFeedSub;
+        } else {
+          title = I18N[lang].feedTitle; sub = I18N[lang].feedSub;
+        }
+        return (<>
+          <div className="section-title">{title}</div>
+          <div className="section-sub">{sub}</div>
+        </>);
+      })()}
       {/* 탭 + 검색 + 버튼 - 타이틀 바로 아래 */}
       {(<>
         <div className="bookmark-tab" style={{ margin: "1rem 0 0.6rem" }}>
           <button className={`bookmark-tab-btn ${feedTab === "all" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].allRecipes}</button>
-          <button className={`bookmark-tab-btn ${feedTab === "following" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("following"); setMyRecipesOnly(false); setShowRanking(false); }}>📡 {I18N[lang].followingFeed} {following.length > 0 ? `(${following.length})` : ""}</button>
-          <button className={`bookmark-tab-btn ${feedTab === "bookmarks" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); setShowRanking(false); }}>🔖 {I18N[lang].myBookmarks} {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}</button>
-          {user && <button className={`bookmark-tab-btn ${feedTab === "mine" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); setShowRanking(false); }}>👤 {I18N[lang].myRecipes}</button>}
+          <button className={`bookmark-tab-btn ${feedTab === "following" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("following"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].followingFeed} {following.length > 0 ? `(${following.length})` : ""}</button>
+          <button className={`bookmark-tab-btn ${feedTab === "bookmarks" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].myBookmarks} {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}</button>
+          {user && <button className={`bookmark-tab-btn ${feedTab === "mine" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].myRecipes}</button>}
         </div>
         <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.2rem" }}>
           <div className="search-box" style={{ flex: 1 }}>
-            <span className="search-icon">🔍</span>
+            <span className="search-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </span>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
           </div>
-          <button className="btn-new" onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { setShowModal(true); } }}>{I18N[lang].newRecipe}</button>
+          <button className="btn-new" onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { setShowModal(true); } }}>
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9.5 1.5l3 3-7 7H2.5v-3l7-7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+              <path d="M7.5 3.5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            {I18N[lang].newRecipe}
+          </button>
         </div>
       </>)}
       <div className="divider" style={{ marginBottom: "1.5rem" }} />
@@ -3092,13 +3487,13 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
         return (
           <div className="best-section">
-            {/* 헤더: 타이틀 + 탭 */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.8rem", flexWrap: "wrap", gap: "0.5rem" }}>
+            {/* 헤더: 타이틀 + 기간 탭 */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
               <div className="best-title" style={{ margin: 0 }}>{I18N[lang].bestTitle}</div>
-              <div style={{ display: "flex", gap: "0.4rem" }}>
+              <div style={{ display: "flex", gap: "4px" }}>
                 {PERIODS.map(p => (
                   <button key={p.key} onClick={() => setBestPeriod(p.key)}
-                    style={{ padding: "0.25rem 0.8rem", borderRadius: "999px", border: "1px solid var(--steam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.75rem", cursor: "pointer", transition: "all 0.2s",
+                    style={{ padding: "0 12px", height: "28px", borderRadius: "8px", border: "1px solid var(--steam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", cursor: "pointer", transition: "all 0.2s",
                       background: bestPeriod === p.key ? "var(--espresso)" : "var(--foam)",
                       color: bestPeriod === p.key ? "var(--cream)" : "var(--muted)",
                       fontWeight: bestPeriod === p.key ? 600 : 400 }}>
@@ -3107,36 +3502,49 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                 ))}
               </div>
             </div>
-            {/* TOP 3 미니 리스트 */}
+
+            {/* TOP 3 매거진 리스트 */}
             {top3.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0", background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "8px", overflow: "hidden", marginBottom: "0.5rem" }}>
+              <div style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "8px", overflow: "hidden", marginBottom: "8px" }}>
                 {top3.map((r, i) => (
-                  <div key={r.id} onClick={() => setDetailRecipe(r)}
-                    style={{ display: "flex", alignItems: "center", gap: "0.7rem", padding: "0.6rem 0.9rem", borderBottom: i < 2 ? "1px solid var(--steam)" : "none", cursor: "pointer", transition: "background 0.15s" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "var(--cream)"}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <span style={{ fontSize: "1rem", flexShrink: 0 }}>{medals[i]}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.9rem", fontWeight: 600, color: "var(--espresso)" }}>{r.bean}</span>
+                  <div key={r.id} className="best-row" onClick={() => setDetailRecipe(r)}>
+                    {/* 순위 번호 */}
+                    <div className={`best-rank-num rank-${i + 1}`}>
+                      {String(i + 1).padStart(2, '0')}
                     </div>
-                    <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", flexShrink: 0 }}>@{r.author}</span>
+                    {/* 원두 정보 */}
+                    <div className="best-row-content">
+                      <div className="best-row-bean">{r.bean}</div>
+                      <div className="best-row-meta">
+                        <span>@{r.author}</span>
+                        {r.machine && <><span style={{ opacity: 0.4 }}>·</span><span>{r.machine}</span></>}
+                        {r.menuLabel && <><span style={{ opacity: 0.4 }}>·</span><span>{lang === "en" ? (COFFEE_MENUS.find(m => m.id === r.menuId)?.labelEn || r.menuLabel) : r.menuLabel}</span></>}
+                      </div>
+                    </div>
+                    {/* 하트 카운트 */}
+                    <div className="best-row-right">
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+                      </svg>
+                      <span>{(r.likedBy || []).length}</span>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p style={{ fontSize: "0.78rem", color: "var(--muted)", padding: "0.5rem 0", marginBottom: "0.5rem" }}>
+              <p style={{ fontSize: "0.78rem", color: "var(--muted)", padding: "8px 0", marginBottom: "8px" }}>
                 {lang === "en" ? "No recipes yet." : "이 기간에 레시피가 없어요."}
               </p>
             )}
             {top3.length > 0 && (
               <div style={{ textAlign: "right" }}>
                 <button onClick={() => setShowRanking(true)}
-                  style={{ background: "none", border: "none", fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: "2px" }}>
+                  style={{ background: "none", border: "none", fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", cursor: "pointer", letterSpacing: "0.02em" }}>
                   {lang === "en" ? "View all →" : "전체 보기 →"}
                 </button>
               </div>
             )}
-            <div className="divider" style={{ marginTop: "0.8rem", marginBottom: 0 }} />
+            <div className="divider" style={{ marginTop: "12px", marginBottom: 0 }} />
           </div>
         );
       })()}
@@ -3163,7 +3571,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           {/* 헤더 */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1.2rem" }}>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.2rem", color: "var(--espresso)", fontWeight: 700 }}>
-              🏆 {PERIOD_LABELS[bestPeriod]} {lang === "en" ? "Best" : "베스트"}
+              {PERIOD_LABELS[bestPeriod]} {lang === "en" ? "Best" : "베스트"}
             </div>
             <div style={{ marginLeft: "auto", fontSize: "0.75rem", color: "var(--muted)" }}>
               {rankList.length}{lang === "en" ? " recipes" : "개"}
@@ -3183,10 +3591,10 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                   onMouseEnter={e => e.currentTarget.style.background = "var(--cream)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   {/* 순위 */}
-                  <div style={{ minWidth: "2.2rem", textAlign: "center", fontFamily: "'DM Sans',sans-serif", fontWeight: 700,
-                    fontSize: i < 3 ? "1.2rem" : "0.85rem",
-                    color: i === 0 ? "#f39c12" : i === 1 ? "#95a5a6" : i === 2 ? "#cd6133" : "var(--muted)" }}>
-                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
+                  <div style={{ minWidth: "2.5rem", textAlign: "right", fontFamily: "'DM Sans',sans-serif", fontWeight: 600,
+                    fontSize: "0.88rem", letterSpacing: "-0.02em",
+                    color: i === 0 ? "var(--espresso)" : i < 3 ? "var(--latte)" : "var(--muted)" }}>
+                    {String(i + 1).padStart(2, '0')}
                   </div>
                   {/* 원두 정보 */}
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -3200,8 +3608,11 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                     </div>
                   </div>
                   {/* 좋아요 */}
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "#e74c3c", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.2rem", flexShrink: 0 }}>
-                    ❤️ {(r.likedBy || []).length}
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", fontWeight: 500, display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+                    </svg>
+                    {(r.likedBy || []).length}
                   </div>
                 </div>
               ))}
@@ -3331,7 +3742,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         return (
           <div style={{ marginBottom: "2rem", background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "12px", padding: "1rem", boxSizing: "border-box", overflow: "hidden" }}>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "1rem", paddingBottom: "0.7rem", borderBottom: "1px solid var(--steam)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span>📊 {lang === "en" ? "My Stats" : "나의 통계"}</span>
+              <span>{lang === "en" ? "My Stats" : "나의 통계"}</span>
               <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 400, color: "var(--muted)" }}>총 {mine.length}개 레시피</span>
             </div>
             {/* 탭 버튼 */}
@@ -3362,7 +3773,12 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
               </div>
               <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>{lang === "en" ? "Total Likes" : "받은 좋아요"}</span>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1rem", fontWeight: 700, color: "#e74c3c" }}>❤️ {totalLikes}</span>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1rem", fontWeight: 700, color: "#C0625A", display: "flex", alignItems: "center", gap: "5px" }}>
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z"/>
+                  </svg>
+                  {totalLikes}
+                </span>
               </div>
             </div>
 
@@ -3376,15 +3792,74 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       {/* 내 레시피 목록 타이틀 */}
       {feedTab === "mine" && (
         <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          📋 {lang === "en" ? "My Recipes" : "내 레시피"}
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: "var(--latte)", flexShrink: 0 }}>
+            <rect x="3" y="2" width="12" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M6 6h6M6 9h6M6 12h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          {lang === "en" ? "My Recipes" : "내 레시피"}
         </div>
       )}
 
       <div className="recipes-grid">
         {filtered.length === 0 ? (
           <div className="empty-state">
-            <span>☕</span>
-<p>{search ? (lang === "en" ? "No results found." : "검색 결과가 없어요.") : feedTab === "bookmarks" ? (lang === "en" ? "No bookmarks yet." : "즐겨찾기한 레시피가 없어요.") : feedTab === "following" ? (lang === "en" ? "No subscriptions yet. Subscribe to brewers you like!" : "구독한 브루어가 없어요. 마음에 드는 브루어를 구독해보세요!") : feedTab === "mine" ? (lang === "en" ? "No recipes yet. Start brewing!" : "아직 내 레시피가 없어요. 첫 레시피를 기록해보세요!") : myRecipesOnly ? (lang === "en" ? "No recipes yet." : "아직 내 레시피가 없어요.") : (lang === "en" ? "No recipes yet. Be the first!" : "아직 레시피가 없어요.")}</p>
+            {(() => {
+              // 상황별 아이콘 + 텍스트
+              let icon, title, sub;
+              if (search) {
+                icon = (
+                  <svg className="empty-state-icon" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="24" cy="24" r="14" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M34 34L46 46" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M20 24h8M24 20v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                );
+                title = lang === "en" ? "No results found" : "검색 결과가 없어요";
+                sub = lang === "en" ? "Try a different keyword." : "다른 키워드로 검색해보세요.";
+              } else if (feedTab === "bookmarks") {
+                icon = (
+                  <svg className="empty-state-icon" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M14 10C14 8.895 14.895 8 16 8h24c1.105 0 2 .895 2 2v36l-14-8-14 8V10z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                  </svg>
+                );
+                title = lang === "en" ? "No bookmarks yet" : "즐겨찾기가 비어 있어요";
+                sub = lang === "en" ? "Save recipes you love with the bookmark icon." : "마음에 드는 레시피에 북마크를 눌러보세요.";
+              } else if (feedTab === "following") {
+                icon = (
+                  <svg className="empty-state-icon" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="22" cy="20" r="8" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M8 44c0-7.732 6.268-14 14-14s14 6.268 14 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M40 24v12M46 30H34" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                );
+                title = lang === "en" ? "No subscriptions yet" : "구독 중인 브루어가 없어요";
+                sub = lang === "en" ? "Follow brewers you like to see their recipes here." : "마음에 드는 브루어를 구독하면 여기에 모아볼 수 있어요.";
+              } else if (feedTab === "mine" || myRecipesOnly) {
+                icon = (
+                  <svg className="empty-state-icon" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="10" y="14" width="36" height="28" rx="3" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M20 28h16M28 20v16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                );
+                title = lang === "en" ? "No recipes yet" : "아직 레시피가 없어요";
+                sub = lang === "en" ? "Share your first brew." : "첫 번째 추출 기록을 남겨보세요.";
+              } else {
+                icon = (
+                  <svg className="empty-state-icon" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="28" cy="34" rx="14" ry="4" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M14 34c0-8 5-16 14-18 9 2 14 10 14 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M42 30c3 0 6-1.5 6-4s-3-4-6-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                );
+                title = lang === "en" ? "No recipes yet" : "아직 레시피가 없어요";
+                sub = lang === "en" ? "Be the first to share your brew." : "첫 번째로 레시피를 공유해보세요.";
+              }
+              return (<>
+                {icon}
+                <div className="empty-state-title">{title}</div>
+                <div className="empty-state-sub">{sub}</div>
+              </>);
+            })()}
           </div>
         ) : filtered.map(r => (
           <RecipeCard key={r.id} recipe={r} currentUid={user?.uid} lang={lang}
@@ -3625,17 +4100,23 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
   };
 
   const TABS = [
-    { key: "stats", label: "📊 통계" },
+    { key: "stats", label: "통계" },
     { key: "reports", label: "🚨 신고 관리" },
     { key: "users", label: "👥 회원 관리" },
-    { key: "recipes", label: "📋 레시피 관리" },
+    { key: "recipes", label: "레시피 관리" },
     { key: "notices", label: "📢 공지사항" },
-    { key: "brands", label: "☕ 브랜드 관리" },
+    { key: "brands", label: "브랜드 관리" },
   ];
 
   return (<>
     <header className="app-header">
-      <div className="logo">☕ Brewlog <span style={{ fontSize: "0.75rem", color: "#ff6b6b", marginLeft: "0.5rem" }}>ADMIN</span></div>
+      <div className="logo">
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="9" cy="9" r="8" stroke="var(--espresso)" strokeWidth="1.5"/>
+          <path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="var(--latte)" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+        Brewlog <span style={{ fontSize: "0.75rem", color: "#ff6b6b", marginLeft: "0.5rem" }}>ADMIN</span>
+      </div>
       <div className="header-right">
         <button className="btn-admin-header" onClick={onExit}>← 일반화면</button>
         <button className="btn-logout" onClick={() => signOut(auth)}>{I18N[lang].logout}</button>
@@ -3767,7 +4248,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
                       </button>
                       <button onClick={() => handleReportAction(r, "delete")}
                         style={{ padding: "0.4rem 0.8rem", background: "#e74c3c", color: "white", border: "none", borderRadius: "2px", fontSize: "0.8rem", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>
-                        🗑 삭제
+                        삭제
                       </button>
                     </div>
                   )}
@@ -3812,7 +4293,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
         <>
           <div className="admin-card">
             <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "1rem", fontWeight: 500 }}>
-              {editNoticeId ? "✏️ 공지사항 수정" : "새 공지사항 작성"}
+              {editNoticeId ? "공지사항 수정" : "새 공지사항 작성"}
             </p>
             <div className="notice-form">
               <div className="field" style={{ marginBottom: 0 }}>
@@ -3862,7 +4343,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
           {brandMsg && <p className={brandMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginBottom: "1rem", textAlign: "center" }}>{brandMsg.text}</p>}
           {/* 커피 머신 브랜드 */}
           <div className="admin-card" style={{ marginBottom: "1.5rem" }}>
-            <p style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--muted)", marginBottom: "1rem" }}>🤖 커피 머신 브랜드</p>
+            <p style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--muted)", marginBottom: "1rem" }}>{lang === "en" ? "Coffee Machine Brands" : "커피 머신 브랜드"}</p>
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
               <input value={newMachineBrand} onChange={e => setNewMachineBrand(e.target.value)}
                 placeholder="새 브랜드명 입력" onKeyDown={e => e.key === "Enter" && addMachineBrand()}
@@ -3881,7 +4362,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
           </div>
           {/* 그라인더 브랜드 */}
           <div className="admin-card">
-            <p style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--muted)", marginBottom: "1rem" }}>⚙️ 그라인더 브랜드</p>
+            <p style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--muted)", marginBottom: "1rem" }}>{lang === "en" ? "Grinder Brands" : "그라인더 브랜드"}</p>
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
               <input value={newGrinderBrand} onChange={e => setNewGrinderBrand(e.target.value)}
                 placeholder="새 브랜드명 입력" onKeyDown={e => e.key === "Enter" && addGrinderBrand()}
@@ -3943,7 +4424,14 @@ export default function App() {
   if (user === undefined) return (
     <LangContext.Provider value={lang}>
       <style>{CSS}</style>
-      <div className="loading-wrap"><p>☕ 로딩 중…</p></div>
+      <div className="loading-wrap">
+        <p style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ animation: "spin 1s linear infinite", color: "var(--muted)" }}>
+            <circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="1.8" strokeDasharray="14 30" strokeLinecap="round"/>
+          </svg>
+          로딩 중…
+        </p>
+      </div>
     </LangContext.Provider>
   );
 
