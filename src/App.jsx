@@ -142,7 +142,17 @@ const CSS = `
     letter-spacing: -0.02em;
     display: flex; align-items: center; gap: 8px;
   }
-  .header-right { display: flex; align-items: center; gap: 8px; }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-width: 0; overflow: hidden; }
+  .header-right > * { flex-shrink: 0; }
+
+  /* EN 모드에서 버튼 텍스트 축약 — 모바일 */
+  @media (max-width: 430px) {
+    .app-header { padding: 0 10px; }
+    .app-header .logo { font-size: 0.95rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-lang, .btn-my { padding: 0 8px; font-size: 0.65rem; }
+    .nick-badge { max-width: 72px; font-size: 0.65rem; padding: 0 8px; }
+    .btn-admin-header { padding: 0 8px; font-size: 0.65rem; }
+  }
 
   /* 헤더 공통 버튼 base — 모두 border-radius: 8px, 높이 32px */
   .header-btn-base {
@@ -610,11 +620,11 @@ const CSS = `
 
     /* 헤더 */
     .app-header { padding: 0 12px; height: 48px; }
-    .app-header .logo { font-size: 1rem; }
-    .header-right { gap: 6px; }
+    .app-header .logo { font-size: 1rem; flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .header-right { gap: 5px; }
     .btn-lang, .btn-my, .btn-logout { padding: 0 10px; height: 28px; font-size: 0.68rem; }
-    .btn-logout { display: none; } /* 모바일에서 로그아웃은 MY 설정 내에서 */
-    .nick-badge { height: 28px; padding: 0 10px; font-size: 0.68rem; }
+    .btn-logout { display: none; }
+    .nick-badge { height: 28px; padding: 0 8px; font-size: 0.65rem; max-width: 80px; }
 
     /* 메인 */
     .main-wrap { padding: 16px 12px; }
@@ -4078,14 +4088,32 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     await Promise.all(unread.map(n => updateDoc(doc(db, "notifications", n.id), { read: true }).catch(() => {})));
   };
 
-  const [recipes, setRecipes] = useState([]);
-  const [search, setSearch] = useState("");
-  const [myRecipesOnly, setMyRecipesOnly] = useState(false);
+  // ── 모바일 뒤로가기: 앱 종료 대신 모달 닫기 ──────────────────────
   const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [showMyModal, setShowMyModal] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [detailRecipe, setDetailRecipe] = useState(null);
+
+  // 모달 열릴 때 history에 state 추가, 뒤로가기 시 닫기
+  const openModal    = ()  => { window.history.pushState({ modal: true }, ""); setShowModal(true); };
+  const openMyModal  = ()  => { window.history.pushState({ modal: true }, ""); setShowMyModal(true); };
+  const openDetail   = (r) => { window.history.pushState({ modal: true }, ""); setDetailRecipe(r); };
+
+  useEffect(() => {
+    const onPop = () => {
+      // 열린 모달을 우선순위로 닫기
+      if (detailRecipe) { setDetailRecipe(null); return; }
+      if (showModal)    { setShowModal(false); setEditTarget(null); return; }
+      if (showMyModal)  { setShowMyModal(false); return; }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [detailRecipe, showModal, showMyModal]);
+
+  const [recipes, setRecipes] = useState([]);
+  const [search, setSearch] = useState("");
+  const [myRecipesOnly, setMyRecipesOnly] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [feedTab, setFeedTab] = useState("all"); // "all" | "bookmarks" | "following"
   const [bestPeriod, setBestPeriod] = useState("month"); // "day" | "week" | "month"
   const [showRanking, setShowRanking] = useState(false); // true면 TOP100 페이지
@@ -4228,7 +4256,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             </span>
             {isAdmin && <button className="btn-admin-header" onClick={() => setAdminMode(true)}>관리자</button>}
             <button className="btn-lang" onClick={toggleLang}>{lang === "ko" ? "EN" : "KO"}</button>
-            <button className="btn-my" onClick={() => setShowMyModal(true)}>MY</button>
+            <button className="btn-my" onClick={() => openMyModal()}>MY</button>
             {/* 알림 버튼 - 맨 오른쪽 */}
             <div style={{ position: "relative" }}>
               <button className="notif-btn" onClick={() => { setShowNotif(v => !v); if (!showNotif) markAllRead(); }}>
@@ -4345,7 +4373,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
               </span>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
             </div>
-            <button className="btn-new" onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { setShowModal(true); } }}>
+            <button className="btn-new" onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { openModal(); } }}>
               <svg width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M9.5 1.5l3 3-7 7H2.5v-3l7-7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
                 <path d="M7.5 3.5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
@@ -4413,7 +4441,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             {top3.length > 0 ? (
               <div style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "8px", overflow: "hidden", marginBottom: "8px" }}>
                 {top3.map((r, i) => (
-                  <div key={r.id} className="best-row" onClick={() => setDetailRecipe(r)}>
+                  <div key={r.id} className="best-row" onClick={() => openDetail(r)}>
                     {/* 순위 번호 */}
                     <div className={`best-rank-num rank-${i + 1}`}>
                       {String(i + 1).padStart(2, '0')}
@@ -4492,7 +4520,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           ) : (
             <div style={{ borderRadius: "8px", border: "1px solid var(--steam)", overflow: "hidden", background: "var(--foam)" }}>
               {rankList.map((r, i) => (
-                <div key={r.id} onClick={() => setDetailRecipe(r)}
+                <div key={r.id} onClick={() => openDetail(r)}
                   style={{ display: "flex", alignItems: "center", gap: "0.9rem", padding: "0.8rem 1rem", borderBottom: i < rankList.length - 1 ? "1px solid var(--steam)" : "none", cursor: "pointer", transition: "background 0.15s" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--cream)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -4556,13 +4584,22 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         };
 
         const calcTop = (list) => {
-          const menuCount = {}; list.forEach(r => { if (r.menuLabel) menuCount[r.menuLabel] = (menuCount[r.menuLabel]||0)+1; });
-          const beanCount = {}; list.forEach(r => { if (r.bean) beanCount[r.bean] = (beanCount[r.bean]||0)+1; });
-          const machineCount = {}; list.forEach(r => { if (r.machine) machineCount[r.machine] = (machineCount[r.machine]||0)+1; });
+          const menuCount    = {}; list.forEach(r => { if (r.menuLabel) menuCount[r.menuLabel]     = (menuCount[r.menuLabel]    ||0)+1; });
+          const beanCount    = {}; list.forEach(r => { if (r.bean)      beanCount[r.bean]          = (beanCount[r.bean]         ||0)+1; });
+          const machineCount = {}; list.forEach(r => {
+            // machineBrand 우선, 없으면 machine 전체 문자열 사용
+            const key = r.machineBrand ? r.machineBrand : r.machine;
+            if (key) machineCount[key] = (machineCount[key]||0)+1;
+          });
+          const grinderCount = {}; list.forEach(r => {
+            const key = r.grinderBrand ? r.grinderBrand : r.grinder;
+            if (key) grinderCount[key] = (grinderCount[key]||0)+1;
+          });
           return {
-            menus: Object.entries(menuCount).sort((a,b)=>b[1]-a[1]).slice(0,3),
-            beans: Object.entries(beanCount).sort((a,b)=>b[1]-a[1]).slice(0,3),
-            machine: Object.entries(machineCount).sort((a,b)=>b[1]-a[1])[0] || null,
+            menus:    Object.entries(menuCount).sort((a,b)=>b[1]-a[1]).slice(0,3),
+            beans:    Object.entries(beanCount).sort((a,b)=>b[1]-a[1]).slice(0,3),
+            machines: Object.entries(machineCount).sort((a,b)=>b[1]-a[1]).slice(0,3),
+            grinders: Object.entries(grinderCount).sort((a,b)=>b[1]-a[1]).slice(0,3),
           };
         };
 
@@ -4634,12 +4671,20 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
               <TopList label={lang === "en" ? "Fav Menu" : "자주 마신 메뉴"} items={top.menus} />
               <TopList label={lang === "en" ? "Fav Bean" : "자주 쓴 원두"} items={top.beans} />
             </div>
-            {top.machine && (
-              <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.75rem 1rem" }}>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", fontWeight: 600, color: "var(--muted)", marginBottom: "0.25rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  {lang === "en" ? (isHanddrip ? "Main Equipment" : "Main Machine") : (isHanddrip ? "주로 쓰는 기구" : "주로 쓰는 기기")}
-                </div>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", color: "var(--espresso)", fontWeight: 500 }}>{top.machine[0]} <span style={{ color: "var(--muted)", fontSize: "0.72rem" }}>({top.machine[1]}회)</span></div>
+            {(top.machines?.length > 0 || top.grinders?.length > 0) && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                {top.machines?.length > 0 && (
+                  <TopList
+                    label={lang === "en" ? (isHanddrip ? "Equipment" : "Machine") : (isHanddrip ? "주로 쓰는 기구" : "주로 쓰는 기기")}
+                    items={top.machines}
+                  />
+                )}
+                {top.grinders?.length > 0 && (
+                  <TopList
+                    label={lang === "en" ? "Grinder" : "그라인더"}
+                    items={top.grinders}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -4776,7 +4821,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             onFollow={toggleFollow}
             isFollowing={following.includes(r.uid) || following.includes(r.author)}
             onEdit={r => { setEditTarget(r); setShowModal(true); }}
-            onCardClick={() => setDetailRecipe(r)} />
+            onCardClick={() => openDetail(r)} />
         ))}
       </div>}
     </div>}
