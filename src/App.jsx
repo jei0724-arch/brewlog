@@ -2328,16 +2328,26 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
           <div className="field full">
             <label>{machineType === "handdrip" ? (lang === "en" ? "Hand Drip Equipment" : "핸드드립 기구") : (t ? t.machine : "커피 머신")}</label>
             {/* 커피머신 / 핸드드립 탭 — 항상 표시 */}
-            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.8rem" }}>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
               <button
                 type="button"
                 onClick={() => { setMachineType("auto"); setMachineBrand(savedMachine?.equipType !== "handdrip" ? (savedMachine?.brand || "") : ""); setMachineModel(savedMachine?.equipType !== "handdrip" ? (savedMachine?.model || "") : ""); setMachineLocked(false); }}
-                style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: machineType !== "handdrip" ? "var(--espresso)" : "var(--foam)", color: machineType !== "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", cursor: "pointer", transition: "all 0.2s" }}
+                style={{ flex: 1, height: "42px", border: "1px solid", borderRadius: "8px",
+                  borderColor: machineType !== "handdrip" ? "var(--espresso)" : "var(--steam)",
+                  background: machineType !== "handdrip" ? "var(--espresso)" : "var(--foam)",
+                  color: machineType !== "handdrip" ? "var(--cream)" : "var(--muted)",
+                  fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", fontWeight: machineType !== "handdrip" ? 600 : 400,
+                  cursor: "pointer", transition: "all 0.2s" }}
               >{lang === "en" ? "Coffee Machine" : "커피 머신"}</button>
               <button
                 type="button"
                 onClick={() => { setMachineType("handdrip"); setMachineBrand(""); setMachineModel(""); setMachineLocked(false); const hd = COFFEE_MENUS.find(m => m.id === "hand_drip"); if (hd) selectMenu(hd); }}
-                style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: machineType === "handdrip" ? "var(--espresso)" : "var(--foam)", color: machineType === "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", cursor: "pointer", transition: "all 0.2s" }}
+                style={{ flex: 1, height: "42px", border: "1px solid", borderRadius: "8px",
+                  borderColor: machineType === "handdrip" ? "var(--espresso)" : "var(--steam)",
+                  background: machineType === "handdrip" ? "var(--espresso)" : "var(--foam)",
+                  color: machineType === "handdrip" ? "var(--cream)" : "var(--muted)",
+                  fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", fontWeight: machineType === "handdrip" ? 600 : 400,
+                  cursor: "pointer", transition: "all 0.2s" }}
               >{lang === "en" ? "Hand Drip" : "핸드드립"}</button>
             </div>
             {machineType === "handdrip" ? (
@@ -2345,14 +2355,14 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                 value={handDripName}
                 onChange={e => setHandDripName(e.target.value)}
                 placeholder={lang === "en" ? "e.g. Hario V60, Chemex …" : "예) 하리오 V60, 케멕스 …"}
-                style={{ width: "100%", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }}
+                style={{ width: "100%", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }}
               />
             ) : machineLocked ? (
-              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                <div style={{ flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <div style={{ flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>
                   {machineDisplay}
                 </div>
-                <button onClick={() => setMachineLocked(false)} style={{ padding: "0.75rem 0.8rem", background: "none", border: "1px solid var(--steam)", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                <button onClick={() => setMachineLocked(false)} style={{ height: "42px", padding: "0 16px", background: "none", border: "1px solid var(--steam)", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.2s" }}>
                   {lang === "en" ? "Edit" : "변경"}
                 </button>
               </div>
@@ -2367,17 +2377,23 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                 {machineBrand && (
                   <>
                     {isBothModeBrand(machineBrand) && (
-                      <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                      <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                         {[{ val: "auto", label: t.autoType }, { val: "manual", label: t.manualType }].map(({ val, label }) => (
                           <button key={val} type="button" onClick={() => setMachineType(val)}
-                            style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderColor: machineType === val ? "var(--accent)" : "var(--steam)", borderRadius: "2px", background: machineType === val ? "var(--accent)" : "var(--foam)", color: machineType === val ? "white" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", cursor: "pointer", transition: "all 0.2s" }}
+                            style={{ flex: 1, height: "42px", border: "1px solid", borderRadius: "8px",
+                              borderColor: machineType === val ? "var(--espresso)" : "var(--steam)",
+                              background: machineType === val ? "var(--espresso)" : "var(--foam)",
+                              color: machineType === val ? "var(--cream)" : "var(--muted)",
+                              fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem",
+                              fontWeight: machineType === val ? 600 : 400,
+                              cursor: "pointer", transition: "all 0.2s" }}
                           >{label}</button>
                         ))}
                       </div>
                     )}
                     <input value={machineModel} onChange={e => setMachineModel(e.target.value)}
                       placeholder={isCustomBrand ? "브랜드명과 모델명 입력" : "예) Barista Express, Dedica …"}
-                      style={{ width: "100%", marginTop: "0.5rem", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }}
+                      style={{ width: "100%", marginTop: "8px", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }}
                     />
                     {machineModel && <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem", display: "flex", alignItems: "center", gap: "4px" }}>
                       <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4 7h6M4 9.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><rect x="3" y="1" width="8" height="3" rx="1" fill="currentColor" opacity="0.35"/></svg>
@@ -2394,18 +2410,18 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             grinderLocked ? (
               <div className="field full">
                 <label>{t ? t.grinder : "그라인더"}</label>
-                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                   <div style={{
                     flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)",
-                    borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem",
+                    borderRadius: "8px", background: "var(--cream)", fontSize: "0.95rem",
                     color: "var(--espresso)", fontWeight: 500,
                   }}>
                     {grinderDisplay}
                   </div>
                   <button onClick={() => setGrinderLocked(false)} style={{
-                    padding: "0.75rem 0.8rem", background: "none", border: "1px solid var(--steam)",
-                    borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem",
-                    color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
+                    height: "42px", padding: "0 16px", background: "none", border: "1px solid var(--steam)",
+                    borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem",
+                    color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.2s",
                   }}>{ lang === "en" ? "Edit" : "변경"}</button>
                 </div>
               </div>
@@ -2587,7 +2603,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                   .then(w => { setWeather(w); setWeatherError(null); })
                   .catch(e => { setWeatherError(typeof e === "string" ? e : e.message); })
                   .finally(() => setWeatherLoading(false));
-              }} style={{ padding: "0.75rem 1rem", background: "var(--cream)", border: "1px solid var(--latte)", borderRadius: "2px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", color: "var(--roast)", cursor: "pointer", width: "100%", textAlign: "center" }}>
+              }} style={{ padding: "0.75rem 1rem", background: "var(--cream)", border: "1px solid var(--latte)", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", color: "var(--roast)", cursor: "pointer", width: "100%", textAlign: "center" }}>
                 {lang === "en" ? "Get Current Weather" : "현재 날씨 가져오기"}
               </button>
             )}
@@ -2599,7 +2615,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             <label style={{ color: errors.menu ? "#c0392b" : undefined }}>
               {t.coffeeMenu}
             </label>
-            <div className="menu-selector" style={{ border: errors.menu ? "1px solid #c0392b" : "none", borderRadius: "2px", padding: errors.menu ? "0.5rem" : "0" }}>
+            <div className="menu-selector" style={{ border: errors.menu ? "1px solid #c0392b" : "none", borderRadius: "8px", padding: errors.menu ? "0.5rem" : "0" }}>
               {(machineType === "handdrip"
                 ? COFFEE_MENUS.filter(m => m.id === "hand_drip" || m.id === "other")
                 : COFFEE_MENUS.filter(m => m.id !== "hand_drip")
@@ -2677,7 +2693,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             <div className="field">
               <label>{t ? t.diluteType : "희석 종류"}</label>
               {fixedDilute ? (
-                <div style={{ padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--steam)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>
+                <div style={{ padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--steam)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>
                   {lang === "en" ? (fixedDiluteEn || fixedDilute) : fixedDilute} {lang === "en" ? "(Fixed)" : "(고정)"}
                 </div>
               ) : (
@@ -2766,8 +2782,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               </span>
             </div>
           </div>
-          {/* 예상 압력 계산 - 맛 노트 바로 위 */}
-          {(() => {
+          {/* 예상 압력 계산 - 핸드드립에서는 숨김 */}
+          {machineType !== "handdrip" && (() => {
             const p = calcPressure(form.espressoMl, form.seconds);
             if (!p) return null;
             return (
@@ -3545,7 +3561,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
       </div>
       {recipe.diluteMl && <div className="card-dilution">{lang === "en" ? (recipe.diluteType === "물" ? "Water" : recipe.diluteType === "우유" ? "Milk" : recipe.diluteType === "두유" ? "Soy Milk" : recipe.diluteType) : recipe.diluteType} {recipe.diluteMl}ml {t.dilution}</div>}
       {recipe.syrup && <div className="card-dilution">{recipe.syrup}</div>}
-      {recipe.showerBar && (
+      {recipe.showerBar && recipe.machineType !== "handdrip" && (
         <div style={{
           fontSize: "0.78rem", padding: "0.4rem 0.8rem", borderRadius: "6px", marginBottom: "0.5rem",
           background: recipe.showerBar >= 9 && recipe.showerBar <= 11 ? "#27ae6010" : "#e74c3c10",
