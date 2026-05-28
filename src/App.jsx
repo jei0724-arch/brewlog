@@ -1990,7 +1990,7 @@ const FLAVOR_AXES = [
   { key: "flavorBody",        ko: "바디",   en: "Body",       desc_ko: "입안의 질감과 무게감",           desc_en: "Texture and weight on the palate" },
 ];
 
-function FlavorRadar({ values, size = 200 }) {
+function FlavorRadar({ values, size = 200, lang = "ko" }) {
   const pad = 24;                          // 레이블용 여백
   const vb  = size + pad * 2;             // viewBox 크기
   const cx  = vb / 2, cy = vb / 2;       // 중심
@@ -2077,7 +2077,7 @@ function FlavorRadar({ values, size = 200 }) {
             fontSize="10" textAnchor={anchor}
             fontFamily="'DM Sans',sans-serif" fontWeight="500"
             fill="var(--espresso)" opacity="0.9">
-            {ax.ko}
+            {lang === "en" ? ax.en : ax.ko}
           </text>
         );
       })}
@@ -2716,7 +2716,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             </label>
             {/* 레이더 차트 — 중앙 정렬 */}
             <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
-              <FlavorRadar values={form} size={200}/>
+              <FlavorRadar values={form} size={200} lang={lang}/>
             </div>
             {/* 슬라이더 — 2열 그리드 */}
             <div className="flavor-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
@@ -3285,7 +3285,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
           </div>
           {/* 레이더 차트 */}
           <div style={{ display: "flex", justifyContent: "center", marginBottom: "14px" }}>
-            <FlavorRadar values={recipe} size={200}/>
+            <FlavorRadar values={recipe} size={200} lang={lang}/>
           </div>
           {/* 2열 바 그리드 */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 20px" }}>
