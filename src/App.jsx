@@ -67,7 +67,7 @@ const CSS = `
     --muted:   #8C8480;
     --r8: 8px;
   }
-  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 
   .auth-wrap {
     min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -626,8 +626,8 @@ const CSS = `
     .btn-logout { display: none; }
     .nick-badge { height: 28px; padding: 0 8px; font-size: 0.65rem; max-width: 80px; }
 
-    /* 메인 */
-    .main-wrap { padding: 16px 12px; }
+    /* 메인 래퍼 — 가로 넘침 차단 */
+    .main-wrap { padding: 16px 12px; overflow-x: hidden; box-sizing: border-box; width: 100%; }
     .recipes-grid { grid-template-columns: 1fr; }
     .recipe-card { padding: 16px; }
 
@@ -635,22 +635,51 @@ const CSS = `
     .best-row { padding: 14px 16px; gap: 12px; }
     .best-rank-num { font-size: 1rem; min-width: 28px; }
 
-    /* 탭 */
+    /* 탭 — 가로 스크롤, 화면 꽉 채우기 */
     .bookmark-tab {
+      display: flex;
       flex-wrap: nowrap;
       overflow-x: auto;
+      overflow-y: visible;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
-      padding-bottom: 2px;
       gap: 6px;
+      margin-left: -12px;
+      margin-right: -12px;
+      padding-left: 12px;
+      padding-right: 12px;
+      padding-bottom: 4px;
+      box-sizing: content-box;
     }
     .bookmark-tab::-webkit-scrollbar { display: none; }
-    .bookmark-tab-btn { white-space: nowrap; padding: 0 12px; font-size: 0.75rem; flex-shrink: 0; height: 30px; }
+    .bookmark-tab-btn {
+      white-space: nowrap;
+      padding: 0 12px;
+      font-size: 0.73rem;
+      flex-shrink: 0;
+      height: 30px;
+    }
 
-    /* 툴바 검색+버튼 */
-    .toolbar { flex-direction: row; align-items: center; gap: 8px; padding: 0 12px; }
-    .btn-new { padding: 0 12px; flex-shrink: 0; }
-    .search-box input { font-size: 0.85rem; }
+    /* 검색행 — 전체 너비 안에서만 */
+    .search-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .search-box { min-width: 0; flex: 1; overflow: hidden; }
+    .search-box input { font-size: 0.82rem; min-width: 0; width: 100%; box-sizing: border-box; }
+
+    /* Record 버튼 — 영어일 때도 잘리지 않게 */
+    .btn-new {
+      padding: 0 10px;
+      flex-shrink: 0;
+      font-size: 0.75rem;
+      gap: 5px;
+      white-space: nowrap;
+      max-width: none;
+    }
 
     /* 메뉴 선택 그리드 */
     .menu-selector { grid-template-columns: repeat(3, 1fr); gap: 6px; }
@@ -1657,7 +1686,7 @@ const I18N = {
     followingFeedSub: "Latest records from brewers you follow.",
     bookmarksFeedTitle: "Saved",
     bookmarksFeedSub: "Recipes you've bookmarked.",
-    searchPlaceholder: "Search menu, machine, bean, nickname, note …",
+    searchPlaceholder: "Search menu, machine, bean …",
     newRecipe: "Record",
     logout: "Logout", myBtn: "MY",
     emptyFeed: "No recipes yet. Be the first to share!",
@@ -4346,16 +4375,16 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         </div>
         {/* 두 번째 행: beans 탭 → 필터+추가하기 / 나머지 → 검색+기록하기 */}
         {feedTab === "beans" ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "1.2rem", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "1.2rem", overflow: "hidden" }}>
+            <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flex: 1 }}>
               {[["all", lang === "en" ? "All" : "전체"], ["open", I18N[lang].beanOpen], ["sealed", I18N[lang].beanSealed], ["empty", I18N[lang].beanEmpty]].map(([v, lbl]) => (
                 <button key={v} className={`bookmark-tab-btn ${beanFilterStatus === v ? "active" : ""}`}
-                  onClick={() => setBeanFilterStatus(v)} style={{ fontSize: "0.75rem", height: "30px", padding: "0 12px" }}>
+                  onClick={() => setBeanFilterStatus(v)} style={{ fontSize: "0.75rem", height: "30px", padding: "0 12px", flexShrink: 0 }}>
                   {lbl}
                 </button>
               ))}
             </div>
-            <button className="btn-new" onClick={() => { setBeanEditTarget(null); setBeanShowModal(true); }}>
+            <button className="btn-new" style={{ flexShrink: 0 }} onClick={() => { setBeanEditTarget(null); setBeanShowModal(true); }}>
               <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
               </svg>
@@ -4363,8 +4392,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             </button>
           </div>
         ) : (
-          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.2rem" }}>
-            <div className="search-box" style={{ flex: 1 }}>
+          <div className="search-row" style={{ display: "flex", gap: "0.5rem", marginBottom: "1.2rem", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
+            <div className="search-box" style={{ flex: 1, minWidth: 0 }}>
               <span className="search-icon">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/>
@@ -4373,12 +4402,12 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
               </span>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
             </div>
-            <button className="btn-new" onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { openModal(); } }}>
+            <button className="btn-new" style={{ flexShrink: 0 }} onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { openModal(); } }}>
               <svg width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M9.5 1.5l3 3-7 7H2.5v-3l7-7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
                 <path d="M7.5 3.5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
               </svg>
-              {I18N[lang].newRecipe}
+              <span className="btn-new-text">{I18N[lang].newRecipe}</span>
             </button>
           </div>
         )}
