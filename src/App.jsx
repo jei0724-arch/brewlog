@@ -142,7 +142,7 @@ const CSS = `
     letter-spacing: -0.02em;
     display: flex; align-items: center; gap: 8px;
   }
-  .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-width: 0; overflow: hidden; }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-width: 0; }
   .header-right > * { flex-shrink: 0; }
 
   /* EN 모드에서 버튼 텍스트 축약 — 모바일 */
@@ -656,9 +656,9 @@ const CSS = `
   .notif-btn:hover { color: var(--espresso); }
   .notif-badge { position: absolute; top: -3px; right: -5px; background: #e74c3c; color: white; font-size: 0.55rem; font-weight: 700; min-width: 15px; height: 15px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 3px; font-family: 'DM Sans',sans-serif; }
   .notif-dropdown {
-    position: fixed;
-    top: 56px;
-    right: 12px;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
     width: 320px;
     max-width: calc(100vw - 24px);
     background: var(--foam);
@@ -677,6 +677,9 @@ const CSS = `
   .notif-item-text { font-family: 'DM Sans',sans-serif; font-size: 0.82rem; color: var(--espresso); line-height: 1.45; }
   .notif-item-time { font-family: 'DM Sans',sans-serif; font-size: 0.68rem; color: var(--muted); }
   .notif-empty { padding: 32px; text-align: center; font-family: 'DM Sans',sans-serif; font-size: 0.82rem; color: var(--muted); }
+  @media (max-width: 600px) {
+    .notif-dropdown { position: fixed; top: 52px; right: 8px; left: 8px; width: auto; max-width: none; }
+  }
 
   .notice-banner { background: var(--espresso); color: var(--cream); padding: 0.6rem 2rem; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
   .notice-banner-close { background: none; border: none; color: var(--steam); cursor: pointer; font-size: 1rem; flex-shrink: 0; }
@@ -4222,7 +4225,7 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
                     {bean.buyDate && `${lang === "en" ? "Purchased" : "구매"} ${bean.buyDate}`}
                   </div>
                   <div className="bean-actions">
-                    <button className="bean-btn" onClick={() => { setEditTarget(bean); setShowModal(true); }}>
+                    <button className="bean-btn" onClick={() => { setEditTarget(bean); setShowModalWrapped(true); }}>
                       <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M9.5 1.5l3 3-7 7H2.5v-3l7-7z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
                       </svg>
@@ -4241,7 +4244,7 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
       )}
 
       {showModal && (
-        <BeanModal lang={lang} user={user} editTarget={editTarget} onClose={() => setShowModal(false)} onSaved={loadBeans}/>
+        <BeanModal lang={lang} user={user} editTarget={editTarget} onClose={() => setShowModalWrapped(false)} onSaved={loadBeans}/>
       )}
     </div>
   );
@@ -4289,21 +4292,38 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [showMyModal, setShowMyModal] = useState(false);
   const [detailRecipe, setDetailRecipe] = useState(null);
 
+  // ref로 최신 상태 추적 (클로저 stale 문제 방지)
+  const detailRecipeRef = React.useRef(null);
+  const showModalRef    = React.useRef(false);
+  const showMyModalRef  = React.useRef(false);
+
+  const setDetailRecipeWrapped = (r) => {
+    detailRecipeRef.current = r;
+    setDetailRecipe(r);
+  };
+  const setShowModalWrapped = (v) => {
+    showModalRef.current = v;
+    setShowModal(v);
+  };
+  const setShowMyModalWrapped = (v) => {
+    showMyModalRef.current = v;
+    setShowMyModal(v);
+  };
+
   // 모달 열릴 때 history에 state 추가, 뒤로가기 시 닫기
-  const openModal    = ()  => { window.history.pushState({ modal: true }, ""); setShowModal(true); };
-  const openMyModal  = ()  => { window.history.pushState({ modal: true }, ""); setShowMyModal(true); };
-  const openDetail   = (r) => { window.history.pushState({ modal: true }, ""); setDetailRecipe(r); };
+  const openModal   = ()  => { window.history.pushState({ modal: true }, ""); setShowModalWrapped(true); };
+  const openMyModal = ()  => { window.history.pushState({ modal: true }, ""); setShowMyModalWrapped(true); };
+  const openDetail  = (r) => { window.history.pushState({ modal: true }, ""); setDetailRecipeWrapped(r); };
 
   useEffect(() => {
     const onPop = () => {
-      // 열린 모달을 우선순위로 닫기
-      if (detailRecipe) { setDetailRecipe(null); return; }
-      if (showModal)    { setShowModal(false); setEditTarget(null); return; }
-      if (showMyModal)  { setShowMyModal(false); return; }
+      if (detailRecipeRef.current)  { setDetailRecipeWrapped(null); return; }
+      if (showModalRef.current)     { setShowModalWrapped(false); setEditTarget(null); return; }
+      if (showMyModalRef.current)   { setShowMyModalWrapped(false); return; }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [detailRecipe, showModal, showMyModal]);
+  }, []); // 의존성 없이 한 번만 등록, ref로 최신 상태 접근
 
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState("");
@@ -4453,7 +4473,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             <button className="btn-lang" onClick={toggleLang}>{lang === "ko" ? "EN" : "KO"}</button>
             <button className="btn-my" onClick={() => openMyModal()}>MY</button>
             {/* 알림 버튼 */}
-            <div style={{ position: "relative" }}>
+            <div style={{ position: "relative", flexShrink: 0 }}>
               <button className="notif-btn" onClick={() => setShowNotif(v => !v)}>
                 <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M9 2C6.24 2 4 4.24 4 7v4l-1.5 2h13L14 11V7C14 4.24 11.76 2 9 2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
@@ -4496,7 +4516,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                           if (!n.read) await updateDoc(doc(db, "notifications", n.id), { read: true }).catch(() => {});
                           if (n.recipeId) {
                             const snap = await getDoc(doc(db, "recipes", n.recipeId)).catch(() => null);
-                            if (snap?.exists()) setDetailRecipe({ id: snap.id, ...snap.data() });
+                            if (snap?.exists()) setDetailRecipeWrapped({ id: snap.id, ...snap.data() });
                           } else if (n.type === "newRecipe") {
                             setFeedTab("all");
                             setSearch(n.fromUser || "");
@@ -5043,12 +5063,12 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             isBookmarked={bookmarks.includes(r.id)}
             onFollow={toggleFollow}
             isFollowing={following.includes(r.uid) || following.includes(r.author)}
-            onEdit={r => { setEditTarget(r); setShowModal(true); }}
+            onEdit={r => { setEditTarget(r); setShowModalWrapped(true); }}
             onCardClick={() => openDetail(r)} />
         ))}
       </div>}
     </div>}
-    {showMyModal && <MyModal user={user} lang={lang} onClose={() => setShowMyModal(false)} onLogout={() => { setShowMyModal(false); signOut(auth); }} />}
+    {showMyModal && <MyModal user={user} lang={lang} onClose={() => setShowMyModalWrapped(false)} onLogout={() => { setShowMyModalWrapped(false); signOut(auth); }} />}
     {detailRecipe && (
       <RecipeDetailModal
         recipe={detailRecipe}
@@ -5056,10 +5076,10 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         currentUser={user}
         onRequireAuth={onRequireAuth}
         lang={lang}
-        onClose={() => setDetailRecipe(null)}
+        onClose={() => setDetailRecipeWrapped(null)}
         onLike={r => { handleLike(r); }}
-        onEdit={r => { setEditTarget(r); setShowModal(true); setDetailRecipe(null); }}
-        onDelete={id => { handleDelete(id); setDetailRecipe(null); }}
+        onEdit={r => { setEditTarget(r); setShowModalWrapped(true); setDetailRecipeWrapped(null); }}
+        onDelete={id => { handleDelete(id); setDetailRecipeWrapped(null); }}
         onFollow={toggleFollow}
         isFollowing={detailRecipe && (following.includes(detailRecipe.uid) || following.includes(detailRecipe.author))}
         onBookmark={toggleBookmark}
