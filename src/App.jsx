@@ -816,6 +816,7 @@ const CSS = `
   .bean-aging  { background: #fff3e0; color: #e65100; }
   .bean-stale  { background: #fce4ec; color: #c62828; }
   .bean-sealed { background: #f3e5f5; color: #6a1b9a; }
+  .bean-empty  { background: #f0f0f0; color: #999; }
   .bean-empty  { background: var(--cream); color: var(--muted); }
 
   .bean-meta-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
@@ -2593,11 +2594,14 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                 {myBeans.map(b => {
                   const isSelected = linkedBeanId === b.id;
                   const daysOld = b.roastDate ? Math.floor((new Date() - new Date(b.roastDate)) / 86400000) : null;
+                  // 소진 판단: status가 empty이거나 (weight와 usedCount로 추정 불가 → DB 기준으로만)
+                  const isEmpty = b.status === "empty";
                   return (
                     <button key={b.id} type="button"
+                      disabled={isEmpty}
                       onClick={() => {
+                        if (isEmpty) return;
                         if (isSelected) {
-                          // 선택 해제
                           setLinkedBeanId(null);
                         } else {
                           setLinkedBeanId(b.id);
@@ -2609,27 +2613,35 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                       }}
                       style={{
                         padding: "6px 12px", border: "1px solid", borderRadius: "8px",
-                        fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer",
+                        fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem",
+                        cursor: isEmpty ? "not-allowed" : "pointer",
                         transition: "all 0.18s", textAlign: "left", lineHeight: 1.4,
-                        borderColor: isSelected ? "var(--latte)" : "var(--steam)",
-                        background: isSelected ? "#FDF6EF" : "var(--foam)",
-                        color: isSelected ? "var(--roast)" : "var(--muted)",
+                        borderColor: isEmpty ? "var(--steam)" : isSelected ? "var(--latte)" : "var(--steam)",
+                        background: isEmpty ? "var(--cream)" : isSelected ? "#FDF6EF" : "var(--foam)",
+                        color: isEmpty ? "var(--muted)" : isSelected ? "var(--roast)" : "var(--muted)",
                         fontWeight: isSelected ? 600 : 400,
+                        opacity: isEmpty ? 0.5 : 1,
                         boxShadow: isSelected ? "0 0 0 1.5px var(--latte)" : "none",
                       }}>
-                      <span style={{ color: "var(--espresso)", fontWeight: isSelected ? 700 : 500 }}>{b.name}</span>
+                      <span style={{ color: isEmpty ? "var(--muted)" : "var(--espresso)", fontWeight: isSelected ? 700 : 500 }}>{b.name}</span>
                       <span style={{ opacity: 0.6, margin: "0 4px" }}>·</span>
                       <span>{b.roastery}</span>
-                      {daysOld !== null && (
-                        <span style={{ marginLeft: "4px", fontSize: "0.68rem", opacity: 0.55 }}>
-                          ({daysOld}{lang === "en" ? "d" : "일"})
+                      {isEmpty ? (
+                        <span style={{ marginLeft: "4px", fontSize: "0.65rem", color: "#999", background: "#f0f0f0", padding: "1px 5px", borderRadius: "3px" }}>
+                          {lang === "en" ? "empty" : "소진"}
                         </span>
-                      )}
-                      {b.usedCount > 0 && (
-                        <span style={{ marginLeft: "4px", fontSize: "0.65rem", color: "var(--latte)", opacity: 0.8 }}>
-                          ×{b.usedCount}
-                        </span>
-                      )}
+                      ) : (<>
+                        {daysOld !== null && (
+                          <span style={{ marginLeft: "4px", fontSize: "0.68rem", opacity: 0.55 }}>
+                            ({daysOld}{lang === "en" ? "d" : "일"})
+                          </span>
+                        )}
+                        {b.usedCount > 0 && (
+                          <span style={{ marginLeft: "4px", fontSize: "0.65rem", color: "var(--latte)", opacity: 0.8 }}>
+                            ×{b.usedCount}
+                          </span>
+                        )}
+                      </>)}
                     </button>
                   );
                 })}
@@ -2963,6 +2975,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 
 // ─── MyModal ──────────────────────────────────────────────────────
 function MyModal({ onClose, user, lang = 'ko', onLogout }) {
+  const t = I18N[lang];
+
   // 머신
   const [machine, setMachine] = useState(loadMyMachine() || { brand: "", model: "", equipType: "machine" });
   const [machineEditing, setMachineEditing] = useState(!machine.brand && !machine.handDripName);
@@ -2970,12 +2984,14 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
   const [machineModel, setMachineModel] = useState(machine.model || "");
   const [equipType, setEquipType] = useState(machine.equipType || "machine");
   const [handDripName, setHandDripName] = useState(machine.handDripName || "");
+  const [machineMsg, setMachineMsg] = useState(null);
 
   // 그라인더
   const [grinder, setGrinder] = useState(loadMyGrinder() || { brand: "", model: "" });
   const [grinderEditing, setGrinderEditing] = useState(!grinder.brand);
   const [grinderBrand, setGrinderBrand] = useState(grinder.brand || "");
   const [grinderModel, setGrinderModel] = useState(grinder.model || "");
+  const [grinderMsg, setGrinderMsg] = useState(null);
 
   // 비밀번호
   const [curPw, setCurPw] = useState("");
@@ -2984,28 +3000,29 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
   const [pwMsg, setPwMsg] = useState(null);
   const [pwSaving, setPwSaving] = useState(false);
 
-  const [machineMsg, setMachineMsg] = useState(null);
-  const [grinderMsg, setGrinderMsg] = useState(null);
+  // 통화
+  const [currency, setCurrencyState] = useState(loadCurrency());
+  const handleCurrency = (c) => { setCurrencyState(c); saveCurrency(c); };
 
   const saveMachine = () => {
-    if (equipType === "machine" && !machineBrand) return setMachineMsg({ type: "error", text: "브랜드를 선택해주세요." });
-    if (equipType === "handdrip" && !handDripName.trim()) return setMachineMsg({ type: "error", text: "기구명을 입력해주세요." });
+    if (equipType === "machine" && !machineBrand) return setMachineMsg({ type: "error", text: lang === "en" ? "Please select a brand." : "브랜드를 선택해주세요." });
+    if (equipType === "handdrip" && !handDripName.trim()) return setMachineMsg({ type: "error", text: lang === "en" ? "Please enter equipment name." : "기구명을 입력해주세요." });
     const data = equipType === "handdrip"
       ? { brand: "", model: "", equipType: "handdrip", handDripName: handDripName.trim() }
       : { brand: machineBrand, model: machineModel, equipType: "machine", handDripName: "" };
     saveMyMachine(data);
     setMachine(data);
     setMachineEditing(false);
-    setMachineMsg({ type: "ok", text: "저장됐어요 ✓" });
+    setMachineMsg({ type: "ok", text: lang === "en" ? "Saved ✓" : "저장됐어요 ✓" });
     setTimeout(() => setMachineMsg(null), 2000);
   };
 
   const saveGrinder = () => {
-    if (!grinderBrand) return setGrinderMsg({ type: "error", text: "브랜드를 선택해주세요." });
+    if (!grinderBrand) return setGrinderMsg({ type: "error", text: lang === "en" ? "Please select a brand." : "브랜드를 선택해주세요." });
     saveMyGrinder({ brand: grinderBrand, model: grinderModel });
     setGrinder({ brand: grinderBrand, model: grinderModel });
     setGrinderEditing(false);
-    setGrinderMsg({ type: "ok", text: "저장됐어요 ✓" });
+    setGrinderMsg({ type: "ok", text: lang === "en" ? "Saved ✓" : "저장됐어요 ✓" });
     setTimeout(() => setGrinderMsg(null), 2000);
   };
 
@@ -3017,7 +3034,6 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
     if (newPw !== newPwConfirm) return setPwMsg({ type: "error", text: "새 비밀번호가 일치하지 않습니다." });
     setPwSaving(true);
     try {
-      // 현재 비밀번호로 재인증
       const credential = EmailAuthProvider.credential(user?.email, curPw);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPw);
@@ -3033,200 +3049,208 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
     setPwSaving(false);
   };
 
-  // 통화 설정
-  const [currency, setCurrencyState] = useState(loadCurrency());
-  const handleCurrency = (c) => { setCurrencyState(c); saveCurrency(c); };
+  // 공통 버튼 스타일
+  const tabBtn = (active) => ({
+    flex: 1, height: "42px", border: "1px solid",
+    borderColor: active ? "var(--espresso)" : "var(--steam)",
+    background: active ? "var(--espresso)" : "var(--foam)",
+    color: active ? "var(--cream)" : "var(--muted)",
+    fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem",
+    fontWeight: active ? 600 : 400,
+    borderRadius: "8px", cursor: "pointer", transition: "all 0.2s",
+  });
 
-  const machineDisplay = machineBrand ? (machineModel ? `${machineBrand} ${machineModel}` : machineBrand) : "";
-  const grinderDisplay = grinderBrand ? (grinderModel ? `${grinderBrand} ${grinderModel}` : grinderBrand) : "";
+  const lockedRow = (val, onEdit) => (
+    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+      <div style={{ flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontSize: "0.95rem", color: val ? "var(--espresso)" : "var(--muted)", fontWeight: val ? 500 : 400 }}>
+        {val || (lang === "en" ? "Not set" : "미설정")}
+      </div>
+      <button onClick={onEdit} style={{ height: "42px", padding: "0 16px", background: "none", border: "1px solid var(--steam)", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.2s" }}>
+        {lang === "en" ? "Edit" : "변경"}
+      </button>
+    </div>
+  );
 
   return (
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
-        <h2>MY 설정</h2>
+        <h2>{lang === "en" ? "My Settings" : "MY 설정"}</h2>
 
-        {/* 커피 머신 / 핸드드립 */}
+        {/* ── 추출 기구 ── */}
         <div className="my-section">
           <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M3 4h10v5a5 5 0 0 1-10 0V4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
               <path d="M13 6h1.5a1.5 1.5 0 0 1 0 3H13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
               <path d="M6 13.8V15M10 13.8V15M4 15h8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
             </svg>
             {lang === "en" ? "Equipment" : "추출 기구"}
           </div>
+
           {!machineEditing ? (
-            <div className="my-locked-row">
-              <div className="my-locked-val">
-                {machine.equipType === "handdrip"
-                  ? (machine.handDripName ? machine.handDripName : "미설정")
-                  : (machine.brand ? `${machine.brand}${machine.model ? " " + machine.model : ""}` : "미설정")}
-              </div>
-              <button className="btn-change" onClick={() => setMachineEditing(true)}>{lang === "en" ? "Edit" : "변경"}</button>
+            lockedRow(
+              machine.equipType === "handdrip"
+                ? machine.handDripName
+                : (machine.brand ? `${machine.brand}${machine.model ? " " + machine.model : ""}` : ""),
+              () => setMachineEditing(true)
+            )
+          ) : (<>
+            {/* 머신/핸드드립 탭 */}
+            <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+              <button style={tabBtn(equipType === "machine")} onClick={() => setEquipType("machine")}>
+                {lang === "en" ? "Coffee Machine" : "커피 머신"}
+              </button>
+              <button style={tabBtn(equipType === "handdrip")} onClick={() => setEquipType("handdrip")}>
+                {lang === "en" ? "Hand Drip" : "핸드드립"}
+              </button>
             </div>
-          ) : (
-            <>
-              {/* 타입 선택 탭 */}
-              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-                <button
-                  onClick={() => setEquipType("machine")}
-                  style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: equipType === "machine" ? "var(--espresso)" : "var(--foam)", color: equipType === "machine" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer", transition: "all 0.2s" }}
-                >
-                  {lang === "en" ? "Coffee Machine" : "커피 머신"}
-                </button>
-                <button
-                  onClick={() => setEquipType("handdrip")}
-                  style={{ flex: 1, padding: "0.5rem", border: "1px solid var(--steam)", borderRadius: "2px", background: equipType === "handdrip" ? "var(--espresso)" : "var(--foam)", color: equipType === "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer", transition: "all 0.2s" }}
-                >
-                  {lang === "en" ? "Hand Drip" : "핸드드립"}
-                </button>
+
+            {equipType === "machine" ? (<>
+              <div className="field full" style={{ marginBottom: "10px" }}>
+                <label>{lang === "en" ? "Brand" : "브랜드"}</label>
+                <BrandInput value={machineBrand} onChange={v => { setMachineBrand(v); setMachineModel(""); }} brands={MACHINE_BRANDS} />
               </div>
-              {equipType === "machine" ? (
-                <>
-                  <div className="field">
-                    <label>{lang === "en" ? "Brand" : "브랜드"}</label>
-                    <BrandInput value={machineBrand} onChange={v => { setMachineBrand(v); setMachineModel(""); }} brands={MACHINE_BRANDS} />
-                  </div>
-                  {machineBrand && (
-                    <div className="field">
-                      <label>{lang === "en" ? "Model" : "세부 모델명"}</label>
-                      <input value={machineModel} onChange={e => setMachineModel(e.target.value)} placeholder="예) Barista Express …" />
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="field">
-                  <label>{lang === "en" ? "Equipment Name" : "기구명"}</label>
-                  <input value={handDripName} onChange={e => setHandDripName(e.target.value)} placeholder={lang === "en" ? "e.g. Hario V60, Chemex …" : "예) 하리오 V60, 케멕스 …"} />
+              {machineBrand && (
+                <div className="field full" style={{ marginBottom: "10px" }}>
+                  <label>{lang === "en" ? "Model" : "세부 모델명"}</label>
+                  <input value={machineModel} onChange={e => setMachineModel(e.target.value)} placeholder={lang === "en" ? "e.g. Barista Express …" : "예) Barista Express …"} />
                 </div>
               )}
-              <div className="save-row">
-                {(machine.brand || machine.handDripName) && <button className="btn-change" style={{ marginRight: "0.5rem" }} onClick={() => { setMachineBrand(machine.brand); setMachineModel(machine.model); setEquipType(machine.equipType || "machine"); setHandDripName(machine.handDripName || ""); setMachineEditing(false); }}>취소</button>}
-                <button className="btn-save-sm" onClick={saveMachine}>{lang === "en" ? "Save" : "저장"}</button>
+            </>) : (
+              <div className="field full" style={{ marginBottom: "10px" }}>
+                <label>{lang === "en" ? "Equipment Name" : "기구명"}</label>
+                <input value={handDripName} onChange={e => setHandDripName(e.target.value)} placeholder={lang === "en" ? "e.g. Hario V60, Chemex …" : "예) 하리오 V60, 케멕스 …"} />
               </div>
-            </>
-          )}
-          {machineMsg && <p className={machineMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "0.5rem" }}>{machineMsg.text}</p>}
+            )}
+
+            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "4px" }}>
+              {(machine.brand || machine.handDripName) && (
+                <button className="btn-cancel" onClick={() => { setMachineBrand(machine.brand); setMachineModel(machine.model); setEquipType(machine.equipType || "machine"); setHandDripName(machine.handDripName || ""); setMachineEditing(false); }}>
+                  {lang === "en" ? "Cancel" : "취소"}
+                </button>
+              )}
+              <button className="btn-save-sm" onClick={saveMachine}>{lang === "en" ? "Save" : "저장"}</button>
+            </div>
+          </>)}
+          {machineMsg && <p className={machineMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "8px" }}>{machineMsg.text}</p>}
         </div>
 
-        {/* 그라인더 */}
+        {/* ── 그라인더 ── */}
         <div className="my-section">
-          <div className="my-section-title">{lang === "en" ? "Grinder" : "그라인더"}</div>
-          {!grinderEditing ? (
-            <div className="my-locked-row">
-              <div className="my-locked-val">{grinder.brand ? `${grinder.brand}${grinder.model ? " " + grinder.model : ""}` : "미설정"}</div>
-              <button className="btn-change" onClick={() => setGrinderEditing(true)}>{ lang === "en" ? "Edit" : "변경"}</button>
-            </div>
-          ) : (
-            <>
-              <div className="field">
-                <label>브랜드</label>
-                <BrandInput value={grinderBrand} onChange={v => { setGrinderBrand(v); setGrinderModel(""); }} brands={GRINDER_BRANDS} />
-              </div>
-              {grinderBrand && (
-                <div className="field">
-                  <label>{t ? t.machineModel : "세부 모델명"}</label>
-                  <input value={grinderModel} onChange={e => setGrinderModel(e.target.value)} placeholder="예) Encore, C40 …" />
-                </div>
-              )}
-              <div className="save-row">
-                {grinder.brand && <button className="btn-change" style={{ marginRight: "0.5rem" }} onClick={() => { setGrinderBrand(grinder.brand); setGrinderModel(grinder.model); setGrinderEditing(false); }}>취소</button>}
-                <button className="btn-save-sm" onClick={saveGrinder}>저장</button>
-              </div>
-            </>
-          )}
-          {grinderMsg && <p className={grinderMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "0.5rem" }}>{grinderMsg.text}</p>}
-        </div>
-
-        {/* 비밀번호 변경 - 구글 로그인 유저는 숨김 */}
-        {!user?.providerData?.some(p => p.providerId === "google.com") && <div className="my-section">
           <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <svg width="13" height="14" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="2" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.3"/>
-              <path d="M4.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="9" r="4" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M8 5V2M6 2h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              <circle cx="8" cy="9" r="1.5" fill="currentColor" opacity="0.4"/>
             </svg>
-            비밀번호 변경
+            {lang === "en" ? "Grinder" : "그라인더"}
           </div>
-          <div className="field">
-            <label>현재 비밀번호</label>
-            <input type="password" value={curPw} onChange={e => setCurPw(e.target.value)} placeholder="••••••••" />
-          </div>
-          <div className="field">
-            <label>새 비밀번호</label>
-            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="6자 이상" />
-          </div>
-          <div className="field">
-            <label>새 비밀번호 확인</label>
-            <input type="password" value={newPwConfirm} onChange={e => setNewPwConfirm(e.target.value)}
-              placeholder="••••••••"
-              style={{ borderColor: newPwConfirm.length > 0 ? (newPw === newPwConfirm ? "#27ae60" : "#c0392b") : undefined }}
-            />
-            {newPwConfirm.length > 0 && newPw === newPwConfirm && <p className="msg-ok" style={{ marginTop: "0.3rem" }}>일치합니다 ✓</p>}
-            {newPwConfirm.length > 0 && newPw !== newPwConfirm && <p className="msg-error" style={{ marginTop: "0.3rem" }}>일치하지 않습니다.</p>}
-          </div>
-          <div className="save-row">
-            <button className="btn-save-sm" onClick={handlePwChange} disabled={pwSaving}>{pwSaving ? "변경 중…" : "비밀번호 변경"}</button>
-          </div>
-          {pwMsg && <p className={pwMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "0.5rem" }}>{pwMsg.text}</p>}
-        </div>}
 
-        {/* 통화 설정 */}
+          {!grinderEditing ? (
+            lockedRow(
+              grinder.brand ? `${grinder.brand}${grinder.model ? " " + grinder.model : ""}` : "",
+              () => setGrinderEditing(true)
+            )
+          ) : (<>
+            <div className="field full" style={{ marginBottom: "10px" }}>
+              <label>{lang === "en" ? "Brand" : "브랜드"}</label>
+              <BrandInput value={grinderBrand} onChange={v => { setGrinderBrand(v); setGrinderModel(""); }} brands={GRINDER_BRANDS} />
+            </div>
+            {grinderBrand && (
+              <div className="field full" style={{ marginBottom: "10px" }}>
+                <label>{lang === "en" ? "Model" : "세부 모델명"}</label>
+                <input value={grinderModel} onChange={e => setGrinderModel(e.target.value)} placeholder={lang === "en" ? "e.g. Encore, C40 …" : "예) 엔코어, C40 …"} />
+              </div>
+            )}
+            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "4px" }}>
+              {grinder.brand && (
+                <button className="btn-cancel" onClick={() => { setGrinderBrand(grinder.brand); setGrinderModel(grinder.model); setGrinderEditing(false); }}>
+                  {lang === "en" ? "Cancel" : "취소"}
+                </button>
+              )}
+              <button className="btn-save-sm" onClick={saveGrinder}>{lang === "en" ? "Save" : "저장"}</button>
+            </div>
+          </>)}
+          {grinderMsg && <p className={grinderMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "8px" }}>{grinderMsg.text}</p>}
+        </div>
+
+        {/* ── 비밀번호 변경 ── */}
+        {!user?.providerData?.some(p => p.providerId === "google.com") && (
+          <div className="my-section">
+            <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <svg width="13" height="14" viewBox="0 0 14 16" fill="none">
+                <rect x="2" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.3"/>
+                <path d="M4.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              </svg>
+              {lang === "en" ? "Change Password" : "비밀번호 변경"}
+            </div>
+            <div className="field full" style={{ marginBottom: "10px" }}>
+              <label>{lang === "en" ? "Current Password" : "현재 비밀번호"}</label>
+              <input type="password" value={curPw} onChange={e => setCurPw(e.target.value)} placeholder="••••••••" />
+            </div>
+            <div className="field full" style={{ marginBottom: "10px" }}>
+              <label>{lang === "en" ? "New Password" : "새 비밀번호"}</label>
+              <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder={lang === "en" ? "Min 6 characters" : "6자 이상"} />
+            </div>
+            <div className="field full" style={{ marginBottom: "10px" }}>
+              <label>{lang === "en" ? "Confirm New Password" : "새 비밀번호 확인"}</label>
+              <input type="password" value={newPwConfirm} onChange={e => setNewPwConfirm(e.target.value)}
+                placeholder="••••••••"
+                style={{ borderColor: newPwConfirm.length > 0 ? (newPw === newPwConfirm ? "#27ae60" : "#c0392b") : undefined }}
+              />
+              {newPwConfirm.length > 0 && newPw === newPwConfirm && <p className="msg-ok" style={{ marginTop: "4px" }}>일치합니다 ✓</p>}
+              {newPwConfirm.length > 0 && newPw !== newPwConfirm && <p className="msg-error" style={{ marginTop: "4px" }}>일치하지 않습니다.</p>}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button className="btn-save-sm" onClick={handlePwChange} disabled={pwSaving}>
+                {pwSaving ? (lang === "en" ? "Saving…" : "변경 중…") : (lang === "en" ? "Change Password" : "비밀번호 변경")}
+              </button>
+            </div>
+            {pwMsg && <p className={pwMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "8px" }}>{pwMsg.text}</p>}
+          </div>
+        )}
+
+        {/* ── 통화 설정 ── */}
         <div className="my-section">
           <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/>
               <path d="M8 5v6M6 6.5h2.5a1.5 1.5 0 0 1 0 3H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
             </svg>
             {lang === "en" ? "Currency" : "통화 설정"}
           </div>
           <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: "10px", lineHeight: 1.5 }}>
-            {lang === "en"
-              ? "Set the currency displayed in Bean Vault."
-              : "내 원두 재고에서 표시되는 금액 단위를 설정해요."}
+            {lang === "en" ? "Set the currency displayed in Bean Vault." : "내 원두 재고에서 표시되는 금액 단위를 설정해요."}
           </p>
           <div style={{ display: "flex", gap: "8px" }}>
             {[
-              { val: "KRW", label: "₩ 원화 (KRW)", labelEn: "₩ Korean Won (KRW)" },
-              { val: "USD", label: "$ 달러 (USD)", labelEn: "$ US Dollar (USD)" },
+              { val: "KRW", label: "₩ 원화 (KRW)", labelEn: "₩ Korean Won" },
+              { val: "USD", label: "$ 달러 (USD)", labelEn: "$ US Dollar" },
             ].map(opt => (
-              <button key={opt.val} type="button"
-                onClick={() => handleCurrency(opt.val)}
-                style={{ flex: 1, height: "42px", border: "1px solid", borderRadius: "8px",
-                  borderColor: currency === opt.val ? "var(--espresso)" : "var(--steam)",
-                  background: currency === opt.val ? "var(--espresso)" : "var(--foam)",
-                  color: currency === opt.val ? "var(--cream)" : "var(--muted)",
-                  fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem",
-                  fontWeight: currency === opt.val ? 600 : 400,
-                  cursor: "pointer", transition: "all 0.2s" }}>
+              <button key={opt.val} type="button" style={tabBtn(currency === opt.val)}
+                onClick={() => handleCurrency(opt.val)}>
                 {lang === "en" ? opt.labelEn : opt.label}
               </button>
             ))}
           </div>
           {currency === "USD" && (
-            <p style={{ fontSize: "0.72rem", color: "var(--latte)", marginTop: "8px", display: "flex", alignItems: "center", gap: "4px" }}>
-              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.3"/>
-                <path d="M7 5v3M7 9.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-              </svg>
-              {lang === "en"
-                ? "Prices entered in ₩ will be displayed as-is in $ without conversion."
-                : "입력한 원화 금액을 환율 변환 없이 달러 기호로 표시해요."}
+            <p style={{ fontSize: "0.72rem", color: "var(--latte)", marginTop: "8px", lineHeight: 1.5 }}>
+              {lang === "en" ? "Prices are displayed in $ without currency conversion." : "입력한 금액을 환율 변환 없이 달러 기호로 표시해요."}
             </p>
           )}
         </div>
 
         <div className="modal-actions" style={{ justifyContent: "space-between" }}>
+          <button className="btn-danger-outline" onClick={onLogout} style={{ padding: "0.7rem 1.2rem", background: "none", border: "1px solid #c0392b40", color: "#c0392b", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: "pointer" }}>
+            {lang === "en" ? "Logout" : "로그아웃"}
+          </button>
           <button className="btn-cancel" onClick={onClose}>{lang === "en" ? "Close" : "닫기"}</button>
-          {onLogout && (
-            <button onClick={onLogout} style={{ background: "none", border: "1px solid #c0392b55", borderRadius: "2px", color: "#c0392b", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", padding: "0.5rem 1rem", cursor: "pointer" }}>
-              {lang === "en" ? "Logout" : "로그아웃"}
-            </button>
-          )}
         </div>
       </div>
     </div>
   );
 }
+
 
 // ─── ReportModal ──────────────────────────────────────────────────
 function ReportModal({ type, targetId, currentUser, onClose, lang = "ko" }) {
@@ -4088,6 +4112,29 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
         }
       });
       setUsedGramsMap(map);
+
+      // ── 소진 자동 감지: 잔여량 0 이하인 원두 status를 "empty"로 업데이트 ──
+      const beanSnap = await getDocs(query(collection(db, "beans"), where("uid", "==", user.uid)));
+      const updates = [];
+      beanSnap.docs.forEach(d => {
+        const b = d.data();
+        const totalG = (parseFloat(b.weight) || 0) * (parseInt(b.quantity) || 1);
+        const usedG  = map[d.id] || 0;
+        const isExhausted = totalG > 0 && usedG >= totalG;
+        // 소진됐는데 status가 empty가 아닌 경우 → empty로 업데이트
+        if (isExhausted && b.status !== "empty") {
+          updates.push(updateDoc(doc(db, "beans", d.id), { status: "empty" }));
+        }
+        // 아직 잔여량 있는데 status가 empty인 경우 → open으로 복구
+        if (!isExhausted && b.status === "empty" && totalG > 0) {
+          updates.push(updateDoc(doc(db, "beans", d.id), { status: "open" }));
+        }
+      });
+      if (updates.length > 0) {
+        await Promise.all(updates);
+        // status 변경 후 beans 목록 다시 로드
+        loadBeans();
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -4160,6 +4207,10 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
   // 로스팅 날짜 기준 신선도
   const getFreshness = (bean) => {
     if (bean.status === "sealed") return { key: "sealed", label: t.beanSealed };
+    // 잔여량 기준 소진 판단
+    const totalG = (parseFloat(bean.weight) || 0) * (parseInt(bean.quantity) || 1);
+    const usedG  = usedGramsMap[bean.id] || 0;
+    if (totalG > 0 && usedG >= totalG) return { key: "empty", label: t.beanEmpty };
     if (!bean.roastDate) return null;
     const days = Math.floor((new Date() - new Date(bean.roastDate)) / 86400000);
     if (days <= 7)  return { key: "fresh",  label: t.beanFresh,  days };
@@ -4324,10 +4375,11 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
         <div className="bean-grid">
           {filtered.map(bean => {
             const freshness = getFreshness(bean);
+            const isEmpty = freshness?.key === "empty";
             const ppg = ppgCalc(bean);
             const days = daysFromRoast(bean);
             return (
-              <div key={bean.id} className="bean-card">
+              <div key={bean.id} className="bean-card" style={{ opacity: isEmpty ? 0.55 : 1 }}>
                 {/* 카드 헤더 */}
                 <div className="bean-card-header">
                   <div>
