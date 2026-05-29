@@ -652,18 +652,31 @@ const CSS = `
   .btn-admin-header { background: none; border: 1px solid #e74c3c40; color: #c0392b; padding: 0 12px; height: 32px; border-radius: 8px; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; }
   .btn-admin-header:hover { border-color: #ff6b6b; }
   /* ── 알림 ── */
-  .notif-btn { position: relative; background: none; border: none; cursor: pointer; font-size: 1.1rem; color: var(--muted); padding: 0.2rem; line-height: 1; transition: color 0.2s; }
+  .notif-btn { position: relative; background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px; line-height: 1; transition: color 0.2s; display: flex; align-items: center; }
   .notif-btn:hover { color: var(--espresso); }
-  .notif-badge { position: absolute; top: -2px; right: -4px; background: #e74c3c; color: white; font-size: 0.55rem; font-weight: 700; min-width: 14px; height: 14px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 3px; font-family: 'DM Sans',sans-serif; }
-  .notif-dropdown { position: absolute; top: calc(100% + 8px); right: 0; width: 300px; background: var(--foam); border: 1px solid var(--steam); border-radius: 6px; box-shadow: 0 8px 24px #0002; z-index: 200; overflow: hidden; }
-  .notif-header { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid var(--steam); font-family: 'DM Sans',sans-serif; font-size: 0.82rem; font-weight: 600; color: var(--espresso); }
-  .notif-list { max-height: 320px; overflow-y: auto; }
-  .notif-item { padding: 0.75rem 1rem; border-bottom: 1px solid var(--steam); cursor: pointer; transition: background 0.15s; }
+  .notif-badge { position: absolute; top: -3px; right: -5px; background: #e74c3c; color: white; font-size: 0.55rem; font-weight: 700; min-width: 15px; height: 15px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 3px; font-family: 'DM Sans',sans-serif; }
+  .notif-dropdown {
+    position: fixed;
+    top: 56px;
+    right: 12px;
+    width: 320px;
+    max-width: calc(100vw - 24px);
+    background: var(--foam);
+    border: 1px solid var(--divider);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px #0003;
+    z-index: 9999;
+    overflow: hidden;
+  }
+  .notif-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--divider); font-family: 'DM Sans',sans-serif; font-size: 0.85rem; font-weight: 600; color: var(--espresso); }
+  .notif-list { max-height: 360px; overflow-y: auto; }
+  .notif-item { padding: 12px 16px; border-bottom: 1px solid var(--divider); cursor: pointer; transition: background 0.15s; display: flex; flex-direction: column; gap: 4px; }
+  .notif-item:last-child { border-bottom: none; }
   .notif-item:hover { background: var(--cream); }
-  .notif-item.unread { background: #fff8f0; }
-  .notif-item-text { font-family: 'DM Sans',sans-serif; font-size: 0.8rem; color: var(--espresso); line-height: 1.4; margin-bottom: 0.2rem; }
+  .notif-item.unread { background: #FDF6EF; border-left: 3px solid var(--latte); padding-left: 13px; }
+  .notif-item-text { font-family: 'DM Sans',sans-serif; font-size: 0.82rem; color: var(--espresso); line-height: 1.45; }
   .notif-item-time { font-family: 'DM Sans',sans-serif; font-size: 0.68rem; color: var(--muted); }
-  .notif-empty { padding: 2rem; text-align: center; font-family: 'DM Sans',sans-serif; font-size: 0.82rem; color: var(--muted); }
+  .notif-empty { padding: 32px; text-align: center; font-family: 'DM Sans',sans-serif; font-size: 0.82rem; color: var(--muted); }
 
   .notice-banner { background: var(--espresso); color: var(--cream); padding: 0.6rem 2rem; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
   .notice-banner-close { background: none; border: none; color: var(--steam); cursor: pointer; font-size: 1rem; flex-shrink: 0; }
@@ -2395,10 +2408,10 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               beanName: payload.bean || "",
               read: false,
               createdAt: serverTimestamp(),
-            }).catch(() => {})
+            }).catch(e => console.error("[알림] newRecipe 알림 실패:", e.message))
           );
           await Promise.all(batch);
-        } catch(e) { /* 구독자 없거나 오류 시 무시 */ }
+        } catch(e) { console.error("[알림] 구독자 알림 오류:", e.message); }
       }
       onSave();
     } catch (e) { alert("저장 오류: " + e.message); }
@@ -3336,7 +3349,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
       setReplyTo(null);
       // 레시피 작성자에게 알림 (본인 댓글 제외)
       if (recipe.uid && recipe.uid !== currentUser.uid) {
-        await addDoc(collection(db, "notifications"), {
+        addDoc(collection(db, "notifications"), {
           toUid: recipe.uid,
           type: "comment",
           fromUser: currentUser.displayName,
@@ -3345,7 +3358,11 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
           text: text.slice(0, 50),
           read: false,
           createdAt: serverTimestamp(),
-        }).catch(() => {});
+        }).then(() => {
+          console.log("[알림] 댓글 알림 전송 성공 → toUid:", recipe.uid);
+        }).catch(e => {
+          console.error("[알림] 댓글 알림 전송 실패:", e.message, "/ toUid:", recipe.uid);
+        });
       }
       setCommentText("");
     } catch(e) { console.error(e); }
@@ -4237,12 +4254,15 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(collection(db, "notifications"), where("toUid", "==", user.uid));
+    const q = query(
+      collection(db, "notifications"),
+      where("toUid", "==", user.uid)
+    );
     const unsub = onSnapshot(q, snap => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setNotifications(list.slice(0, 30));
-    }, () => {});
+    }, (err) => { console.error("notifications error:", err); });
     return unsub;
   }, [user?.uid]);
 
@@ -4432,9 +4452,9 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             {isAdmin && <button className="btn-admin-header" onClick={() => setAdminMode(true)}>관리자</button>}
             <button className="btn-lang" onClick={toggleLang}>{lang === "ko" ? "EN" : "KO"}</button>
             <button className="btn-my" onClick={() => openMyModal()}>MY</button>
-            {/* 알림 버튼 - 맨 오른쪽 */}
+            {/* 알림 버튼 */}
             <div style={{ position: "relative" }}>
-              <button className="notif-btn" onClick={() => { setShowNotif(v => !v); if (!showNotif) markAllRead(); }}>
+              <button className="notif-btn" onClick={() => setShowNotif(v => !v)}>
                 <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M9 2C6.24 2 4 4.24 4 7v4l-1.5 2h13L14 11V7C14 4.24 11.76 2 9 2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
                   <path d="M7.5 15.5C7.5 16.33 8.17 17 9 17s1.5-.67 1.5-1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
@@ -4444,8 +4464,27 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
               {showNotif && (
                 <div className="notif-dropdown">
                   <div className="notif-header">
-                    <span>{lang === "en" ? "Notifications" : "알림"}</span>
-                    <button onClick={() => setShowNotif(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "0.9rem" }}>✕</button>
+                    <span>
+                      {lang === "en" ? "Notifications" : "알림"}
+                      {unreadCount > 0 && (
+                        <span style={{ marginLeft: "6px", fontSize: "0.68rem", fontWeight: 400, color: "var(--latte)" }}>
+                          {lang === "en" ? `${unreadCount} unread` : `${unreadCount}개 안읽음`}
+                        </span>
+                      )}
+                    </span>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllRead}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.7rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", padding: 0 }}
+                        >
+                          {lang === "en" ? "Mark all read" : "전체 읽음"}
+                        </button>
+                      )}
+                      <button onClick={() => setShowNotif(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px", display: "flex", alignItems: "center" }}>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                      </button>
+                    </div>
                   </div>
                   <div className="notif-list">
                     {notifications.length === 0 ? (
@@ -4454,24 +4493,32 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                       <div key={n.id} className={`notif-item ${n.read ? "" : "unread"}`}
                         onClick={async () => {
                           setShowNotif(false);
-                          // 읽음 처리
                           if (!n.read) await updateDoc(doc(db, "notifications", n.id), { read: true }).catch(() => {});
-                          // 해당 레시피로 이동
                           if (n.recipeId) {
                             const snap = await getDoc(doc(db, "recipes", n.recipeId)).catch(() => null);
                             if (snap?.exists()) setDetailRecipe({ id: snap.id, ...snap.data() });
                           } else if (n.type === "newRecipe") {
-                            // 작성자 레시피 피드로 이동
                             setFeedTab("all");
                             setSearch(n.fromUser || "");
                           }
                         }}>
                         <div className="notif-item-text">
                           {n.type === "comment"
-                            ? (lang === "en" ? `${n.fromUser} commented on "${n.beanName}"` : `${n.fromUser}님이 "${n.beanName}" 레시피에 댓글을 남겼어요`)
-                            : (lang === "en" ? `${n.fromUser} posted a new recipe: "${n.beanName}"` : `구독 중인 ${n.fromUser}님이 "${n.beanName}" 레시피를 올렸어요`)}
+                            ? (lang === "en"
+                                ? `${n.fromUser} commented on "${n.beanName}"`
+                                : `${n.fromUser}님이 "${n.beanName}" 레시피에 댓글을 남겼어요`)
+                            : (lang === "en"
+                                ? `${n.fromUser} posted a new recipe: "${n.beanName}"`
+                                : `구독 중인 ${n.fromUser}님이 "${n.beanName}" 레시피를 올렸어요`)}
                         </div>
-                        <div className="notif-item-time">{n.createdAt?.toDate?.()?.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US") || ""}</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div className="notif-item-time">
+                            {n.createdAt?.toDate?.()?.toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US") || ""}
+                          </div>
+                          {!n.read && (
+                            <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--latte)", flexShrink: 0 }}/>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
