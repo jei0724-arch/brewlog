@@ -824,11 +824,19 @@ const CSS = `
     font-size: 0.7rem; color: var(--muted); background: var(--cream);
     border: 1px solid var(--steam); border-radius: 4px; padding: 2px 8px; line-height: 1.5;
   }
-  .bean-roast-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .bean-roast-bar { margin-bottom: 14px; }
   .bean-roast-track {
-    flex: 1; height: 4px; background: var(--steam); border-radius: 2px; overflow: hidden;
+    position: relative; height: 6px; background: var(--steam); border-radius: 3px;
+    margin-bottom: 5px; overflow: hidden;
   }
-  .bean-roast-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, #e8c99a, var(--roast)); }
+  .bean-roast-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, #f0d9b0 0%, #c8956a 50%, #7a4828 100%);
+    transition: width 0.3s ease;
+  }
+  .bean-roast-markers { display: flex; justify-content: space-between; }
+  .bean-roast-marker { font-size: 0.58rem; color: var(--muted); opacity: 0.55; }
+  .bean-roast-marker.active { color: var(--espresso); opacity: 1; font-weight: 700; font-size: 0.65rem; }
   .bean-roast-label { font-size: 0.68rem; color: var(--muted); white-space: nowrap; min-width: 56px; text-align: right; }
 
   .bean-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
@@ -3810,11 +3818,14 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
 // ─── MainApp ───────────────────────────────────────────────────────
 // ─── Bean Vault ────────────────────────────────────────────────────
 const ROAST_LEVELS = [
-  { id: "light",    ko: "라이트",       en: "Light",      pct: 15 },
-  { id: "med_light",ko: "미디엄 라이트", en: "Med-Light",  pct: 35 },
-  { id: "medium",   ko: "미디엄",       en: "Medium",     pct: 55 },
-  { id: "med_dark", ko: "미디엄 다크",  en: "Med-Dark",   pct: 75 },
-  { id: "dark",     ko: "다크",         en: "Dark",       pct: 95 },
+  { id: "green",      ko: "생두",       en: "Green bean", pct: 0   },
+  { id: "cinnamon",   ko: "시나몬",     en: "Cinnamon",   pct: 14  },
+  { id: "medium",     ko: "미디엄",     en: "Medium",     pct: 28  },
+  { id: "high",       ko: "하이",       en: "High",       pct: 42  },
+  { id: "city",       ko: "시티",       en: "City",       pct: 57  },
+  { id: "full_city",  ko: "풀 시티",    en: "Full city",  pct: 71  },
+  { id: "french",     ko: "프렌치",     en: "French",     pct: 85  },
+  { id: "italian",    ko: "이탈리안",   en: "Italian",    pct: 100 },
 ];
 const PROCESS_PRESETS = ["워시드", "내추럴", "허니", "무산소 발효", "웻 허ل드"];
 
@@ -3901,16 +3912,66 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
           {/* 배전도 */}
           <div className="field full">
             <label>{t.beanRoastLevel}</label>
-            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-              {ROAST_LEVELS.map(r => (
-                <button key={r.id} type="button" onClick={() => set("roastLevel", r.id)}
-                  style={{ flex: "1 1 60px", padding: "0.5rem 0.4rem", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.75rem", transition: "all 0.2s", textAlign: "center",
-                    borderColor: form.roastLevel === r.id ? "var(--latte)" : "var(--steam)",
-                    background: form.roastLevel === r.id ? "var(--latte)" : "var(--foam)",
-                    color: form.roastLevel === r.id ? "var(--espresso)" : "var(--muted)", fontWeight: form.roastLevel === r.id ? 600 : 400 }}>
-                  {lang === "en" ? r.en : r.ko}
-                </button>
-              ))}
+            <div style={{ padding: "8px 4px 4px" }}>
+              {/* 그라데이션 트랙 */}
+              <div style={{ position: "relative", marginBottom: "10px" }}>
+                <div style={{ height: "8px", borderRadius: "4px", background: "linear-gradient(90deg, #e8f0d8 0%, #f5e6c8 8%, #e8c97a 20%, #c8a050 35%, #a07038 50%, #7a5030 65%, #4a2818 82%, #1a0a04 100%)", cursor: "pointer" }}
+                  onClick={e => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const ratio = (e.clientX - rect.left) / rect.width;
+                    const idx = Math.round(ratio * (ROAST_LEVELS.length - 1));
+                    set("roastLevel", ROAST_LEVELS[Math.max(0, Math.min(ROAST_LEVELS.length - 1, idx))].id);
+                  }}
+                />
+                {/* 각 단계 도트 */}
+                {ROAST_LEVELS.map((r, i) => {
+                  const leftPct = (i / (ROAST_LEVELS.length - 1)) * 100;
+                  const isActive = form.roastLevel === r.id;
+                  return (
+                    <div key={r.id}
+                      onClick={() => set("roastLevel", r.id)}
+                      style={{
+                        position: "absolute", top: "50%",
+                        left: `${leftPct}%`, transform: "translate(-50%, -50%)",
+                        width: isActive ? "16px" : "8px",
+                        height: isActive ? "16px" : "8px",
+                        borderRadius: "50%",
+                        background: isActive ? "var(--espresso)" : "white",
+                        border: isActive ? "2.5px solid white" : "1.5px solid #a07038",
+                        boxShadow: isActive ? "0 1px 6px #0005" : "none",
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                        zIndex: isActive ? 2 : 1,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              {/* 레이블 — 절대 위치로 정확히 도트 아래 */}
+              <div style={{ position: "relative", height: "36px", marginTop: "4px" }}>
+                {ROAST_LEVELS.map((r, i) => {
+                  const leftPct = (i / (ROAST_LEVELS.length - 1)) * 100;
+                  const isActive = form.roastLevel === r.id;
+                  return (
+                    <button key={r.id} type="button" onClick={() => set("roastLevel", r.id)}
+                      style={{
+                        position: "absolute",
+                        left: `${leftPct}%`,
+                        transform: i === 0 ? "none" : i === ROAST_LEVELS.length - 1 ? "translateX(-100%)" : "translateX(-50%)",
+                        background: "none", border: "none", cursor: "pointer", padding: 0,
+                        textAlign: i === 0 ? "left" : i === ROAST_LEVELS.length - 1 ? "right" : "center",
+                        lineHeight: 1.3,
+                      }}>
+                      <div style={{ fontSize: "0.6rem", color: isActive ? "var(--espresso)" : "var(--muted)", fontWeight: isActive ? 700 : 400, fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
+                        {r.en}
+                      </div>
+                      <div style={{ fontSize: "0.58rem", color: isActive ? "var(--latte)" : "var(--muted)", opacity: 0.75, fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
+                        {r.ko}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
           {/* 로스팅 날짜 */}
@@ -3952,7 +4013,7 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
           <div className="field full">
             <label>{t.beanStatusLabel}</label>
             <div className="bean-status-row">
-              {[["open", t.beanOpen], ["sealed", t.beanSealed], ["empty", t.beanEmpty]].map(([v, lbl]) => (
+              {[["open", t.beanOpen], ["sealed", t.beanSealed]].map(([v, lbl]) => (
                 <button key={v} type="button" className={`bean-status-btn ${form.status === v ? "active" : ""}`} onClick={() => set("status", v)}>{lbl}</button>
               ))}
             </div>
@@ -4007,9 +4068,10 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
         return tb - ta;
       });
       setBeans(data);
-      // 연결된 레시피에서 사용 그램 합산
       loadUsedGrams(data.map(b => b.id));
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error("[BeanVault] beans 로드 실패:", e.code, e.message);
+    }
   };
 
   const loadUsedGrams = async (beanIds) => {
@@ -4029,7 +4091,65 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
     } catch (e) { console.error(e); }
   };
 
-  useEffect(() => { loadBeans(); }, [user]);
+  useEffect(() => { loadBeans(); }, [user?.uid]);
+
+  // ── 원두 통계 계산 ────────────────────────────────────────────────
+  const beanStats = React.useMemo(() => {
+    if (!beans.length) return null;
+
+    const totalBeans    = beans.length;
+    const activeBeans   = beans.filter(b => b.status !== "empty").length;
+
+    // 재고량 / 투자 금액
+    let totalStockG = 0, totalInvest = 0, usedStockG = 0;
+    beans.forEach(b => {
+      const g = (parseFloat(b.weight) || 0) * (parseInt(b.quantity) || 1);
+      totalStockG  += g;
+      totalInvest  += (parseFloat(b.price) || 0) * (parseInt(b.quantity) || 1);
+      usedStockG   += (usedGramsMap[b.id] || 0);
+    });
+    const remainG = Math.max(0, totalStockG - usedStockG);
+
+    // 추출 통계
+    const totalBrews = beans.reduce((s, b) => s + (b.usedCount || 0), 0);
+    const totalUsedG = Object.values(usedGramsMap).reduce((s, g) => s + g, 0);
+    const avgGramPerBrew = totalBrews > 0 ? totalUsedG / totalBrews : null;
+    const avgCostPerCup  = totalBrews > 0 && totalInvest > 0
+      ? (totalInvest / totalStockG) * (totalUsedG / totalBrews) : null;
+
+    // 신선도 분포
+    const fresh = { fresh: 0, peak: 0, aged: 0, stale: 0, sealed: 0 };
+    beans.forEach(b => {
+      if (b.status === "sealed") { fresh.sealed++; return; }
+      if (b.status === "empty")  return;
+      if (!b.roastDate) return;
+      const d = Math.floor((new Date() - new Date(b.roastDate)) / 86400000);
+      if (d <= 7)  fresh.fresh++;
+      else if (d <= 30) fresh.peak++;
+      else if (d <= 60) fresh.aged++;
+      else fresh.stale++;
+    });
+
+    // 선호 항목 (최빈값)
+    const mode = (arr) => {
+      const cnt = {};
+      arr.forEach(v => v && (cnt[v] = (cnt[v] || 0) + 1));
+      return Object.entries(cnt).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    };
+    const topRoast   = mode(beans.map(b => b.roastLevel));
+    const topProcess = mode(beans.map(b => b.process));
+    const topOrigin  = mode(beans.map(b => b.originDetail));
+    const topType    = mode(beans.map(b => b.originType));
+
+    // 가장 많이 쓴 원두
+    const mostUsed = [...beans].sort((a, b) => (b.usedCount || 0) - (a.usedCount || 0))[0];
+
+    return {
+      totalBeans, activeBeans, totalStockG, remainG, totalInvest,
+      totalBrews, totalUsedG, avgGramPerBrew, avgCostPerCup,
+      fresh, topRoast, topProcess, topOrigin, topType, mostUsed
+    };
+  }, [beans, usedGramsMap]);
 
   const handleDelete = async (id) => {
     if (!window.confirm(t.beanDeleteConfirm)) return;
@@ -4039,7 +4159,6 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
 
   // 로스팅 날짜 기준 신선도
   const getFreshness = (bean) => {
-    if (bean.status === "empty") return { key: "empty", label: t.beanEmpty };
     if (bean.status === "sealed") return { key: "sealed", label: t.beanSealed };
     if (!bean.roastDate) return null;
     const days = Math.floor((new Date() - new Date(bean.roastDate)) / 86400000);
@@ -4049,7 +4168,11 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
     return               { key: "stale",  label: t.beanStale,  days };
   };
 
-  const roastPct = (level) => ROAST_LEVELS.find(r => r.id === level)?.pct || 55;
+  const roastPct = (level) => {
+    const idx = ROAST_LEVELS.findIndex(r => r.id === level);
+    if (idx < 0) return 50;
+    return Math.round((idx / (ROAST_LEVELS.length - 1)) * 100);
+  };
   const roastLabel = (level) => { const r = ROAST_LEVELS.find(r => r.id === level); return r ? (lang === "en" ? r.en : r.ko) : ""; };
   const ppgCalc = (b) => b.price && b.weight ? (parseFloat(b.price) / parseFloat(b.weight)) : null;
   const daysFromRoast = (b) => b.roastDate ? Math.floor((new Date() - new Date(b.roastDate)) / 86400000) : null;
@@ -4058,6 +4181,133 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
 
   return (
     <div>
+
+      {/* 원두 통계 */}
+      {beanStats && beans.length > 0 && (
+        <div style={{ marginBottom: "24px" }}>
+          {/* 타이틀 */}
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "14px" }}>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.1rem", fontWeight: 700, color: "var(--espresso)" }}>
+              {lang === "en" ? "Bean Stats" : "원두 통계"}
+            </div>
+            <div style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
+              {lang === "en" ? `${beanStats.totalBeans} beans total` : `총 ${beanStats.totalBeans}종`}
+            </div>
+          </div>
+
+          {/* 핵심 수치 4칸 */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", marginBottom: "12px" }}>
+            {[
+              {
+                val: beanStats.totalBrews,
+                unit: lang === "en" ? "brews" : "회",
+                lbl: lang === "en" ? "Total Brews" : "총 추출",
+                icon: <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><ellipse cx="9" cy="14" rx="6" ry="2" stroke="var(--latte)" strokeWidth="1.4"/><path d="M3 14C3 8 5.5 3 9 2c3.5 1 6 6 6 12" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/></svg>
+              },
+              {
+                val: beanStats.totalUsedG >= 1000 ? `${(beanStats.totalUsedG/1000).toFixed(2)}` : Math.round(beanStats.totalUsedG),
+                unit: beanStats.totalUsedG >= 1000 ? "kg" : "g",
+                lbl: lang === "en" ? "Used" : "총 사용량",
+                icon: <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><rect x="3" y="9" width="12" height="7" rx="1.5" stroke="var(--latte)" strokeWidth="1.4"/><path d="M6 9V6a3 3 0 0 1 6 0v3" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/></svg>
+              },
+              {
+                val: beanStats.avgGramPerBrew ? beanStats.avgGramPerBrew.toFixed(1) : "—",
+                unit: beanStats.avgGramPerBrew ? "g" : "",
+                lbl: lang === "en" ? "Avg/Cup" : "잔당 평균",
+                icon: <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><rect x="2" y="5" width="10" height="8" rx="2" stroke="var(--latte)" strokeWidth="1.4"/><path d="M12 8h2a2 2 0 0 1 0 4h-2" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/><path d="M5 13v2M9 13v2" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/></svg>
+              },
+              {
+                val: beanStats.avgCostPerCup && beanStats.totalInvest > 0
+                  ? (currency === "USD" ? `$${beanStats.avgCostPerCup.toFixed(2)}` : Math.round(beanStats.avgCostPerCup).toLocaleString())
+                  : "—",
+                unit: beanStats.avgCostPerCup && beanStats.totalInvest > 0
+                  ? (currency === "USD" ? "/cup" : "원/잔") : "",
+                lbl: lang === "en" ? "Cost/Cup" : "잔당 단가",
+                icon: <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="var(--latte)" strokeWidth="1.4"/><path d="M9 5v8M7 6.5h2.5a2 2 0 0 1 0 4H7" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/></svg>
+              },
+            ].map(({ val, unit, lbl, icon }) => (
+              <div key={lbl} style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "14px 12px", textAlign: "center" }}>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: "6px" }}>{icon}</div>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1 }}>
+                  {val}<span style={{ fontSize: "0.62rem", fontWeight: 400, color: "var(--muted)", marginLeft: "2px" }}>{unit}</span>
+                </div>
+                <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: "4px" }}>{lbl}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* 2열 정보 카드 */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+
+            {/* 신선도 분포 */}
+            <div style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "14px 16px" }}>
+              <div style={{ fontSize: "0.65rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "10px", fontWeight: 600 }}>
+                {lang === "en" ? "Freshness" : "신선도 현황"}
+              </div>
+              {[
+                { key: "fresh",  label: lang === "en" ? "Fresh" : "프레시",  color: "#27ae60", desc: "≤7d" },
+                { key: "peak",   label: lang === "en" ? "Peak"  : "피크",    color: "#f39c12", desc: "≤30d" },
+                { key: "aged",   label: lang === "en" ? "Aged"  : "숙성",    color: "#e67e22", desc: "≤60d" },
+                { key: "stale",  label: lang === "en" ? "Stale" : "주의",    color: "#e74c3c", desc: "60d+" },
+                { key: "sealed", label: lang === "en" ? "Sealed": "미개봉",  color: "var(--muted)", desc: "" },
+              ].filter(f => beanStats.fresh[f.key] > 0).map(f => (
+                <div key={f.key} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
+                  <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: f.color, flexShrink: 0 }}/>
+                  <span style={{ fontSize: "0.75rem", color: "var(--espresso)", flex: 1 }}>{f.label}</span>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--espresso)" }}>{beanStats.fresh[f.key]}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* 취향 프로파일 */}
+            <div style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "14px 16px" }}>
+              <div style={{ fontSize: "0.65rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "10px", fontWeight: 600 }}>
+                {lang === "en" ? "My Preference" : "취향 프로파일"}
+              </div>
+              {[
+                { lbl: lang === "en" ? "Origin" : "원산지",   val: beanStats.topOrigin },
+                { lbl: lang === "en" ? "Process" : "가공법",  val: beanStats.topProcess },
+                { lbl: lang === "en" ? "Roast" : "배전도", val: beanStats.topRoast ? (ROAST_LEVELS.find(r => r.id === beanStats.topRoast)?.[lang === "en" ? "en" : "ko"] || beanStats.topRoast) : null },
+                { lbl: lang === "en" ? "Type" : "타입",       val: beanStats.topType ? (beanStats.topType === "single" ? (lang === "en" ? "Single Origin" : "싱글 오리진") : (lang === "en" ? "Blend" : "블렌드")) : null },
+              ].map(({ lbl, val }) => val ? (
+                <div key={lbl} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>{lbl}</span>
+                  <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--espresso)", background: "var(--cream)", padding: "1px 8px", borderRadius: "4px", border: "1px solid var(--divider)" }}>{val}</span>
+                </div>
+              ) : null)}
+            </div>
+
+            {/* 가장 많이 쓴 원두 */}
+            {beanStats.mostUsed && beanStats.mostUsed.usedCount > 0 && (
+              <div style={{ background: "#FDF6EF", border: "1px solid var(--latte)", borderRadius: "8px", padding: "14px 16px", gridColumn: "1 / -1" }}>
+                <div style={{ fontSize: "0.65rem", color: "var(--latte)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "8px", fontWeight: 600 }}>
+                  {lang === "en" ? "Most Used Bean" : "가장 많이 쓴 원두"}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.95rem", fontWeight: 700, color: "var(--espresso)" }}>
+                      {beanStats.mostUsed.name}
+                    </div>
+                    <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: "2px" }}>{beanStats.mostUsed.roastery}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--latte)", fontFamily: "'Playfair Display',serif" }}>
+                      {beanStats.mostUsed.usedCount}
+                      <span style={{ fontSize: "0.68rem", fontWeight: 400, color: "var(--muted)", marginLeft: "3px" }}>{lang === "en" ? "brews" : "회"}</span>
+                    </div>
+                    {usedGramsMap[beanStats.mostUsed.id] > 0 && (
+                      <div style={{ fontSize: "0.68rem", color: "var(--muted)" }}>
+                        {usedGramsMap[beanStats.mostUsed.id].toFixed(1)}g {lang === "en" ? "used" : "사용"}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
 
       {/* 카드 그리드 */}
       {filtered.length === 0 ? (
@@ -4077,7 +4327,7 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
             const ppg = ppgCalc(bean);
             const days = daysFromRoast(bean);
             return (
-              <div key={bean.id} className="bean-card" style={{ opacity: bean.status === "empty" ? 0.6 : 1 }}>
+              <div key={bean.id} className="bean-card">
                 {/* 카드 헤더 */}
                 <div className="bean-card-header">
                   <div>
@@ -4100,13 +4350,25 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
                 {/* 배전도 바 */}
                 {bean.roastLevel && (
                   <div className="bean-roast-bar">
-                    <div style={{ fontSize: "0.65rem", color: "var(--muted)", whiteSpace: "nowrap", minWidth: "28px", opacity: 0.6 }}>
-                      {lang === "en" ? "L" : "약"}
+                    <div style={{ position: "relative" }}>
+                      <div className="bean-roast-track">
+                        <div className="bean-roast-fill" style={{ width: `${roastPct(bean.roastLevel)}%` }}/>
+                      </div>
+                      {/* 현재 단계 도트 */}
+                      {(() => {
+                        const idx = ROAST_LEVELS.findIndex(r => r.id === bean.roastLevel);
+                        if (idx < 0) return null;
+                        const leftPct = (idx / (ROAST_LEVELS.length - 1)) * 100;
+                        return <div style={{ position: "absolute", top: "50%", left: `${leftPct}%`, transform: "translate(-50%, -50%)", width: "12px", height: "12px", borderRadius: "50%", background: "var(--espresso)", border: "2px solid white", boxShadow: "0 1px 4px #0004", pointerEvents: "none" }}/>;
+                      })()}
                     </div>
-                    <div className="bean-roast-track">
-                      <div className="bean-roast-fill" style={{ width: `${roastPct(bean.roastLevel)}%` }}/>
+                    <div className="bean-roast-markers">
+                      {ROAST_LEVELS.map((r, i) => (
+                        <span key={r.id} className={`bean-roast-marker${bean.roastLevel === r.id ? " active" : ""}`}>
+                          {lang === "en" ? r.en : r.ko}
+                        </span>
+                      ))}
                     </div>
-                    <div className="bean-roast-label">{roastLabel(bean.roastLevel)}</div>
                   </div>
                 )}
 
@@ -4590,7 +4852,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         {feedTab === "beans" ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "1.2rem", overflow: "hidden" }}>
             <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flex: 1 }}>
-              {[["all", lang === "en" ? "All" : "전체"], ["open", I18N[lang].beanOpen], ["sealed", I18N[lang].beanSealed], ["empty", I18N[lang].beanEmpty]].map(([v, lbl]) => (
+              {[["all", lang === "en" ? "All" : "전체"], ["open", I18N[lang].beanOpen], ["sealed", I18N[lang].beanSealed]].map(([v, lbl]) => (
                 <button key={v} className={`bookmark-tab-btn ${beanFilterStatus === v ? "active" : ""}`}
                   onClick={() => setBeanFilterStatus(v)} style={{ fontSize: "0.75rem", height: "30px", padding: "0 12px", flexShrink: 0 }}>
                   {lbl}
@@ -5063,7 +5325,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             isBookmarked={bookmarks.includes(r.id)}
             onFollow={toggleFollow}
             isFollowing={following.includes(r.uid) || following.includes(r.author)}
-            onEdit={r => { setEditTarget(r); setShowModalWrapped(true); }}
+            onEdit={r => { setEditTarget(r); openModal(); }}
             onCardClick={() => openDetail(r)} />
         ))}
       </div>}
@@ -5078,7 +5340,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         lang={lang}
         onClose={() => setDetailRecipeWrapped(null)}
         onLike={r => { handleLike(r); }}
-        onEdit={r => { setEditTarget(r); setShowModalWrapped(true); setDetailRecipeWrapped(null); }}
+        onEdit={r => { setEditTarget(r); openModal(); setDetailRecipeWrapped(null); }}
         onDelete={id => { handleDelete(id); setDetailRecipeWrapped(null); }}
         onFollow={toggleFollow}
         isFollowing={detailRecipe && (following.includes(detailRecipe.uid) || following.includes(detailRecipe.author))}
