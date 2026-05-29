@@ -3299,232 +3299,12 @@ function ReportModal({ type, targetId, currentUser, onClose, lang = "ko" }) {
 }
 
 // ─── RecipeDetailModal ────────────────────────────────────────────
-// ─── Recipe AI 비교 분석 모달 ──────────────────────────────────────
-function RecipeAnalysisModal({ recipe, lang, currentUid, onClose }) {
-  const [status, setStatus] = useState("loading");
-  const [result, setResult] = useState(null);
-  const [meta, setMeta] = useState(null);
-  const [errorMsg, setErrorMsg] = useState(null);
-
-  const analyze = async () => {
-    setStatus("loading");
-    setResult(null);
-    try {
-      // 같은 메뉴의 커뮤니티 레시피 수집
-      const allSnap = await getDocs(query(collection(db, "recipes")));
-      const community = allSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r =>
-        r.uid !== currentUid &&
-        r.isPublic !== false &&
-        r.menuId === recipe.menuId
-      ).slice(0, 30);
-
-      if (community.length === 0) {
-        setStatus("nodata");
-        setErrorMsg(lang === "en"
-          ? "No community recipes found for this menu type yet."
-          : `아직 ${recipe.menuLabel} 메뉴의 다른 브루어 레시피가 없어요.`);
-        return;
-      }
-
-      const summarize = (list) => {
-        const avg = arr => arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1) : null;
-        return {
-          count: list.length,
-          gram:  avg(list.filter(r=>r.gram).map(r=>parseFloat(r.gram))),
-          sec:   avg(list.filter(r=>r.seconds).map(r=>parseFloat(r.seconds))),
-          ml:    avg(list.filter(r=>r.espressoMl).map(r=>parseFloat(r.espressoMl))),
-          temp:  avg(list.filter(r=>r.waterTemp).map(r=>parseFloat(r.waterTemp))),
-          rating:avg(list.filter(r=>r.rating>0).map(r=>r.rating)),
-          machines: [...new Set(list.map(r=>r.machine).filter(Boolean))].slice(0,3).join(", "),
-        };
-      };
-
-      const my = { count: 1, gram: recipe.gram, sec: recipe.seconds, ml: recipe.espressoMl, temp: recipe.waterTemp, rating: recipe.rating || null, machines: recipe.machine || "—" };
-      const others = summarize(community);
-      setMeta({ my, others });
-
-      const menuName = lang === "en"
-        ? (recipe.menuLabel || recipe.menuId)
-        : (recipe.menuLabel || recipe.menuId);
-
-      const prompt = lang === "en"
-        ? `You are a specialty coffee expert. Compare my single recipe with community averages for "${menuName}".
-
-MY RECIPE:
-Bean: ${recipe.bean || "—"} (${recipe.company || "—"}) | Machine: ${recipe.machine || "—"}
-Dose: ${my.gram ?? "—"}g | Time: ${my.sec ?? "—"}s | Yield: ${my.ml ?? "—"}ml | Temp: ${my.temp ?? "—"}°C | Rating: ${my.rating ?? "—"}/5
-
-COMMUNITY AVERAGE (${others.count} recipes):
-Dose: ${others.gram ?? "—"}g | Time: ${others.sec ?? "—"}s | Yield: ${others.ml ?? "—"}ml | Temp: ${others.temp ?? "—"}°C | Avg rating: ${others.rating ?? "—"}/5
-
-Write exactly 4 bullet points starting with "- ":
-1. Key differences in my extraction vs community
-2. What my parameters suggest (strength, style, ratio)
-3. How my rating compares and what it might indicate
-4. One specific, actionable improvement tip
-
-Be direct, specific, and friendly. Plain text only.`
-        : `스페셜티 커피 전문가로서 내 "${menuName}" 레시피 1개와 커뮤니티 평균을 비교 분석해주세요.
-
-내 레시피:
-원두: ${recipe.bean || "—"} (${recipe.company || "—"}) | 머신: ${recipe.machine || "—"}
-원두량: ${my.gram ?? "—"}g | 추출시간: ${my.sec ?? "—"}초 | 추출량: ${my.ml ?? "—"}ml | 물온도: ${my.temp ?? "—"}°C | 별점: ${my.rating ?? "—"}/5
-
-커뮤니티 평균 (${others.count}개 레시피):
-원두량: ${others.gram ?? "—"}g | 추출시간: ${others.sec ?? "—"}초 | 추출량: ${others.ml ?? "—"}ml | 물온도: ${others.temp ?? "—"}°C | 평균 별점: ${others.rating ?? "—"}/5
-
-정확히 4개의 항목을 "- "로 시작해서 작성해주세요:
-1. 내 추출과 커뮤니티의 주요 수치 차이
-2. 내 파라미터가 의미하는 것 (농도, 비율, 스타일)
-3. 내 별점과 커뮤니티 평균 비교 및 시사점
-4. 구체적이고 실행 가능한 개선 팁 1가지
-
-직접적이고 친근하게, 일반 텍스트로만 작성해주세요.`;
-
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 800, messages: [{ role: "user", content: prompt }] })
-      });
-      const data = await res.json();
-      const text = data.content?.find(c => c.type === "text")?.text || "";
-      setResult(text);
-      setStatus("done");
-    } catch(e) {
-      setStatus("error");
-      setErrorMsg(lang === "en" ? `Analysis failed: ${e.message}` : `분석 실패: ${e.message}`);
-    }
-  };
-
-  useEffect(() => { analyze(); }, []);
-
-  return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ maxWidth: "500px" }}>
-        {/* 헤더 */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px" }}>
-          <div>
-            <h2 style={{ fontSize: "1.15rem", marginBottom: "4px" }}>
-              {lang === "en" ? "Recipe Analysis" : "레시피 비교 분석"}
-            </h2>
-            <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-              <span style={{ fontWeight: 600, color: "var(--espresso)" }}>{recipe.bean}</span>
-              {recipe.menuLabel && <span style={{ marginLeft: "6px" }}>· {recipe.menuLabel}</span>}
-              {recipe.machine && <span style={{ marginLeft: "6px" }}>· {recipe.machine}</span>}
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", flexShrink: 0 }}>
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-          </button>
-        </div>
-
-        {/* 로딩 */}
-        {status === "loading" && (
-          <div style={{ padding: "40px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" style={{ animation: "spin 1s linear infinite" }}>
-              <circle cx="14" cy="14" r="10" stroke="var(--latte)" strokeWidth="2.5" strokeDasharray="20 42" strokeLinecap="round"/>
-            </svg>
-            <p style={{ fontSize: "0.82rem", color: "var(--muted)", textAlign: "center", lineHeight: 1.6 }}>
-              {lang === "en" ? "Fetching community recipes and analyzing…" : "커뮤니티 레시피를 불러와서 AI가 분석 중이에요…"}
-            </p>
-          </div>
-        )}
-
-        {/* 오류/데이터 없음 */}
-        {(status === "nodata" || status === "error") && (
-          <div style={{ padding: "28px 0", textAlign: "center" }}>
-            <svg width="36" height="36" viewBox="0 0 36 36" fill="none" style={{ margin: "0 auto 10px", display: "block" }}>
-              <circle cx="18" cy="18" r="14" stroke="var(--steam)" strokeWidth="1.6"/>
-              <path d="M18 11v8M18 22v2" stroke="var(--muted)" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-            {errorMsg?.split("\n").map((line, i) => (
-              <p key={i} style={{ fontSize: i === 0 ? "0.85rem" : "0.72rem", color: i === 0 ? "var(--espresso)" : "var(--muted)", marginBottom: "4px" }}>{line}</p>
-            ))}
-          </div>
-        )}
-
-        {/* 결과 */}
-        {status === "done" && result && (<>
-          {/* 수치 비교 */}
-          {meta && (
-            <div style={{ background: "var(--cream)", borderRadius: "8px", padding: "14px 16px", marginBottom: "16px", border: "1px solid var(--divider)" }}>
-              <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "10px" }}>
-                {lang === "en" ? "vs Community Average" : "커뮤니티 평균과 비교"}
-                <span style={{ marginLeft: "6px", color: "var(--latte)" }}>({meta.others.count}{lang === "en" ? " recipes" : "개 기준"})</span>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
-                {[
-                  { lbl: lang === "en" ? "Dose" : "원두량", unit: "g",  my: meta.my.gram,  other: meta.others.gram },
-                  { lbl: lang === "en" ? "Time" : "시간",   unit: "s",  my: meta.my.sec,   other: meta.others.sec },
-                  { lbl: lang === "en" ? "Yield" : "추출량", unit: "ml", my: meta.my.ml,    other: meta.others.ml },
-                  { lbl: lang === "en" ? "Temp" : "온도",   unit: "°C", my: meta.my.temp,  other: meta.others.temp },
-                ].map(({ lbl, unit, my, other }) => {
-                  const diff = (my && other) ? (parseFloat(my) - parseFloat(other)).toFixed(1) : null;
-                  const diffColor = !diff || diff === "0.0" ? "var(--muted)" : parseFloat(diff) > 0 ? "#2980b9" : "#c0392b";
-                  return (
-                    <div key={lbl} style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "0.6rem", color: "var(--muted)", marginBottom: "4px" }}>{lbl}</div>
-                      <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--espresso)" }}>
-                        {my ?? "—"}<span style={{ fontSize: "0.58rem", fontWeight: 400 }}>{unit}</span>
-                      </div>
-                      <div style={{ fontSize: "0.58rem", color: "var(--muted)", opacity: 0.8 }}>avg {other ?? "—"}{unit}</div>
-                      {diff && diff !== "0.0" && (
-                        <div style={{ fontSize: "0.6rem", color: diffColor, fontWeight: 700 }}>
-                          {parseFloat(diff) > 0 ? `+${diff}` : diff}{unit}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* AI 분석 */}
-          <div style={{ marginBottom: "16px" }}>
-            <div style={{ fontSize: "0.62rem", color: "var(--latte)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: "12px", display: "flex", alignItems: "center", gap: "5px" }}>
-              <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="var(--latte)" strokeWidth="1.3"/><path d="M5 6c0-1.1.9-2 2-2s2 .9 2 2c0 .8-.5 1.5-1.2 1.8L7 8.5" stroke="var(--latte)" strokeWidth="1.3" strokeLinecap="round"/><circle cx="7" cy="10.5" r=".6" fill="var(--latte)"/></svg>
-              AI 분석
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {result.split("\n").filter(l => l.trim()).map((line, i) => (
-                <div key={i} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-                  <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: "#FDF6EF", border: "1px solid var(--latte)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px" }}>
-                    <span style={{ fontSize: "0.62rem", fontWeight: 700, color: "var(--latte)" }}>{i + 1}</span>
-                  </div>
-                  <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--espresso)", lineHeight: 1.65, margin: 0 }}>
-                    {line.replace(/^[\-•·\d+\.]\s*/, "")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ fontSize: "0.65rem", color: "var(--muted)", borderTop: "1px solid var(--divider)", paddingTop: "10px", opacity: 0.75 }}>
-            {lang === "en" ? `Compared with ${meta?.others.count} community ${recipe.menuLabel} recipes` : `커뮤니티 ${recipe.menuLabel} 레시피 ${meta?.others.count}개와 비교한 결과예요`}
-          </div>
-        </>)}
-
-        <div className="modal-actions" style={{ marginTop: "16px" }}>
-          <button className="btn-cancel" onClick={onClose}>{lang === "en" ? "Close" : "닫기"}</button>
-          {(status === "done" || status === "error" || status === "nodata") && status !== "nodata" && (
-            <button className="btn-primary" style={{ width: "auto", marginTop: 0, padding: "0.7rem 1.5rem" }} onClick={analyze}>
-              {lang === "en" ? "Re-analyze" : "재분석"}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, lang = "ko" }) {
-  const [showReport, setShowReport] = useState(null);
+  const [showReport, setShowReport] = useState(null); // { type, targetId }
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
-  const [replyTo, setReplyTo] = useState(null);
-  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [replyTo, setReplyTo] = useState(null); // { id, author }
 
   useEffect(() => {
     if (!recipe?.id) return;
@@ -3732,23 +3512,6 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
           </div>
         </div>
 
-        {/* AI 레시피 비교 분석 버튼 */}
-        <div style={{ margin: "16px 0 0" }}>
-          <button
-            onClick={() => setShowAnalysis(true)}
-            style={{ width: "100%", padding: "10px", border: "1px dashed var(--steam)", borderRadius: "8px", background: "none", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px", transition: "all 0.2s" }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--latte)"; e.currentTarget.style.color = "var(--latte)"; e.currentTarget.style.background = "#FDF6EF"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--steam)"; e.currentTarget.style.color = "var(--muted)"; e.currentTarget.style.background = "none"; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.3"/>
-              <path d="M5 6c0-1.1.9-2 2-2s2 .9 2 2c0 .8-.5 1.5-1.2 1.8L7 8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-              <circle cx="7" cy="10.5" r=".6" fill="currentColor"/>
-            </svg>
-            {lang === "en" ? "Compare with community recipes (AI)" : "커뮤니티 레시피와 AI 비교 분석"}
-          </button>
-        </div>
-
         {/* 댓글 섹션 */}
         <div style={{ borderTop: "1px solid var(--steam)", marginTop: "1.2rem", paddingTop: "1rem" }}>
           <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--espresso)", marginBottom: "0.8rem" }}>
@@ -3855,9 +3618,6 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
         lang={lang}
         onClose={() => setShowReport(null)}
       />
-    )}
-    {showAnalysis && (
-      <RecipeAnalysisModal recipe={recipe} lang={lang} currentUid={currentUid} onClose={() => setShowAnalysis(false)}/>
     )}
     </>
   );
@@ -4028,228 +3788,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
 }
 
 // ─── MainApp ───────────────────────────────────────────────────────
-// ─── Bean AI 비교 분석 모달 ────────────────────────────────────────
-function BeanAnalysisModal({ bean, lang, user, onClose }) {
-  const [status, setStatus] = useState("loading"); // loading | done | error | nodata
-  const [result, setResult] = useState(null);
-  const [meta, setMeta] = useState(null);
-  const [errorMsg, setErrorMsg] = useState(null);
-
-  const analyze = async () => {
-    setStatus("loading");
-    setResult(null);
-    try {
-      const myQ = query(collection(db, "recipes"), where("uid", "==", user.uid));
-      const mySnap = await getDocs(myQ);
-      const myRecipes = mySnap.docs.map(d => d.data()).filter(r =>
-        r.linkedBeanId === bean.id ||
-        (r.bean && bean.name && r.bean.toLowerCase().includes(bean.name.toLowerCase().split(" ")[0]))
-      );
-
-      if (myRecipes.length === 0) {
-        setStatus("nodata");
-        setErrorMsg(lang === "en" ? "No recipes linked to this bean yet.\nLink recipes by selecting this bean in the recipe form." : "이 원두로 기록된 레시피가 없어요.\n레시피 기록 시 이 원두를 선택하면 연동돼요.");
-        return;
-      }
-
-      const allQ = query(collection(db, "recipes"));
-      const allSnap = await getDocs(allQ);
-      const othersRecipes = allSnap.docs.map(d => d.data()).filter(r =>
-        r.uid !== user.uid && r.isPublic !== false &&
-        r.bean && bean.name &&
-        r.bean.toLowerCase().includes(bean.name.toLowerCase().split(" ")[0])
-      ).slice(0, 30);
-
-      if (othersRecipes.length === 0) {
-        setStatus("nodata");
-        setErrorMsg(lang === "en" ? "No other brewers have recorded recipes with this bean yet." : "아직 이 원두로 기록한 다른 브루어의 레시피가 없어요.");
-        return;
-      }
-
-      const summarize = (list) => {
-        const grams = list.filter(r => r.gram).map(r => parseFloat(r.gram));
-        const secs  = list.filter(r => r.seconds).map(r => parseFloat(r.seconds));
-        const mls   = list.filter(r => r.espressoMl).map(r => parseFloat(r.espressoMl));
-        const temps = list.filter(r => r.waterTemp).map(r => parseFloat(r.waterTemp));
-        const avg   = arr => arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1) : null;
-        const menus = [...new Set(list.map(r => r.menuLabel).filter(Boolean))].join(", ");
-        const ratings = list.filter(r => r.rating > 0).map(r => r.rating);
-        return { count: list.length, gram: avg(grams), sec: avg(secs), ml: avg(mls), temp: avg(temps), menus, avgRating: avg(ratings) };
-      };
-
-      const my = summarize(myRecipes);
-      const others = summarize(othersRecipes);
-      setMeta({ my, others });
-
-      const prompt = lang === "en"
-        ? `You are a specialty coffee expert. Compare these two groups of recipes for the bean "${bean.name}" by "${bean.roastery}".
-
-MY RECIPES (${my.count} brews):
-Dose: ${my.gram ?? "—"}g | Time: ${my.sec ?? "—"}s | Yield: ${my.ml ?? "—"}ml | Temp: ${my.temp ?? "—"}°C | Menus: ${my.menus || "—"} | Avg rating: ${my.avgRating ?? "—"}
-
-COMMUNITY (${others.count} brews):
-Dose: ${others.gram ?? "—"}g | Time: ${others.sec ?? "—"}s | Yield: ${others.ml ?? "—"}ml | Temp: ${others.temp ?? "—"}°C | Menus: ${others.menus || "—"} | Avg rating: ${others.avgRating ?? "—"}
-
-Write 4 short bullet points (start each with "- "):
-1. Key extraction differences
-2. What my approach suggests (stronger/lighter/faster/etc)
-3. How my flavor profile compares (if similar bean, what to expect)
-4. One concrete improvement suggestion
-
-Be specific, practical, friendly. Plain text only.`
-        : `스페셜티 커피 전문가로서 "${bean.roastery}"의 "${bean.name}" 원두를 사용한 두 그룹의 레시피를 비교 분석해주세요.
-
-내 레시피 (${my.count}개):
-원두량: ${my.gram ?? "—"}g | 추출시간: ${my.sec ?? "—"}초 | 추출량: ${my.ml ?? "—"}ml | 물온도: ${my.temp ?? "—"}°C | 메뉴: ${my.menus || "—"} | 평균 별점: ${my.avgRating ?? "—"}
-
-커뮤니티 (${others.count}개):
-원두량: ${others.gram ?? "—"}g | 추출시간: ${others.sec ?? "—"}초 | 추출량: ${others.ml ?? "—"}ml | 물온도: ${others.temp ?? "—"}°C | 메뉴: ${others.menus || "—"} | 평균 별점: ${others.avgRating ?? "—"}
-
-다음 4가지를 각각 "- "로 시작하는 짧은 항목으로 작성해주세요:
-1. 주요 추출 파라미터 차이점
-2. 내 추출 스타일이 의미하는 것 (더 진함/연함/빠름/느림 등)
-3. 플레이버 관점에서의 분석 (이 원두 특성 기준)
-4. 구체적인 개선 제안 1가지
-
-실용적이고 친근하게, 일반 텍스트로만 작성해주세요.`;
-
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 800, messages: [{ role: "user", content: prompt }] })
-      });
-      const data = await res.json();
-      const text = data.content?.find(c => c.type === "text")?.text || "";
-      setResult(text);
-      setStatus("done");
-    } catch (e) {
-      console.error(e);
-      setStatus("error");
-      setErrorMsg(lang === "en" ? `Analysis failed: ${e.message}` : `분석 실패: ${e.message}`);
-    }
-  };
-
-  useEffect(() => { analyze(); }, []);
-
-  return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ maxWidth: "520px" }}>
-        {/* 헤더 */}
-        <div style={{ marginBottom: "20px" }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px" }}>
-            <div>
-              <h2 style={{ fontSize: "1.2rem", marginBottom: "4px" }}>레시피 비교 분석</h2>
-              <div style={{ fontSize: "0.78rem", color: "var(--muted)" }}>
-                <span style={{ fontWeight: 600, color: "var(--espresso)" }}>{bean.name}</span>
-                {bean.roastery && <span> · {bean.roastery}</span>}
-              </div>
-            </div>
-            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px", flexShrink: 0, marginTop: "2px" }}>
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-            </button>
-          </div>
-        </div>
-
-        {/* 로딩 */}
-        {status === "loading" && (
-          <div style={{ padding: "48px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style={{ animation: "spin 1s linear infinite" }}>
-              <circle cx="16" cy="16" r="12" stroke="var(--latte)" strokeWidth="2.5" strokeDasharray="24 52" strokeLinecap="round"/>
-            </svg>
-            <p style={{ fontSize: "0.85rem", color: "var(--muted)", textAlign: "center", lineHeight: 1.6 }}>
-              {lang === "en" ? "Analyzing recipes…" : "커뮤니티 레시피와 비교 분석 중이에요…"}<br/>
-              <span style={{ fontSize: "0.72rem", opacity: 0.7 }}>{lang === "en" ? "Fetching recipes and running AI analysis" : "레시피를 불러오고 AI가 분석하고 있어요"}</span>
-            </p>
-          </div>
-        )}
-
-        {/* 데이터 없음 / 에러 */}
-        {(status === "nodata" || status === "error") && (
-          <div style={{ padding: "32px 0", textAlign: "center" }}>
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style={{ margin: "0 auto 12px", display: "block" }}>
-              <circle cx="20" cy="20" r="16" stroke="var(--steam)" strokeWidth="1.8"/>
-              <path d="M20 12v10M20 26v2" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            {errorMsg?.split("\n").map((line, i) => (
-              <p key={i} style={{ fontSize: i === 0 ? "0.88rem" : "0.75rem", color: i === 0 ? "var(--espresso)" : "var(--muted)", marginBottom: "4px", lineHeight: 1.5 }}>{line}</p>
-            ))}
-          </div>
-        )}
-
-        {/* 결과 */}
-        {status === "done" && result && (<>
-          {/* 수치 비교 요약 */}
-          {meta && (
-            <div style={{ background: "var(--cream)", borderRadius: "8px", padding: "14px 16px", marginBottom: "16px", border: "1px solid var(--divider)" }}>
-              <div style={{ fontSize: "0.65rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "10px" }}>
-                {lang === "en" ? "Extraction Comparison" : "추출 수치 비교"}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px" }}>
-                {[
-                  { lbl: lang === "en" ? "Dose" : "원두량", unit: "g", my: meta.my.gram, other: meta.others.gram },
-                  { lbl: lang === "en" ? "Time" : "시간", unit: "s", my: meta.my.sec, other: meta.others.sec },
-                  { lbl: lang === "en" ? "Yield" : "추출량", unit: "ml", my: meta.my.ml, other: meta.others.ml },
-                  { lbl: lang === "en" ? "Temp" : "온도", unit: "°C", my: meta.my.temp, other: meta.others.temp },
-                ].map(({ lbl, unit, my, other }) => {
-                  const diff = my && other ? (parseFloat(my) - parseFloat(other)).toFixed(1) : null;
-                  const color = !diff ? "var(--muted)" : parseFloat(diff) > 0 ? "#2980b9" : parseFloat(diff) < 0 ? "#c0392b" : "var(--muted)";
-                  return (
-                    <div key={lbl} style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginBottom: "4px" }}>{lbl}</div>
-                      <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "var(--espresso)" }}>{my ?? "—"}<span style={{ fontSize: "0.6rem", fontWeight: 400 }}>{unit}</span></div>
-                      <div style={{ fontSize: "0.6rem", color: "var(--muted)" }}>{lang === "en" ? "community" : "커뮤니티"} {other ?? "—"}{unit}</div>
-                      {diff && diff !== "0.0" && (
-                        <div style={{ fontSize: "0.6rem", color, fontWeight: 600, marginTop: "1px" }}>
-                          {parseFloat(diff) > 0 ? `+${diff}` : diff}{unit}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* AI 분석 텍스트 */}
-          <div style={{ marginBottom: "16px" }}>
-            <div style={{ fontSize: "0.65rem", color: "var(--latte)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: "12px", display: "flex", alignItems: "center", gap: "5px" }}>
-              <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="var(--latte)" strokeWidth="1.3"/><path d="M5 6c0-1.1.9-2 2-2s2 .9 2 2c0 .8-.5 1.5-1.2 1.8L7 8.5" stroke="var(--latte)" strokeWidth="1.3" strokeLinecap="round"/><circle cx="7" cy="10.5" r=".6" fill="var(--latte)"/></svg>
-              AI 분석 결과
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {result.split("\n").filter(l => l.trim()).map((line, i) => (
-                <div key={i} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-                  <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "var(--cream)", border: "1px solid var(--divider)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: "1px" }}>
-                    <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--latte)" }}>{i + 1}</span>
-                  </div>
-                  <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--espresso)", lineHeight: 1.65, margin: 0 }}>
-                    {line.replace(/^[\-•·\d+\.]\s*/, "")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 데이터 출처 */}
-          <div style={{ fontSize: "0.68rem", color: "var(--muted)", opacity: 0.7, borderTop: "1px solid var(--divider)", paddingTop: "12px" }}>
-            {lang === "en" ? `Based on my ${meta?.my.count} brews vs ${meta?.others.count} community brews` : `내 ${meta?.my.count}개 레시피 vs 커뮤니티 ${meta?.others.count}개 레시피 기반`}
-          </div>
-        </>)}
-
-        {/* 액션 버튼 */}
-        <div className="modal-actions" style={{ marginTop: "16px" }}>
-          <button className="btn-cancel" onClick={onClose}>{lang === "en" ? "Close" : "닫기"}</button>
-          {(status === "done" || status === "error") && (
-            <button className="btn-primary" style={{ width: "auto", marginTop: 0, padding: "0.7rem 1.5rem" }} onClick={analyze}>
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style={{ marginRight: "5px" }}><path d="M12.5 7a5.5 5.5 0 1 1-1.1-3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M12.5 2.5v2.5H10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              {lang === "en" ? "Reanalyze" : "재분석"}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+// ─── Bean Vault ────────────────────────────────────────────────────
 const ROAST_LEVELS = [
   { id: "light",    ko: "라이트",       en: "Light",      pct: 15 },
   { id: "med_light",ko: "미디엄 라이트", en: "Med-Light",  pct: 35 },
@@ -4434,8 +3973,7 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
 function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setShowModal, editTarget, setEditTarget, currency = "KRW" }) {
   const t = I18N[lang];
   const [beans, setBeans] = useState([]);
-  const [usedGramsMap, setUsedGramsMap] = useState({});
-  const [analysisBean, setAnalysisBean] = useState(null); // 분석 모달용 // { beanId: totalGramsUsed }
+  const [usedGramsMap, setUsedGramsMap] = useState({}); // { beanId: totalGramsUsed }
 
   const loadBeans = async () => {
     if (!user) return;
@@ -4470,7 +4008,6 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
       setUsedGramsMap(map);
     } catch (e) { console.error(e); }
   };
-
 
   useEffect(() => { loadBeans(); }, [user]);
 
@@ -4662,21 +4199,6 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
                   </div>
                 )}
 
-                {/* AI 비교 분석 버튼 */}
-                <button
-                  onClick={() => setAnalysisBean(bean)}
-                  style={{ width: "100%", marginTop: "4px", marginBottom: "12px", padding: "9px", border: "1px dashed var(--steam)", borderRadius: "8px", background: "none", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", transition: "all 0.2s" }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--latte)"; e.currentTarget.style.color = "var(--latte)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--steam)"; e.currentTarget.style.color = "var(--muted)"; }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.3"/>
-                    <path d="M5 6c0-1.1.9-2 2-2s2 .9 2 2c0 .8-.5 1.5-1.2 1.8L7 8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                    <circle cx="7" cy="10.5" r=".6" fill="currentColor"/>
-                  </svg>
-                  {lang === "en" ? "Compare with community recipes" : "커뮤니티 레시피와 AI 비교 분석"}
-                </button>
-
                 {/* 푸터 */}
                 <div className="bean-card-footer">
                   <div className="bean-days-chip">
@@ -4703,9 +4225,6 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
 
       {showModal && (
         <BeanModal lang={lang} user={user} editTarget={editTarget} onClose={() => setShowModal(false)} onSaved={loadBeans}/>
-      )}
-      {analysisBean && (
-        <BeanAnalysisModal bean={analysisBean} lang={lang} user={user} onClose={() => setAnalysisBean(null)}/>
       )}
     </div>
   );
