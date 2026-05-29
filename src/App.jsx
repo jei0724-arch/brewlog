@@ -4225,7 +4225,7 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
                     {bean.buyDate && `${lang === "en" ? "Purchased" : "구매"} ${bean.buyDate}`}
                   </div>
                   <div className="bean-actions">
-                    <button className="bean-btn" onClick={() => { setEditTarget(bean); setShowModalWrapped(true); }}>
+                    <button className="bean-btn" onClick={() => { setEditTarget(bean); setShowModal(true); }}>
                       <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M9.5 1.5l3 3-7 7H2.5v-3l7-7z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
                       </svg>
@@ -4244,7 +4244,7 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
       )}
 
       {showModal && (
-        <BeanModal lang={lang} user={user} editTarget={editTarget} onClose={() => setShowModalWrapped(false)} onSaved={loadBeans}/>
+        <BeanModal lang={lang} user={user} editTarget={editTarget} onClose={() => setShowModal(false)} onSaved={loadBeans}/>
       )}
     </div>
   );
