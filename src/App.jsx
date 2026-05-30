@@ -565,7 +565,7 @@ const CSS = `
 
 
   /* ── Admin ── */
-  .admin-wrap { max-width: 960px; margin: 0 auto; padding: 24px 24px; }
+  .admin-wrap { max-width: 960px; margin: 0 auto; padding: 24px 24px; box-sizing: border-box; width: 100%; }
   .admin-page-title {
     font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700;
     color: var(--espresso); letter-spacing: -0.02em; margin-bottom: 2px;
@@ -576,37 +576,39 @@ const CSS = `
     display: flex; gap: 6px; margin-bottom: 24px;
     flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
     scrollbar-width: none; padding-bottom: 2px;
+    margin-left: -24px; margin-right: -24px;
+    padding-left: 24px; padding-right: 24px;
   }
   .admin-tabs::-webkit-scrollbar { display: none; }
   .admin-tab {
-    padding: 0 16px; height: 34px; border: 1px solid var(--steam); border-radius: 8px;
-    background: var(--foam); font-family: 'DM Sans', sans-serif; font-size: 0.8rem;
+    padding: 0 14px; height: 34px; border: 1px solid var(--steam); border-radius: 8px;
+    background: var(--foam); font-family: 'DM Sans', sans-serif; font-size: 0.78rem;
     color: var(--muted); cursor: pointer; transition: all 0.2s; white-space: nowrap;
-    flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
   }
   .admin-tab.active { background: var(--espresso); color: var(--cream); border-color: var(--espresso); font-weight: 500; }
   .admin-tab:hover:not(.active) { border-color: var(--espresso); color: var(--espresso); }
 
   .admin-card {
     background: var(--foam); border: 1px solid var(--divider); border-radius: 8px;
-    padding: 20px 24px; margin-bottom: 16px;
+    padding: 16px 20px; margin-bottom: 16px; box-sizing: border-box; width: 100%;
   }
   .admin-card-title {
     font-family: 'DM Sans', sans-serif; font-size: 0.72rem; font-weight: 600;
     color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px;
   }
 
-  .admin-stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .admin-stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
   .stat-card {
     background: var(--foam); border: 1px solid var(--divider); border-radius: 8px;
-    padding: 20px; text-align: center;
+    padding: 16px 12px; text-align: center; box-sizing: border-box;
   }
   .stat-card-val { font-family: 'Playfair Display', serif; font-size: 1.8rem; color: var(--espresso); display: block; font-weight: 700; }
   .stat-card-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; display: block; }
 
-  .admin-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  .admin-table th { text-align: left; padding: 8px 12px; font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--divider); }
-  .admin-table td { padding: 10px 12px; border-bottom: 1px solid var(--divider); color: var(--espresso); vertical-align: middle; }
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed; }
+  .admin-table th { text-align: left; padding: 8px 10px; font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--divider); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .admin-table td { padding: 10px 10px; border-bottom: 1px solid var(--divider); color: var(--espresso); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .admin-table tr:last-child td { border-bottom: none; }
   .admin-table tr:hover td { background: var(--cream); }
 
@@ -644,10 +646,25 @@ const CSS = `
   .report-card.resolved { opacity: 0.65; }
 
   @media (max-width: 600px) {
-    .admin-wrap { padding: 16px 12px; }
-    .admin-stat-grid { grid-template-columns: repeat(2, 1fr); }
+    /* 어드민 */
+    .admin-wrap { padding: 12px; }
+    .admin-tabs { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; margin-bottom: 16px; }
+    .admin-tab { padding: 0 10px; height: 32px; font-size: 0.72rem; gap: 4px; }
+    .admin-stat-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+    .stat-card { padding: 12px 10px; }
+    .stat-card-val { font-size: 1.5rem; }
+    .admin-card { padding: 12px 14px; }
+    .admin-card-title { margin-bottom: 12px; }
+    /* 테이블 — 3번째 컬럼 숨기기 */
     .admin-table th:nth-child(3), .admin-table td:nth-child(3) { display: none; }
-    .admin-card { padding: 16px; }
+    .admin-table td, .admin-table th { padding: 8px 8px; font-size: 0.78rem; }
+    /* 신고 카드 액션 버튼 */
+    .admin-action-btn { padding: 0 10px; height: 28px; font-size: 0.72rem; }
+    /* 브랜드 인풋 행 */
+    .brand-input-row { flex-direction: column; }
+    /* 공지 아이템 */
+    .notice-item-header { flex-direction: column; gap: 8px; }
+    .notice-item-date { align-self: flex-start; }
   }
   .btn-admin-header { background: none; border: 1px solid #e74c3c40; color: #c0392b; padding: 0 12px; height: 32px; border-radius: 8px; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; }
   .btn-admin-header:hover { border-color: #ff6b6b; }
@@ -5616,7 +5633,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
     { key: "brands",  label: "브랜드 관리" },
   ];
 
-  return (<>
+  return (<div style={{ overflowX: "hidden", width: "100%" }}>
     <header className="app-header">
       <div className="logo">
         <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -5914,7 +5931,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
         ))}
       </>)}
     </div>
-  </>);
+  </div>);
 }
 
 // ─── Root ──────────────────────────────────────────────────────────
