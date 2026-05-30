@@ -4264,42 +4264,20 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
           </div>
 
           {/* 핵심 수치 4칸 */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", marginBottom: "12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", marginBottom: "8px" }}>
             {[
-              {
-                val: beanStats.totalBrews,
-                unit: lang === "en" ? "brews" : "회",
-                lbl: lang === "en" ? "Total Brews" : "총 추출",
-                icon: <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><ellipse cx="9" cy="14" rx="6" ry="2" stroke="var(--latte)" strokeWidth="1.4"/><path d="M3 14C3 8 5.5 3 9 2c3.5 1 6 6 6 12" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/></svg>
-              },
-              {
-                val: beanStats.totalUsedG >= 1000 ? `${(beanStats.totalUsedG/1000).toFixed(2)}` : Math.round(beanStats.totalUsedG),
-                unit: beanStats.totalUsedG >= 1000 ? "kg" : "g",
-                lbl: lang === "en" ? "Used" : "총 사용량",
-                icon: <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><rect x="3" y="9" width="12" height="7" rx="1.5" stroke="var(--latte)" strokeWidth="1.4"/><path d="M6 9V6a3 3 0 0 1 6 0v3" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/></svg>
-              },
-              {
-                val: beanStats.avgGramPerBrew ? beanStats.avgGramPerBrew.toFixed(1) : "—",
-                unit: beanStats.avgGramPerBrew ? "g" : "",
-                lbl: lang === "en" ? "Avg/Cup" : "잔당 평균",
-                icon: <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><rect x="2" y="5" width="10" height="8" rx="2" stroke="var(--latte)" strokeWidth="1.4"/><path d="M12 8h2a2 2 0 0 1 0 4h-2" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/><path d="M5 13v2M9 13v2" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/></svg>
-              },
-              {
-                val: beanStats.avgCostPerCup && beanStats.totalInvest > 0
-                  ? (currency === "USD" ? `$${beanStats.avgCostPerCup.toFixed(2)}` : Math.round(beanStats.avgCostPerCup).toLocaleString())
-                  : "—",
-                unit: beanStats.avgCostPerCup && beanStats.totalInvest > 0
-                  ? (currency === "USD" ? "/cup" : "원/잔") : "",
-                lbl: lang === "en" ? "Cost/Cup" : "잔당 단가",
-                icon: <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="var(--latte)" strokeWidth="1.4"/><path d="M9 5v8M7 6.5h2.5a2 2 0 0 1 0 4H7" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/></svg>
-              },
-            ].map(({ val, unit, lbl, icon }) => (
-              <div key={lbl} style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "14px 12px", textAlign: "center" }}>
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: "6px" }}>{icon}</div>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1 }}>
-                  {val}<span style={{ fontSize: "0.62rem", fontWeight: 400, color: "var(--muted)", marginLeft: "2px" }}>{unit}</span>
+              { val: beanStats.totalBrews, unit: lang === "en" ? "brews" : "회", lbl: lang === "en" ? "Total Brews" : "총 추출" },
+              { val: beanStats.totalUsedG >= 1000 ? `${(beanStats.totalUsedG/1000).toFixed(2)}` : Math.round(beanStats.totalUsedG), unit: beanStats.totalUsedG >= 1000 ? "kg" : "g", lbl: lang === "en" ? "Used" : "총 사용량" },
+              { val: beanStats.avgGramPerBrew ? beanStats.avgGramPerBrew.toFixed(1) : "—", unit: beanStats.avgGramPerBrew ? "g" : "", lbl: lang === "en" ? "Avg/Cup" : "잔당 평균" },
+              { val: beanStats.avgCostPerCup && beanStats.totalInvest > 0 ? (currency === "USD" ? `$${beanStats.avgCostPerCup.toFixed(2)}` : Math.round(beanStats.avgCostPerCup).toLocaleString()) : "—", unit: beanStats.avgCostPerCup && beanStats.totalInvest > 0 ? (currency === "USD" ? "/cup" : "원/잔") : "", lbl: lang === "en" ? "Cost/Cup" : "잔당 단가" },
+            ].map(({ val, unit, lbl }) => (
+              <div key={lbl} style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "14px 10px", textAlign: "center" }}>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1, marginBottom: "2px" }}>
+                  {val}
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 400, color: "var(--muted)", marginLeft: "2px" }}>{unit}</span>
                 </div>
-                <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: "4px" }}>{lbl}</div>
+                <div style={{ width: "24px", height: "1px", background: "var(--divider)", margin: "6px auto" }}/>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", color: "var(--muted)", letterSpacing: "0.04em" }}>{lbl}</div>
               </div>
             ))}
           </div>
