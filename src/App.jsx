@@ -4172,7 +4172,10 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
 function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setShowModal, editTarget, setEditTarget, currency = "KRW" }) {
   const t = I18N[lang];
   const [beans, setBeans] = useState([]);
-  const [usedGramsMap, setUsedGramsMap] = useState({}); // { beanId: totalGramsUsed }
+  const [usedGramsMap, setUsedGramsMap] = useState({});
+  const [statsResetDate, setStatsResetDate] = useState(() =>
+    localStorage.getItem(`brewlog_stats_reset_${user?.uid}`) || null
+  );
 
   const loadBeans = async () => {
     if (!user) return;
@@ -4301,12 +4304,49 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
     // 가장 많이 쓴 원두
     const mostUsed = [...beans].sort((a, b) => (b.usedCount || 0) - (a.usedCount || 0))[0];
 
+    // 기간 계산: statsResetDate가 있으면 그 이후, 없으면 가장 오래된 원두 등록일 기준
+    const resetDate = statsResetDate ? new Date(statsResetDate) : null;
+    const oldestBean = [...beans]
+      .filter(b => b.createdAt?.toDate?.())
+      .sort((a, b) => a.createdAt.toDate() - b.createdAt.toDate())[0];
+    const startDate = resetDate || oldestBean?.createdAt?.toDate() || null;
+    const endDate = new Date();
+
     return {
       totalBeans, activeBeans, totalStockG, remainG, totalInvest,
       totalBrews, totalUsedG, avgGramPerBrew, avgCostPerCup,
-      fresh, topRoast, topProcess, topOrigin, topType, mostUsed
+      fresh, topRoast, topProcess, topOrigin, topType, mostUsed,
+      startDate, endDate,
     };
-  }, [beans, usedGramsMap]);
+  }, [beans, usedGramsMap, statsResetDate]);
+
+  // 통계 초기화: consumedG를 0으로, usedCount를 0으로 리셋
+  const handleStatsReset = async () => {
+    const confirmMsg = lang === "en"
+      ? "Reset all bean stats? This will clear consumed amounts and brew counts. This cannot be undone."
+      : "원두 통계를 초기화할까요?\n소비량과 추출 횟수가 모두 0으로 리셋됩니다.\n이 작업은 되돌릴 수 없어요.";
+    if (!window.confirm(confirmMsg)) return;
+    try {
+      const now = new Date().toISOString();
+      // 모든 원두의 consumedG, usedCount 초기화
+      await Promise.all(beans.map(bean =>
+        updateDoc(doc(db, "beans", bean.id), {
+          consumedG: 0,
+          consumedGMigrated: true,
+          usedCount: 0,
+          lastUsedAt: null,
+        }).catch(e => console.error(`[reset] ${bean.name}:`, e.message))
+      ));
+      // 리셋 날짜 저장
+      localStorage.setItem(`brewlog_stats_reset_${user?.uid}`, now);
+      setStatsResetDate(now);
+      setUsedGramsMap({});
+      await loadBeans();
+      alert(lang === "en" ? "Stats have been reset." : "통계가 초기화됐어요.");
+    } catch(e) {
+      alert(lang === "en" ? "Reset failed: " + e.message : "초기화 실패: " + e.message);
+    }
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm(t.beanDeleteConfirm)) return;
@@ -4347,13 +4387,47 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
       {beanStats && beans.length > 0 && (
         <div style={{ marginBottom: "24px" }}>
           {/* 타이틀 */}
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "14px" }}>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.1rem", fontWeight: 700, color: "var(--espresso)" }}>
-              {lang === "en" ? "Bean Stats" : "원두 통계"}
+          <div style={{ marginBottom: "14px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.1rem", fontWeight: 700, color: "var(--espresso)" }}>
+                {lang === "en" ? "Bean Stats" : "원두 통계"}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
+                  {lang === "en" ? `${beanStats.totalBeans} beans total` : `총 ${beanStats.totalBeans}종`}
+                </div>
+                <button
+                  onClick={handleStatsReset}
+                  title={lang === "en" ? "Reset stats" : "통계 초기화"}
+                  style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "6px", padding: "3px 8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px", fontSize: "0.68rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", transition: "all 0.2s" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#c0392b"; e.currentTarget.style.color = "#c0392b"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--steam)"; e.currentTarget.style.color = "var(--muted)"; }}
+                >
+                  <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+                    <path d="M12.5 7a5.5 5.5 0 1 1-1.1-3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                    <path d="M12.5 2.5v2.5H10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  {lang === "en" ? "Reset" : "초기화"}
+                </button>
+              </div>
             </div>
-            <div style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
-              {lang === "en" ? `${beanStats.totalBeans} beans total` : `총 ${beanStats.totalBeans}종`}
-            </div>
+            {/* 기간 표시 */}
+            {beanStats.startDate && (
+              <div style={{ fontSize: "0.68rem", color: "var(--muted)", opacity: 0.75, display: "flex", alignItems: "center", gap: "5px" }}>
+                <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+                  <rect x="1.5" y="2.5" width="11" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M4.5 1v3M9.5 1v3M1.5 6h11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                </svg>
+                {beanStats.startDate.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR")}
+                <span style={{ opacity: 0.5 }}>–</span>
+                {beanStats.endDate.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR")}
+                {statsResetDate && (
+                  <span style={{ marginLeft: "4px", padding: "1px 6px", background: "var(--cream)", border: "1px solid var(--divider)", borderRadius: "4px", fontSize: "0.62rem" }}>
+                    {lang === "en" ? "since reset" : "초기화 이후"}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 핵심 수치 4칸 */}
