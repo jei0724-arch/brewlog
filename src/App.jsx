@@ -2402,27 +2402,90 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       };
       if (isEdit) {
         const { id, ...rest } = payload;
+        // ── 수정 시 consumedG 처리 (해석 A: 작성 후 24시간 이내면 차액 반영) ──
+        if (linkedBeanId || editTarget.linkedBeanId) {
+          try {
+            const createdAt = editTarget.createdAt?.toDate?.() || null;
+            const within24h = createdAt && (Date.now() - createdAt.getTime()) < 24 * 60 * 60 * 1000;
+
+            const prevBeanId  = editTarget.linkedBeanId || null;
+            const newBeanId   = linkedBeanId || null;
+            const prevGram    = parseFloat(editTarget.gram) || 0;
+            const newGram     = parseFloat(form.gram) || 0;
+
+            if (within24h) {
+              // 같은 원두 → 차액만 반영
+              if (prevBeanId && newBeanId && prevBeanId === newBeanId) {
+                const diff = newGram - prevGram;
+                if (diff !== 0) {
+                  const bRef = doc(db, "beans", prevBeanId);
+                  const bSnap = await getDoc(bRef);
+                  if (bSnap.exists()) {
+                    const cur = parseFloat(bSnap.data().consumedG) || 0;
+                    await updateDoc(bRef, { consumedG: Math.max(0, cur + diff) });
+                  }
+                }
+              }
+              // 원두가 변경됨 → 이전 원두 차감 + 새 원두 가산
+              if (prevBeanId && newBeanId && prevBeanId !== newBeanId) {
+                const prevRef = doc(db, "beans", prevBeanId);
+                const prevSnap = await getDoc(prevRef);
+                if (prevSnap.exists()) {
+                  const cur = parseFloat(prevSnap.data().consumedG) || 0;
+                  await updateDoc(prevRef, { consumedG: Math.max(0, cur - prevGram) });
+                }
+                const newRef = doc(db, "beans", newBeanId);
+                const newSnap = await getDoc(newRef);
+                if (newSnap.exists()) {
+                  const cur = parseFloat(newSnap.data().consumedG) || 0;
+                  await updateDoc(newRef, { consumedG: cur + newGram });
+                }
+              }
+              // 원두 연결 해제 → 이전 원두 차감
+              if (prevBeanId && !newBeanId) {
+                const prevRef = doc(db, "beans", prevBeanId);
+                const prevSnap = await getDoc(prevRef);
+                if (prevSnap.exists()) {
+                  const cur = parseFloat(prevSnap.data().consumedG) || 0;
+                  await updateDoc(prevRef, { consumedG: Math.max(0, cur - prevGram) });
+                }
+              }
+              // 원두 새로 연결 → 새 원두 가산
+              if (!prevBeanId && newBeanId) {
+                const newRef = doc(db, "beans", newBeanId);
+                const newSnap = await getDoc(newRef);
+                if (newSnap.exists()) {
+                  const cur = parseFloat(newSnap.data().consumedG) || 0;
+                  await updateDoc(newRef, { consumedG: cur + newGram });
+                }
+              }
+            }
+            // 24시간 이후 수정 → consumedG 건드리지 않음
+          } catch(e) { console.error("[consumedG] 수정 반영 실패:", e.message); }
+        }
         await updateDoc(doc(db, "recipes", editTarget.id), rest);
       } else {
-        await addDoc(collection(db, "recipes"), {
+        const recipeRef = await addDoc(collection(db, "recipes"), {
           ...payload,
           author: user?.displayName,
           uid: user?.uid,
           createdAt: serverTimestamp(),
         });
-        // 연결된 원두 사용 횟수 업데이트
+        // ── 신규 레시피: consumedG 누적 + usedCount 증가 ──
         if (linkedBeanId) {
           try {
-            const beanRef = doc(db, "beans", linkedBeanId);
+            const beanRef  = doc(db, "beans", linkedBeanId);
             const beanSnap = await getDoc(beanRef);
             if (beanSnap.exists()) {
-              const cur = beanSnap.data().usedCount || 0;
+              const cur      = parseFloat(beanSnap.data().consumedG) || 0;
+              const curCount = beanSnap.data().usedCount || 0;
               await updateDoc(beanRef, {
-                usedCount: cur + 1,
+                consumedG:  cur + (parseFloat(form.gram) || 0),
+                usedCount:  curCount + 1,
                 lastUsedAt: serverTimestamp(),
               });
             }
-          } catch(e) { /* 연동 실패 시 레시피 저장엔 영향 없음 */ }
+          } catch(e) { console.error("[consumedG] 신규 반영 실패:", e.message); }
         }
         // 작성자를 구독한 유저들에게 알림
         try {
@@ -3472,6 +3535,15 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
             <span>{lang === "en" ? (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.labelEn || recipe.menuLabel) : recipe.menuLabel}</span>
           </>)}
+          {recipe.weather && (<>
+            <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Weather" : "날씨"}</span>
+            <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+            <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span>{recipe.weather.icon}</span>
+              <span>{recipe.weather.descKo || recipe.weather.condition}</span>
+              <span style={{ color: "var(--muted)", fontSize: "0.7rem" }}>{recipe.weather.temp}°C · {lang === "en" ? "Humidity" : "습도"} {recipe.weather.humidity}%</span>
+            </span>
+          </>)}
         </div>
 
         {/* 원두명 */}
@@ -3750,6 +3822,11 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
           <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Visibility" : "공개"}</span>
           <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
           <span>{lang === "en" ? "Private" : "비공개"}</span>
+        </>)}
+        {recipe.weather && (<>
+          <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Weather" : "날씨"}</span>
+          <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+          <span>{recipe.weather.icon} {recipe.weather.descKo || recipe.weather.condition} {recipe.weather.temp}°C · {lang === "en" ? "Humidity" : "습도"} {recipe.weather.humidity}%</span>
         </>)}
       </div>
 
@@ -4109,50 +4186,66 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
         return tb - ta;
       });
       setBeans(data);
-      loadUsedGrams(data.map(b => b.id));
+      loadUsedGrams(data);
     } catch (e) {
       console.error("[BeanVault] beans 로드 실패:", e.code, e.message);
     }
   };
 
-  const loadUsedGrams = async (beanIds) => {
-    if (!beanIds.length) return;
+  const loadUsedGrams = async (beanList) => {
+    if (!beanList.length) return;
     try {
-      const rq = query(collection(db, "recipes"), where("uid", "==", user.uid));
-      const rsnap = await getDocs(rq);
       const map = {};
-      rsnap.docs.forEach(d => {
-        const r = d.data();
-        if (r.linkedBeanId && beanIds.includes(r.linkedBeanId)) {
-          const g = parseFloat(r.gram) || 0;
-          map[r.linkedBeanId] = (map[r.linkedBeanId] || 0) + g;
+      const migrationUpdates = [];
+
+      for (const bean of beanList) {
+        if (bean.consumedGMigrated === true) {
+          // 마이그레이션 완료된 원두 → consumedG 그대로 사용 (레시피 삭제해도 변하지 않음)
+          map[bean.id] = parseFloat(bean.consumedG) || 0;
+        } else {
+          // 최초 1회 마이그레이션: 기존 레시피 합산값으로 consumedG 초기화
+          const rq = query(collection(db, "recipes"),
+            where("uid", "==", user.uid),
+            where("linkedBeanId", "==", bean.id)
+          );
+          const rsnap = await getDocs(rq);
+          const total = rsnap.docs.reduce((s, d) => s + (parseFloat(d.data().gram) || 0), 0);
+          map[bean.id] = total;
+          migrationUpdates.push(
+            updateDoc(doc(db, "beans", bean.id), {
+              consumedG: total,
+              consumedGMigrated: true,   // 마이그레이션 완료 플래그 → 이후 레시피 삭제해도 재계산 안 함
+            })
+              .then(() => console.log(`[migration] ${bean.name}: consumedG = ${total}g`))
+              .catch(e => console.error(`[migration] ${bean.name} 실패:`, e.message))
+          );
         }
-      });
+      }
+
+      if (migrationUpdates.length > 0) {
+        await Promise.all(migrationUpdates);
+      }
+
       setUsedGramsMap(map);
 
-      // ── 소진 자동 감지: 잔여량 0 이하인 원두 status를 "empty"로 업데이트 ──
-      const beanSnap = await getDocs(query(collection(db, "beans"), where("uid", "==", user.uid)));
+      // 소진 자동 감지
       const updates = [];
-      beanSnap.docs.forEach(d => {
-        const b = d.data();
-        const totalG = (parseFloat(b.weight) || 0) * (parseInt(b.quantity) || 1);
-        const usedG  = map[d.id] || 0;
+      beanList.forEach(bean => {
+        const totalG = (parseFloat(bean.weight) || 0) * (parseInt(bean.quantity) || 1);
+        const usedG  = map[bean.id] || 0;
         const isExhausted = totalG > 0 && usedG >= totalG;
-        // 소진됐는데 status가 empty가 아닌 경우 → empty로 업데이트
-        if (isExhausted && b.status !== "empty") {
-          updates.push(updateDoc(doc(db, "beans", d.id), { status: "empty" }));
+        if (isExhausted && bean.status !== "empty") {
+          updates.push(updateDoc(doc(db, "beans", bean.id), { status: "empty" }));
         }
-        // 아직 잔여량 있는데 status가 empty인 경우 → open으로 복구
-        if (!isExhausted && b.status === "empty" && totalG > 0) {
-          updates.push(updateDoc(doc(db, "beans", d.id), { status: "open" }));
+        if (!isExhausted && bean.status === "empty" && totalG > 0) {
+          updates.push(updateDoc(doc(db, "beans", bean.id), { status: "open" }));
         }
       });
       if (updates.length > 0) {
         await Promise.all(updates);
-        // status 변경 후 beans 목록 다시 로드
         loadBeans();
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("[loadUsedGrams]", e); }
   };
 
   useEffect(() => { loadBeans(); }, [user?.uid]);
@@ -4272,7 +4365,7 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
               { val: beanStats.avgCostPerCup && beanStats.totalInvest > 0 ? (currency === "USD" ? `$${beanStats.avgCostPerCup.toFixed(2)}` : Math.round(beanStats.avgCostPerCup).toLocaleString()) : "—", unit: beanStats.avgCostPerCup && beanStats.totalInvest > 0 ? (currency === "USD" ? "/cup" : "원/잔") : "", lbl: lang === "en" ? "Cost/Cup" : "잔당 단가" },
             ].map(({ val, unit, lbl }) => (
               <div key={lbl} style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "14px 10px", textAlign: "center" }}>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1, marginBottom: "2px" }}>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1, marginBottom: "2px" }}>
                   {val}
                   <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 400, color: "var(--muted)", marginLeft: "2px" }}>{unit}</span>
                 </div>
