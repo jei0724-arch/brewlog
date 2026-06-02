@@ -2494,42 +2494,43 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const [presetName, setPresetName] = useState("");
 
   const applyPreset = (preset) => {
-    // 메뉴 설정
+    // 메뉴
+    if (preset.menuId) setSelectedMenu(preset.menuId);
     const menu = COFFEE_MENUS.find(m => m.id === preset.menuId);
-    if (menu) selectMenu(menu);
 
-    // ICE/HOT
-    if (preset.isIced !== undefined) set("isIced", preset.isIced);
-
-    // 머신 설정
+    // 머신 — 완전 교체 (이전 값 잔존 방지)
     if (preset.equipType === "handdrip") {
       setMachineType("handdrip");
-      if (preset.handDripName) setHandDripName(preset.handDripName);
-    } else if (preset.machineBrand) {
+      setHandDripName(preset.handDripName || "");
+      setMachineBrand("");
+      setMachineModel("");
+    } else {
       setMachineType(preset.machineType || "auto");
-      setMachineBrand(preset.machineBrand);
-      if (preset.machineModel) setMachineModel(preset.machineModel);
-      setMachineLocked(true);
+      setMachineBrand(preset.machineBrand || "");
+      setMachineModel(preset.machineModel || "");
+      setHandDripName("");
     }
+    setMachineLocked(!!(preset.machineBrand || preset.handDripName));
 
-    // 그라인더 설정
-    if (preset.grinderBrand) {
-      setGrinderBrand(preset.grinderBrand);
-      if (preset.grinderModel) setGrinderModel(preset.grinderModel);
-      setGrinderLocked(true);
-    }
+    // 그라인더 — 완전 교체
+    setGrinderBrand(preset.grinderBrand || "");
+    setGrinderModel(preset.grinderModel || "");
+    setGrinderLocked(!!preset.grinderBrand);
 
-    // 추출 파라미터
+    // form 전체를 프리셋 값으로 완전 교체 (|| 없이 덮어씀)
     setForm(f => ({
       ...f,
-      gram:           preset.gram           || f.gram,
-      seconds:        preset.seconds        || f.seconds,
-      infusionSeconds:preset.infusionSeconds !== undefined ? preset.infusionSeconds : f.infusionSeconds,
-      espressoMl:     preset.espressoMl     || f.espressoMl,
-      waterTemp:      preset.waterTemp      || f.waterTemp,
-      grindSize:      preset.grindSize      || f.grindSize,
-      diluteMl:       preset.diluteMl       !== undefined ? preset.diluteMl  : f.diluteMl,
-      diluteType:     preset.diluteType     || f.diluteType,
+      isIced:         preset.isIced         ?? false,
+      gram:           preset.gram           ?? "",
+      seconds:        preset.seconds        ?? "",
+      infusionSeconds:preset.infusionSeconds ?? "0",
+      espressoMl:     preset.espressoMl     ?? "",
+      waterTemp:      preset.isIced ? "" : (preset.waterTemp ?? (menu?.canIce ? "" : "93")),
+      grindSize:      preset.grindSize      ?? "",
+      diluteMl:       preset.diluteMl       ?? "",
+      diluteType:     preset.diluteType     ?? "물",
+      // 메뉴에 따라 syrup 초기화
+      syrup:          menu?.hasSyrup ? f.syrup : "",
     }));
   };
 
