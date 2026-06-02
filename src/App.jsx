@@ -1645,31 +1645,86 @@ function saveMyMachine(m) {
 
 // ─── 통화 설정 ─────────────────────────────────────────────────────
 const CURRENCY_KEY = "brewlog_currency";
+const EXRATE_KEY   = "brewlog_exrate";   // { rate, date }
+const EXIM_API_KEY = "VmIDcPiswN7Jg7G0NQ4L6nIcSZzSWR6O";
+
 const loadCurrency = () => { try { return localStorage.getItem(CURRENCY_KEY) || "KRW"; } catch { return "KRW"; } };
 const saveCurrency = (c) => { try { localStorage.setItem(CURRENCY_KEY, c); } catch {} };
 
-// 금액 포맷
-const formatPrice = (amount, currency) => {
+// 캐시된 환율 (날짜별 1일 캐싱)
+const loadCachedRate = () => {
+  try {
+    const raw = localStorage.getItem(EXRATE_KEY);
+    if (!raw) return null;
+    const { rate, date } = JSON.parse(raw);
+    const today = new Date().toISOString().slice(0, 10);
+    return date === today ? rate : null;
+  } catch { return null; }
+};
+const saveCachedRate = (rate) => {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    localStorage.setItem(EXRATE_KEY, JSON.stringify({ rate, date: today }));
+  } catch {}
+};
+
+// 한국수출입은행 환율 API 호출
+const fetchUsdRate = async () => {
+  const cached = loadCachedRate();
+  if (cached) return cached;
+  try {
+    // 오늘 날짜 (YYYYMMDD)
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
+    const url = `https://www.koreaexim.go.kr/site/program/financial/exchangeJSON?authkey=${EXIM_API_KEY}&searchdate=${dateStr}&data=AP01`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const usd = data.find(d => d.cur_unit === "USD");
+    if (!usd) throw new Error("USD not found");
+    // deal_bas_r: "1,380.50" → 1380.50
+    const rate = parseFloat(usd.deal_bas_r.replace(/,/g, ""));
+    saveCachedRate(rate);
+    return rate;
+  } catch (e) {
+    console.warn("[환율] API 호출 실패:", e.message);
+    // 주말/공휴일엔 데이터 없음 → 전날 캐시 또는 fallback
+    const raw = localStorage.getItem(EXRATE_KEY);
+    if (raw) return JSON.parse(raw).rate;
+    return 1380; // fallback
+  }
+};
+
+// 금액 포맷 (환율 적용)
+const formatPrice = (amount, currency, rate = null) => {
   if (!amount && amount !== 0) return "—";
   const n = parseFloat(amount);
   if (isNaN(n) || n === 0) return "—";
-  if (currency === "USD") return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (currency === "USD") {
+    const usd = rate ? n / rate : n;
+    return `$${usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
   return `${Math.round(n).toLocaleString()}원`;
 };
 
-const formatPricePerG = (ppg, currency) => {
+const formatPricePerG = (ppg, currency, rate = null) => {
   if (!ppg && ppg !== 0) return "—";
   const n = parseFloat(ppg);
   if (isNaN(n) || n === 0) return "—";
-  if (currency === "USD") return `$${n.toFixed(3)}/g`;
+  if (currency === "USD") {
+    const usd = rate ? n / rate : n;
+    return `$${usd.toFixed(4)}/g`;
+  }
   return `${n.toFixed(1)}원/g`;
 };
 
-const formatCostPerCup = (cost, currency) => {
+const formatCostPerCup = (cost, currency, rate = null) => {
   if (!cost && cost !== 0) return "—";
   const n = parseFloat(cost);
   if (isNaN(n) || n === 0) return "—";
-  if (currency === "USD") return `$${n.toFixed(2)}/cup`;
+  if (currency === "USD") {
+    const usd = rate ? n / rate : n;
+    return `$${usd.toFixed(2)}/cup`;
+  }
   return `${Math.round(n)}원/잔`;
 };
 
@@ -2420,6 +2475,17 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const [weather, setWeather] = useState(isEdit ? (editTarget.weather || null) : null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState(null);
+
+  // 신규 작성 시 모달 열리면 자동으로 날씨 가져오기
+  useEffect(() => {
+    if (!isEdit && !weather) {
+      setWeatherLoading(true);
+      fetchWeather()
+        .then(w => { setWeather(w); setWeatherError(null); })
+        .catch(e => { setWeatherError(typeof e === "string" ? e : e.message); })
+        .finally(() => setWeatherLoading(false));
+    }
+  }, []);
   const [selectedMenu, setSelectedMenu] = useState(isEdit ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : ""));
 
   // ── 프리셋 ──────────────────────────────────────────────────────
@@ -2428,19 +2494,42 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const [presetName, setPresetName] = useState("");
 
   const applyPreset = (preset) => {
-    // 메뉴 먼저 설정
+    // 메뉴 설정
     const menu = COFFEE_MENUS.find(m => m.id === preset.menuId);
     if (menu) selectMenu(menu);
-    // 프리셋 값 덮어쓰기
+
+    // ICE/HOT
+    if (preset.isIced !== undefined) set("isIced", preset.isIced);
+
+    // 머신 설정
+    if (preset.equipType === "handdrip") {
+      setMachineType("handdrip");
+      if (preset.handDripName) setHandDripName(preset.handDripName);
+    } else if (preset.machineBrand) {
+      setMachineType(preset.machineType || "auto");
+      setMachineBrand(preset.machineBrand);
+      if (preset.machineModel) setMachineModel(preset.machineModel);
+      setMachineLocked(true);
+    }
+
+    // 그라인더 설정
+    if (preset.grinderBrand) {
+      setGrinderBrand(preset.grinderBrand);
+      if (preset.grinderModel) setGrinderModel(preset.grinderModel);
+      setGrinderLocked(true);
+    }
+
+    // 추출 파라미터
     setForm(f => ({
       ...f,
-      gram:      preset.gram      || f.gram,
-      seconds:   preset.seconds   || f.seconds,
-      espressoMl:preset.espressoMl|| f.espressoMl,
-      waterTemp: preset.waterTemp || f.waterTemp,
-      grindSize: preset.grindSize || f.grindSize,
-      diluteMl:  preset.diluteMl  !== undefined ? preset.diluteMl : f.diluteMl,
-      diluteType:preset.diluteType|| f.diluteType,
+      gram:           preset.gram           || f.gram,
+      seconds:        preset.seconds        || f.seconds,
+      infusionSeconds:preset.infusionSeconds !== undefined ? preset.infusionSeconds : f.infusionSeconds,
+      espressoMl:     preset.espressoMl     || f.espressoMl,
+      waterTemp:      preset.waterTemp      || f.waterTemp,
+      grindSize:      preset.grindSize      || f.grindSize,
+      diluteMl:       preset.diluteMl       !== undefined ? preset.diluteMl  : f.diluteMl,
+      diluteType:     preset.diluteType     || f.diluteType,
     }));
   };
 
@@ -2449,15 +2538,26 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     const newPreset = {
       id: `preset_${Date.now()}`,
       name: presetName.trim(),
-      equipType: isHandDrip ? "handdrip" : "machine",
-      menuId: selectedMenu,
-      gram: form.gram,
-      seconds: form.seconds,
-      espressoMl: form.espressoMl,
-      waterTemp: form.waterTemp,
-      grindSize: form.grindSize,
-      diluteMl: form.diluteMl,
-      diluteType: form.diluteType,
+      // 기본 정보
+      menuId:         selectedMenu,
+      isIced:         form.isIced || false,
+      // 장비 설정
+      equipType:      isHandDrip ? "handdrip" : "machine",
+      handDripName:   isHandDrip ? handDripName : "",
+      machineBrand:   isHandDrip ? "" : machineBrand,
+      machineModel:   isHandDrip ? "" : machineModel,
+      machineType:    isHandDrip ? "" : machineType,
+      grinderBrand:   grinderBrand,
+      grinderModel:   grinderModel,
+      // 추출 파라미터
+      gram:           form.gram,
+      seconds:        form.seconds,
+      infusionSeconds:form.infusionSeconds || "0",
+      espressoMl:     form.espressoMl,
+      waterTemp:      form.isIced ? "" : (form.waterTemp || ""),
+      grindSize:      form.grindSize,
+      diluteMl:       form.diluteMl,
+      diluteType:     form.diluteType,
       createdAt: new Date().toISOString(),
     };
     const updated = [...presets, newPreset];
@@ -3204,26 +3304,10 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
           </div>
           {/* 날씨 정보 */}
           <div className="field full">
-            <label>{lang === "en" ? "Weather at Brew Time" : "추출 시점 날씨"}</label>
-            {weatherLoading && <div className="weather-loading">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ animation: "spin 1s linear infinite" }}>
-                <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 25" strokeLinecap="round"/>
-              </svg>
-              {lang === "en" ? "Getting weather…" : "날씨 불러오는 중…"}
-            </div>}
-            {weather && (
-              <div className="weather-box">
-                <span className="weather-icon">{weather.icon}</span>
-                <div className="weather-info">
-                  <span className="weather-main">{weather.descKo} {weather.temp}°C</span>
-                  <span className="weather-detail" style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                    <svg width="11" height="13" viewBox="0 0 11 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 1C5.5 1 1 5.5 1 8.5a4.5 4.5 0 0 0 9 0C10 5.5 5.5 1 5.5 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>
-                    {lang === "en" ? "Humidity" : "습도"} {weather.humidity}%
-                    <span style={{ opacity: 0.4 }}>·</span>
-                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 1.5C7 1.5 9 4 9 7s-2 5.5-2 5.5M7 1.5C7 1.5 5 4 5 7s2 5.5 2 5.5M1.5 7h11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-                    {weather.country}
-                  </span>
-                </div>
+            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span>{lang === "en" ? "Weather at Brew Time" : "추출 시점 날씨"}</span>
+              {/* 새로고침 버튼 — 항상 표시 */}
+              {!weatherLoading && (
                 <button type="button" onClick={() => {
                   setWeatherError(null);
                   setWeatherLoading(true);
@@ -3231,27 +3315,48 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                     .then(w => { setWeather(w); setWeatherError(null); })
                     .catch(e => { setWeatherError(typeof e === "string" ? e : e.message); })
                     .finally(() => setWeatherLoading(false));
-                }} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "inline-flex", alignItems: "center", padding: "2px" }}>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.7rem", fontFamily: "'DM Sans',sans-serif", padding: 0 }}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
                     <path d="M13.5 8a5.5 5.5 0 1 1-1.1-3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
                     <path d="M13.5 3v2.5H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
+                  {lang === "en" ? "Refresh" : "새로고침"}
                 </button>
+              )}
+            </label>
+            {weatherLoading && (
+              <div className="weather-loading">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation: "spin 1s linear infinite" }}>
+                  <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 25" strokeLinecap="round"/>
+                </svg>
+                {lang === "en" ? "Getting weather…" : "날씨 불러오는 중…"}
               </div>
             )}
-            {!weather && !weatherLoading && (
-              <button type="button" onClick={() => {
-                setWeatherError(null);
-                setWeatherLoading(true);
-                fetchWeather()
-                  .then(w => { setWeather(w); setWeatherError(null); })
-                  .catch(e => { setWeatherError(typeof e === "string" ? e : e.message); })
-                  .finally(() => setWeatherLoading(false));
-              }} style={{ padding: "0.75rem 1rem", background: "var(--cream)", border: "1px solid var(--latte)", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", color: "var(--roast)", cursor: "pointer", width: "100%", textAlign: "center" }}>
-                {lang === "en" ? "Get Current Weather" : "현재 날씨 가져오기"}
-              </button>
+            {!weatherLoading && weather && (
+              <div className="weather-box">
+                <span className="weather-icon">{weather.icon}</span>
+                <div className="weather-info">
+                  <span className="weather-main">{weather.descKo} {weather.temp}°C</span>
+                  <span className="weather-detail" style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                    <svg width="11" height="13" viewBox="0 0 11 14" fill="none"><path d="M5.5 1C5.5 1 1 5.5 1 8.5a4.5 4.5 0 0 0 9 0C10 5.5 5.5 1 5.5 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>
+                    {lang === "en" ? "Humidity" : "습도"} {weather.humidity}%
+                    <span style={{ opacity: 0.4 }}>·</span>
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 1.5C7 1.5 9 4 9 7s-2 5.5-2 5.5M7 1.5C7 1.5 5 4 5 7s2 5.5 2 5.5M1.5 7h11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                    {weather.country}
+                  </span>
+                </div>
+              </div>
             )}
-            {weatherError && <p style={{ fontSize: "0.78rem", color: "#e67e22", marginTop: "0.3rem" }}>⚠️ {lang === "en" ? "Could not get weather. " : "날씨를 가져올 수 없어요. "}{weatherError}</p>}
+            {!weatherLoading && !weather && !weatherError && (
+              <p style={{ fontSize: "0.78rem", color: "var(--muted)", opacity: 0.7 }}>
+                {lang === "en" ? "Location permission required." : "위치 권한이 필요해요."}
+              </p>
+            )}
+            {weatherError && (
+              <p style={{ fontSize: "0.78rem", color: "#e67e22", marginTop: "0.3rem" }}>
+                ⚠️ {lang === "en" ? "Could not get weather. " : "날씨를 가져올 수 없어요. "}{weatherError}
+              </p>
+            )}
           </div>
 
           {/* 플레이버 프로파일 */}
@@ -3661,27 +3766,78 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
                         <label>{lang === "en" ? "Preset Name" : "프리셋 이름"}</label>
                         <input value={editingPreset.name} onChange={e => setEP("name", e.target.value)} autoFocus/>
                       </div>
+                      {/* 메뉴 / ICE */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label>{lang === "en" ? "Menu" : "메뉴"}</label>
+                          <select value={editingPreset.menuId || ""} onChange={e => setEP("menuId", e.target.value)}
+                            style={{ width: "100%", padding: "0.7rem 0.9rem", border: "1px solid var(--steam)", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", background: "var(--cream)", color: "var(--espresso)", outline: "none" }}>
+                            <option value="">선택</option>
+                            {COFFEE_MENUS.map(m => <option key={m.id} value={m.id}>{lang === "en" ? m.labelEn : m.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label>HOT / ICE</label>
+                          <div style={{ display: "flex", gap: "6px", height: "42px" }}>
+                            {["hot","ice"].map(v => (
+                              <button key={v} type="button" onClick={() => setEP("isIced", v === "ice")}
+                                style={{ flex: 1, border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", fontWeight: 600, transition: "all 0.15s",
+                                  borderColor: (v === "ice" ? editingPreset.isIced : !editingPreset.isIced) ? (v === "ice" ? "#2980b9" : "#e67e22") : "var(--steam)",
+                                  background: (v === "ice" ? editingPreset.isIced : !editingPreset.isIced) ? (v === "ice" ? "#EBF5FB" : "#FEF3E8") : "var(--foam)",
+                                  color: (v === "ice" ? editingPreset.isIced : !editingPreset.isIced) ? (v === "ice" ? "#2980b9" : "#e67e22") : "var(--muted)" }}>
+                                {v === "ice" ? "ICE" : "HOT"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      {/* 장비 */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label>{lang === "en" ? "Machine Brand" : "머신 브랜드"}</label>
+                          <input value={editingPreset.machineBrand || ""} onChange={e => setEP("machineBrand", e.target.value)} placeholder="e.g. Breville"/>
+                        </div>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label>{lang === "en" ? "Machine Model" : "머신 모델"}</label>
+                          <input value={editingPreset.machineModel || ""} onChange={e => setEP("machineModel", e.target.value)} placeholder="e.g. Barista Express"/>
+                        </div>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label>{lang === "en" ? "Grinder Brand" : "그라인더 브랜드"}</label>
+                          <input value={editingPreset.grinderBrand || ""} onChange={e => setEP("grinderBrand", e.target.value)} placeholder="e.g. Baratza"/>
+                        </div>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label>{lang === "en" ? "Grinder Model" : "그라인더 모델"}</label>
+                          <input value={editingPreset.grinderModel || ""} onChange={e => setEP("grinderModel", e.target.value)} placeholder="e.g. Encore"/>
+                        </div>
+                      </div>
+                      {/* 추출 파라미터 */}
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
                         <div className="field" style={{ marginBottom: 0 }}>
                           <label>{lang === "en" ? "Dose (g)" : "원두량 (g)"}</label>
                           <input type="number" value={editingPreset.gram || ""} onChange={e => setEP("gram", e.target.value)} placeholder="18"/>
                         </div>
                         <div className="field" style={{ marginBottom: 0 }}>
-                          <label>{lang === "en" ? "Time (s)" : "추출시간 (초)"}</label>
+                          <label>{lang === "en" ? "Grind Size" : "분쇄도"}</label>
+                          <input type="number" value={editingPreset.grindSize || ""} onChange={e => setEP("grindSize", e.target.value)} placeholder="13"/>
+                        </div>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label>{lang === "en" ? "Infusion (s)" : "인퓨전 (초)"}</label>
+                          <input type="number" value={editingPreset.infusionSeconds || ""} onChange={e => setEP("infusionSeconds", e.target.value)} placeholder="0"/>
+                        </div>
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label>{lang === "en" ? "Total Time (s)" : "총 시간 (초)"}</label>
                           <input type="number" value={editingPreset.seconds || ""} onChange={e => setEP("seconds", e.target.value)} placeholder="27"/>
                         </div>
                         <div className="field" style={{ marginBottom: 0 }}>
                           <label>{lang === "en" ? "Yield (ml)" : "추출량 (ml)"}</label>
                           <input type="number" value={editingPreset.espressoMl || ""} onChange={e => setEP("espressoMl", e.target.value)} placeholder="36"/>
                         </div>
-                        <div className="field" style={{ marginBottom: 0 }}>
-                          <label>{lang === "en" ? "Temp (°C)" : "물온도 (°C)"}</label>
-                          <input type="number" value={editingPreset.waterTemp || ""} onChange={e => setEP("waterTemp", e.target.value)} placeholder="93"/>
-                        </div>
-                        <div className="field" style={{ marginBottom: 0 }}>
-                          <label>{lang === "en" ? "Grind Size" : "분쇄도"}</label>
-                          <input type="number" value={editingPreset.grindSize || ""} onChange={e => setEP("grindSize", e.target.value)} placeholder="13"/>
-                        </div>
+                        {!editingPreset.isIced && (
+                          <div className="field" style={{ marginBottom: 0 }}>
+                            <label>{lang === "en" ? "Temp (°C)" : "물온도 (°C)"}</label>
+                            <input type="number" value={editingPreset.waterTemp || ""} onChange={e => setEP("waterTemp", e.target.value)} placeholder="93"/>
+                          </div>
+                        )}
                       </div>
                       <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
                         <button className="btn-cancel" onClick={() => setEditingPreset(null)}>
@@ -3700,10 +3856,13 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
                           {[
                             p.menuId && (COFFEE_MENUS.find(m => m.id === p.menuId)?.[lang === "en" ? "labelEn" : "label"]),
+                            p.isIced ? "ICE" : (p.menuId && COFFEE_MENUS.find(m => m.id === p.menuId)?.canIce ? "HOT" : null),
+                            p.machineBrand && `${p.machineBrand}${p.machineModel ? " " + p.machineModel : ""}`,
+                            p.grinderBrand && `${p.grinderBrand}${p.grinderModel ? " " + p.grinderModel : ""}`,
                             p.gram && `${p.gram}g`,
                             p.seconds && `${p.seconds}s`,
                             p.espressoMl && `${p.espressoMl}ml`,
-                            p.waterTemp && `${p.waterTemp}°C`,
+                            p.waterTemp && !p.isIced && `${p.waterTemp}°C`,
                             p.grindSize && `분쇄도 ${p.grindSize}`,
                           ].filter(Boolean).map((tag, i) => (
                             <span key={i} style={{ padding: "2px 7px", background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "4px", fontSize: "0.7rem", color: "var(--muted)" }}>
@@ -3760,7 +3919,17 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
           </div>
           {currency === "USD" && (
             <p style={{ fontSize: "0.72rem", color: "var(--latte)", marginTop: "8px", lineHeight: 1.5 }}>
-              {lang === "en" ? "Prices are displayed in $ without currency conversion." : "입력한 금액을 환율 변환 없이 달러 기호로 표시해요."}
+              {lang === "en"
+                ? "Prices are converted from KRW using today's exchange rate."
+                : "원화 금액을 오늘 환율로 자동 변환해요."}
+              {(() => {
+                const cached = loadCachedRate();
+                return cached
+                  ? <span style={{ marginLeft: "4px", color: "var(--muted)" }}>
+                      (1$ = {cached.toLocaleString()}원 · {new Date().toLocaleDateString(lang === "en" ? "en-US" : "ko-KR")} 기준)
+                    </span>
+                  : <span style={{ marginLeft: "4px", color: "var(--muted)" }}>(환율 로딩 중…)</span>;
+              })()}
             </p>
           )}
         </div>
@@ -4651,6 +4820,19 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
   const [statsResetDate, setStatsResetDate] = useState(() =>
     localStorage.getItem(`brewlog_stats_reset_${user?.uid}`) || null
   );
+  const [usdRate, setUsdRate] = useState(() => loadCachedRate() || null);
+  const [rateLoading, setRateLoading] = useState(false);
+
+  // 달러 선택 시 환율 자동 로드
+  useEffect(() => {
+    if (currency === "USD" && !usdRate) {
+      setRateLoading(true);
+      fetchUsdRate().then(r => {
+        setUsdRate(r);
+        setRateLoading(false);
+      });
+    }
+  }, [currency]);
 
   const loadBeans = async () => {
     if (!user) return;
@@ -4911,7 +5093,7 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
               { val: beanStats.totalBrews, unit: lang === "en" ? "brews" : "회", lbl: lang === "en" ? "Total Brews" : "총 추출" },
               { val: beanStats.totalUsedG >= 1000 ? `${(beanStats.totalUsedG/1000).toFixed(2)}` : Math.round(beanStats.totalUsedG), unit: beanStats.totalUsedG >= 1000 ? "kg" : "g", lbl: lang === "en" ? "Used" : "총 사용량" },
               { val: beanStats.avgGramPerBrew ? beanStats.avgGramPerBrew.toFixed(1) : "—", unit: beanStats.avgGramPerBrew ? "g" : "", lbl: lang === "en" ? "Avg/Cup" : "잔당 평균" },
-              { val: beanStats.avgCostPerCup && beanStats.totalInvest > 0 ? (currency === "USD" ? `$${beanStats.avgCostPerCup.toFixed(2)}` : Math.round(beanStats.avgCostPerCup).toLocaleString()) : "—", unit: beanStats.avgCostPerCup && beanStats.totalInvest > 0 ? (currency === "USD" ? "/cup" : "원/잔") : "", lbl: lang === "en" ? "Cost/Cup" : "잔당 단가" },
+              { val: beanStats.avgCostPerCup && beanStats.totalInvest > 0 ? (currency === "USD" ? (usdRate ? `$${(beanStats.avgCostPerCup / usdRate).toFixed(2)}` : "…") : Math.round(beanStats.avgCostPerCup).toLocaleString()) : "—", unit: beanStats.avgCostPerCup && beanStats.totalInvest > 0 ? (currency === "USD" ? "/cup" : "원/잔") : "", lbl: lang === "en" ? "Cost/Cup" : "잔당 단가" },
             ].map(({ val, unit, lbl }) => (
               <div key={lbl} style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "14px 10px", textAlign: "center" }}>
                 <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1.3rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1, marginBottom: "2px" }}>
@@ -5101,8 +5283,8 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
                         </div>
                         <div style={{ fontSize: "0.65rem", color: "var(--muted)", marginTop: "3px", textAlign: "right", opacity: 0.7 }}>
                           {lang === "en"
-                            ? `${usedG.toFixed(1)}g used · ${bean.usedCount || 0} brews${usedCost > 0 ? ` · ${formatPrice(usedCost, currency)} spent` : ""}`
-                            : `${usedG % 1 === 0 ? usedG : usedG.toFixed(1)}g 사용 · ${bean.usedCount || 0}회 추출${usedCost > 0 ? ` · ${formatPrice(usedCost, currency)} 소비` : ""}`}
+                            ? `${usedG.toFixed(1)}g used · ${bean.usedCount || 0} brews${usedCost > 0 ? ` · ${formatPrice(usedCost, currency, usdRate)} spent` : ""}`
+                            : `${usedG % 1 === 0 ? usedG : usedG.toFixed(1)}g 사용 · ${bean.usedCount || 0}회 추출${usedCost > 0 ? ` · ${formatPrice(usedCost, currency, usdRate)} 소비` : ""}`}
                         </div>
                       </div>
                     )}
@@ -5128,18 +5310,20 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
                       {/* 구매 단가 */}
                       <div className="bean-stat">
                         <span className="bean-stat-val" style={{ fontSize: "0.78rem" }}>
-                          {ppgBase ? formatPricePerG(ppgBase, currency) : "—"}
+                          {ppgBase ? formatPricePerG(ppgBase, currency, usdRate) : "—"}
                         </span>
-                        <span className="bean-stat-lbl">{lang === "en" ? "₩/g" : "원/G"}</span>
+                        <span className="bean-stat-lbl">
+                          {currency === "USD" ? "$/g" : (lang === "en" ? "₩/g" : "원/g")}
+                        </span>
                       </div>
                       {/* 잔당 단가 — 추출 기록 있을 때만 */}
                       {costPerCup && (
                         <div className="bean-stat" style={{ borderColor: "var(--latte)", background: "#FDF6EF" }}>
                           <span className="bean-stat-val" style={{ fontSize: "0.78rem", color: "var(--latte)", fontWeight: 700 }}>
-                            {formatCostPerCup(costPerCup, currency)}
+                            {formatCostPerCup(costPerCup, currency, usdRate)}
                           </span>
                           <span className="bean-stat-lbl" style={{ color: "var(--latte)" }}>
-                            {currency === "USD" ? "$/cup" : "원/잔"}
+                            {currency === "USD" ? "$/cup" : (lang === "en" ? "₩/cup" : "원/잔")}
                           </span>
                         </div>
                       )}
@@ -5155,8 +5339,8 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
                         </span>
                         <span style={{ fontWeight: 600, color: "var(--espresso)" }}>
                           {lang === "en"
-                            ? `${formatPrice(usedCost, currency)} spent`
-                            : `${formatPrice(usedCost, currency)} 소비`}
+                            ? `${formatPrice(usedCost, currency, usdRate)} spent`
+                            : `${formatPrice(usedCost, currency, usdRate)} 소비`}
                         </span>
                       </div>
                     )}
