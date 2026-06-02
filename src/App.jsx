@@ -4249,44 +4249,99 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             {/* 공유 버튼 */}
             <button
               onClick={async () => {
-                const menuLabel = recipe.menuLabel || "";
-                const iced = recipe.isIced ? " (ICE)" : (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.canIce ? " (HOT)" : "");
-                const lines = [
-                  `☕ ${recipe.bean} — ${menuLabel}${iced}`,
-                  recipe.company ? `로스터리: ${recipe.company}` : "",
-                  recipe.gram ? `원두량: ${recipe.gram}g` : "",
-                  recipe.seconds ? `추출시간: ${recipe.seconds}s` : "",
-                  recipe.espressoMl ? `추출량: ${recipe.espressoMl}ml` : "",
-                  recipe.waterTemp ? `물온도: ${recipe.waterTemp}°C` : "",
-                  recipe.grindSize ? `분쇄도: ${recipe.grindSize}` : "",
-                  recipe.rating > 0 ? `별점: ${"★".repeat(recipe.rating)}${"☆".repeat(5 - recipe.rating)}` : "",
-                  recipe.note ? `메모: ${recipe.note}` : "",
-                  "",
-                  `Brewlog Note로 보기 → https://brewlog-jade.vercel.app`,
-                ].filter(Boolean).join("\n");
+                try {
+                  const html2canvas = (await import("html2canvas")).default;
+                  // 공유용 카드 엘리먼트 생성
+                  const el = document.createElement("div");
+                  el.style.cssText = `
+                    position: fixed; left: -9999px; top: -9999px;
+                    width: 400px; background: #FBFBFA;
+                    font-family: 'DM Sans', sans-serif;
+                    border-radius: 16px; overflow: hidden;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+                  `;
 
-                if (navigator.share) {
-                  try {
-                    await navigator.share({
-                      title: `${recipe.bean} 레시피 — Brewlog Note`,
-                      text: lines,
-                      url: "https://brewlog-jade.vercel.app",
-                    });
-                  } catch (e) {
-                    if (e.name !== "AbortError") {
-                      // share 실패 시 클립보드 복사 fallback
-                      await navigator.clipboard.writeText(lines).catch(() => {});
-                      alert(lang === "en" ? "Copied to clipboard!" : "클립보드에 복사됐어요!");
+                  const menuLabel = recipe.menuLabel || "";
+                  const iced = recipe.isIced ? "ICE" : (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.canIce ? "HOT" : "");
+                  const stars = recipe.rating > 0 ? "★".repeat(recipe.rating) + "☆".repeat(5 - recipe.rating) : "";
+                  const params = [
+                    recipe.gram      && { lbl: "원두량",   val: `${recipe.gram}g` },
+                    recipe.seconds   && { lbl: "추출시간", val: `${recipe.seconds}s` },
+                    recipe.espressoMl&& { lbl: "추출량",   val: `${recipe.espressoMl}ml` },
+                    recipe.waterTemp && !recipe.isIced && { lbl: "물온도", val: `${recipe.waterTemp}°C` },
+                    recipe.grindSize && { lbl: "분쇄도",   val: recipe.grindSize },
+                  ].filter(Boolean);
+
+                  el.innerHTML = `
+                    <div style="padding:28px 28px 20px;">
+                      <!-- 헤더 -->
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                        <div style="display:flex;align-items:center;gap:7px;">
+                          <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="#1A1614" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
+                          <span style="font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:#1A1614;letter-spacing:-0.01em;">Brewlog Note</span>
+                        </div>
+                        <span style="font-size:11px;color:#8C8480;">@${recipe.author}</span>
+                      </div>
+                      <!-- 메뉴 + ICE/HOT -->
+                      <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                        <span style="font-size:12px;color:#8C8480;">${menuLabel}</span>
+                        ${iced ? `<span style="font-size:10px;font-weight:700;color:${iced==="ICE"?"#2980b9":"#e67e22"};background:${iced==="ICE"?"#EBF5FB":"#FEF3E8"};border:1px solid ${iced==="ICE"?"#AED6F1":"#FAD7A0"};border-radius:4px;padding:1px 6px;">${iced}</span>` : ""}
+                      </div>
+                      <!-- 원두명 -->
+                      <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#1A1614;letter-spacing:-0.02em;line-height:1.2;margin-bottom:4px;">${recipe.bean || ""}</div>
+                      <div style="font-size:12px;color:#8C8480;margin-bottom:20px;">${recipe.company || ""}</div>
+                      <!-- 구분선 -->
+                      <div style="height:1px;background:#F0EFEF;margin-bottom:18px;"></div>
+                      <!-- 파라미터 그리드 -->
+                      <div style="display:grid;grid-template-columns:repeat(${Math.min(params.length, 4)},1fr);gap:10px;margin-bottom:${stars || recipe.note ? "18px" : "0"};">
+                        ${params.map(p => `
+                          <div style="text-align:center;background:#FAFAF9;border:1px solid #F0EFEF;border-radius:8px;padding:10px 6px;">
+                            <div style="font-size:16px;font-weight:700;color:#1A1614;line-height:1;">${p.val}</div>
+                            <div style="font-size:10px;color:#8C8480;margin-top:4px;">${p.lbl}</div>
+                          </div>
+                        `).join("")}
+                      </div>
+                      <!-- 별점 -->
+                      ${stars ? `<div style="font-size:16px;color:#B07D54;margin-bottom:${recipe.note ? "10px" : "0"};">${stars}</div>` : ""}
+                      <!-- 메모 -->
+                      ${recipe.note ? `<div style="font-size:12px;color:#8C8480;background:#FAFAF9;border-left:3px solid #B07D54;padding:8px 12px;border-radius:0 6px 6px 0;line-height:1.5;">"${recipe.note}"</div>` : ""}
+                    </div>
+                    <!-- 푸터 -->
+                    <div style="background:#F0EFEF;padding:10px 28px;display:flex;align-items:center;justify-content:space-between;">
+                      <span style="font-size:10px;color:#8C8480;">brewlog-jade.vercel.app</span>
+                      <span style="font-size:10px;color:#B07D54;font-weight:600;">Brewlog Note</span>
+                    </div>
+                  `;
+                  document.body.appendChild(el);
+
+                  const canvas = await html2canvas(el, {
+                    scale: 3,
+                    useCORS: true,
+                    backgroundColor: null,
+                    logging: false,
+                  });
+                  document.body.removeChild(el);
+
+                  canvas.toBlob(async (blob) => {
+                    const file = new File([blob], `${recipe.bean || "recipe"}.png`, { type: "image/png" });
+                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                      await navigator.share({
+                        files: [file],
+                        title: `${recipe.bean} 레시피`,
+                        text: "Brewlog Note에서 기록한 레시피예요.",
+                      }).catch(e => { if (e.name !== "AbortError") console.warn(e); });
+                    } else {
+                      // 파일 공유 미지원 → 이미지 다운로드
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `${recipe.bean || "recipe"}_brewlog.png`;
+                      a.click();
+                      URL.revokeObjectURL(a.href);
                     }
-                  }
-                } else {
-                  // Web Share API 미지원 → 클립보드 복사
-                  try {
-                    await navigator.clipboard.writeText(lines);
-                    alert(lang === "en" ? "Copied to clipboard!" : "클립보드에 복사됐어요!");
-                  } catch {
-                    alert(lang === "en" ? "Please copy manually." : "직접 복사해주세요.");
-                  }
+                  }, "image/png");
+                } catch(e) {
+                  console.error("[share]", e);
+                  alert(lang === "en" ? "Share failed. Please try again." : "공유에 실패했어요. 다시 시도해주세요.");
                 }
               }}
               style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "inline-flex", alignItems: "center", transition: "color 0.15s" }}
