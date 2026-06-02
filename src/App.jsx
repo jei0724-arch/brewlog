@@ -4246,6 +4246,61 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             <span style={{ color: "var(--muted)" }}> · {date}</span>
           </div>
           <div className="card-actions">
+            {/* 공유 버튼 */}
+            <button
+              onClick={async () => {
+                const menuLabel = recipe.menuLabel || "";
+                const iced = recipe.isIced ? " (ICE)" : (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.canIce ? " (HOT)" : "");
+                const lines = [
+                  `☕ ${recipe.bean} — ${menuLabel}${iced}`,
+                  recipe.company ? `로스터리: ${recipe.company}` : "",
+                  recipe.gram ? `원두량: ${recipe.gram}g` : "",
+                  recipe.seconds ? `추출시간: ${recipe.seconds}s` : "",
+                  recipe.espressoMl ? `추출량: ${recipe.espressoMl}ml` : "",
+                  recipe.waterTemp ? `물온도: ${recipe.waterTemp}°C` : "",
+                  recipe.grindSize ? `분쇄도: ${recipe.grindSize}` : "",
+                  recipe.rating > 0 ? `별점: ${"★".repeat(recipe.rating)}${"☆".repeat(5 - recipe.rating)}` : "",
+                  recipe.note ? `메모: ${recipe.note}` : "",
+                  "",
+                  `Brewlog Note로 보기 → https://brewlog-jade.vercel.app`,
+                ].filter(Boolean).join("\n");
+
+                if (navigator.share) {
+                  try {
+                    await navigator.share({
+                      title: `${recipe.bean} 레시피 — Brewlog Note`,
+                      text: lines,
+                      url: "https://brewlog-jade.vercel.app",
+                    });
+                  } catch (e) {
+                    if (e.name !== "AbortError") {
+                      // share 실패 시 클립보드 복사 fallback
+                      await navigator.clipboard.writeText(lines).catch(() => {});
+                      alert(lang === "en" ? "Copied to clipboard!" : "클립보드에 복사됐어요!");
+                    }
+                  }
+                } else {
+                  // Web Share API 미지원 → 클립보드 복사
+                  try {
+                    await navigator.clipboard.writeText(lines);
+                    alert(lang === "en" ? "Copied to clipboard!" : "클립보드에 복사됐어요!");
+                  } catch {
+                    alert(lang === "en" ? "Please copy manually." : "직접 복사해주세요.");
+                  }
+                }
+              }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "inline-flex", alignItems: "center", transition: "color 0.15s" }}
+              title={lang === "en" ? "Share recipe" : "레시피 공유"}
+              onMouseEnter={e => e.currentTarget.style.color = "var(--espresso)"}
+              onMouseLeave={e => e.currentTarget.style.color = "var(--muted)"}
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12.5" cy="3" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
+                <circle cx="12.5" cy="13" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
+                <circle cx="3.5" cy="8" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
+                <path d="M5 7.2l6-3.2M5 8.8l6 3.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+            </button>
             <button
               className={`btn-heart ${liked ? "liked" : ""}`}
               onClick={() => !isOwner && onLike(recipe)}
