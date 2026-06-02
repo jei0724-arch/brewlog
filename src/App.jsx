@@ -4150,9 +4150,12 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
             <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
               {lang === "en" ? (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.labelEn || recipe.menuLabel) : recipe.menuLabel}
-              {recipe.isIced && (
-                <span style={{ fontSize: "0.62rem", fontWeight: 700, color: "#2980b9", background: "#EBF5FB", border: "1px solid #AED6F1", borderRadius: "4px", padding: "1px 6px", letterSpacing: "0.04em" }}>ICE</span>
-              )}
+              {recipe.isIced
+                ? <span style={{ fontSize: "0.62rem", fontWeight: 700, color: "#2980b9", background: "#EBF5FB", border: "1px solid #AED6F1", borderRadius: "4px", padding: "1px 6px", letterSpacing: "0.04em" }}>ICE</span>
+                : COFFEE_MENUS.find(m => m.id === recipe.menuId)?.canIce
+                  ? <span style={{ fontSize: "0.62rem", fontWeight: 700, color: "#e67e22", background: "#FEF3E8", border: "1px solid #FAD7A0", borderRadius: "4px", padding: "1px 6px", letterSpacing: "0.04em" }}>HOT</span>
+                  : null
+              }
             </span>
           </>)}
           {recipe.weather && (<>
@@ -4448,9 +4451,12 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
           <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
           <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
             {menuName}
-            {recipe.isIced && (
-              <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "#2980b9", background: "#EBF5FB", border: "1px solid #AED6F1", borderRadius: "4px", padding: "1px 5px", letterSpacing: "0.04em" }}>ICE</span>
-            )}
+            {recipe.isIced
+              ? <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "#2980b9", background: "#EBF5FB", border: "1px solid #AED6F1", borderRadius: "4px", padding: "1px 5px", letterSpacing: "0.04em" }}>ICE</span>
+              : COFFEE_MENUS.find(m => m.id === recipe.menuId)?.canIce
+                ? <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "#e67e22", background: "#FEF3E8", border: "1px solid #FAD7A0", borderRadius: "4px", padding: "1px 5px", letterSpacing: "0.04em" }}>HOT</span>
+                : null
+            }
           </span>
         </>)}
         {recipe.isPublic === false && (<>
