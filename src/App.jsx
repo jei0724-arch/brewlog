@@ -3895,6 +3895,59 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
           )}
         </div>
 
+        {/* ── 차단 목록 ── */}
+        {(() => {
+          const BLOCKED_KEY = `brewlog_blocked_${user?.uid}`;
+          const [blockedIds, setBlockedIds] = useState(() => {
+            try { return JSON.parse(localStorage.getItem(BLOCKED_KEY) || "[]"); } catch { return []; }
+          });
+          const [blockedProfiles, setBlockedProfiles] = useState([]);
+
+          useEffect(() => {
+            if (!blockedIds.length) return;
+            Promise.all(blockedIds.map(id =>
+              getDoc(doc(db, "users", id)).then(d => d.exists() ? { id, ...d.data() } : { id, nickname: id.slice(0,8) + "…" })
+            )).then(setBlockedProfiles).catch(() => {});
+          }, [blockedIds.join(",")]);
+
+          const unblock = async (uid) => {
+            const newList = blockedIds.filter(id => id !== uid);
+            localStorage.setItem(BLOCKED_KEY, JSON.stringify(newList));
+            await updateDoc(doc(db, "users", user.uid), { blockedUsers: newList }).catch(() => {});
+            setBlockedIds(newList);
+            setBlockedProfiles(p => p.filter(u => u.id !== uid));
+          };
+
+          return (
+            <div className="my-section">
+              <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/>
+                  <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                </svg>
+                {lang === "en" ? "Blocked Users" : "차단 목록"}
+              </div>
+              {blockedIds.length === 0 ? (
+                <p style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+                  {lang === "en" ? "No blocked users." : "차단한 사용자가 없어요."}
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {blockedProfiles.map(u => (
+                    <div key={u.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--cream)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "10px 14px" }}>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--espresso)" }}>@{u.nickname || u.id}</span>
+                      <button onClick={() => unblock(u.id)}
+                        style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "6px", padding: "4px 10px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>
+                        {lang === "en" ? "Unblock" : "차단 해제"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* ── 통화 설정 ── */}
         <div className="my-section">
           <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -4043,11 +4096,54 @@ function ReportModal({ type, targetId, currentUser, onClose, lang = "ko" }) {
 
 // ─── RecipeDetailModal ────────────────────────────────────────────
 function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, lang = "ko" }) {
-  const [showReport, setShowReport] = useState(null); // { type, targetId }
+  const [showReport, setShowReport] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
-  const [replyTo, setReplyTo] = useState(null); // { id, author }
+  const [replyTo, setReplyTo] = useState(null);
+  const [showMore, setShowMore] = useState(false); // ··· 메뉴
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
+
+  const BLOCKED_KEY = `brewlog_blocked_${currentUid}`;
+  const loadBlocked = () => { try { return JSON.parse(localStorage.getItem(BLOCKED_KEY) || "[]"); } catch { return []; } };
+
+  // 차단 여부 초기화
+  useEffect(() => {
+    if (!currentUid || !recipe?.uid || currentUid === recipe.uid) return;
+    setIsBlocked(loadBlocked().includes(recipe.uid));
+  }, [recipe?.uid, currentUid]);
+
+  // 작성자 차단
+  const handleBlock = async () => {
+    if (!currentUid || !recipe?.uid) return;
+    setBlockLoading(true);
+    const blocked = loadBlocked();
+    const newBlocked = [...new Set([...blocked, recipe.uid])];
+    localStorage.setItem(BLOCKED_KEY, JSON.stringify(newBlocked));
+    // Firestore users 컬렉션에도 저장
+    try {
+      await updateDoc(doc(db, "users", currentUid), { blockedUsers: newBlocked });
+    } catch(e) { console.warn("[block]", e.message); }
+    setIsBlocked(true);
+    setBlockLoading(false);
+    setShowMore(false);
+    onClose();
+  };
+
+  // 차단 해제
+  const handleUnblock = async () => {
+    if (!currentUid || !recipe?.uid) return;
+    setBlockLoading(true);
+    const blocked = loadBlocked().filter(id => id !== recipe.uid);
+    localStorage.setItem(BLOCKED_KEY, JSON.stringify(blocked));
+    try {
+      await updateDoc(doc(db, "users", currentUid), { blockedUsers: blocked });
+    } catch(e) { console.warn("[unblock]", e.message); }
+    setIsBlocked(false);
+    setBlockLoading(false);
+    setShowMore(false);
+  };
 
   useEffect(() => {
     if (!recipe?.id) return;
@@ -4428,11 +4524,67 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                 </svg>
               </button>
             </>)}
+            {/* ··· 더보기 메뉴 (본인 글 제외) */}
             {!isOwner && currentUser && (
-              <button onClick={() => setShowReport({ type: "recipe", targetId: recipe.id })}
-                style={{ background: "none", border: "1px solid #e74c3c40", borderRadius: "2px", fontSize: "0.75rem", color: "#e74c3c", cursor: "pointer", padding: "0.2rem 0.6rem", opacity: 0.8, fontFamily: "'DM Sans',sans-serif" }}>
-                {lang === "en" ? "Report" : "신고"}
-              </button>
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={() => setShowMore(v => !v)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", display: "inline-flex", alignItems: "center", borderRadius: "4px", transition: "color 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "var(--espresso)"}
+                  onMouseLeave={e => e.currentTarget.style.color = "var(--muted)"}
+                >
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+                    <circle cx="3" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="13" cy="8" r="1.2"/>
+                  </svg>
+                </button>
+                {showMore && (<>
+                  {/* 백드롭 */}
+                  <div style={{ position: "fixed", inset: 0, zIndex: 9998 }} onClick={() => setShowMore(false)}/>
+                  {/* 드롭다운 */}
+                  <div style={{ position: "absolute", right: 0, bottom: "calc(100% + 6px)", background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "10px", boxShadow: "0 4px 20px #0002", zIndex: 9999, minWidth: "160px", overflow: "hidden" }}>
+                    {/* 신고하기 */}
+                    <button
+                      onClick={() => { setShowMore(false); setShowReport({ type: "recipe", targetId: recipe.id }); }}
+                      style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "#e74c3c", textAlign: "left", transition: "background 0.15s" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#fdecea"}
+                      onMouseLeave={e => e.currentTarget.style.background = "none"}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 2L1 14h14L8 2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+                        <path d="M8 6v4M8 11.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                      </svg>
+                      {lang === "en" ? "Report" : "신고하기"}
+                    </button>
+                    <div style={{ height: "1px", background: "var(--divider)", margin: "0 12px" }}/>
+                    {/* 차단/차단해제 */}
+                    <button
+                      onClick={isBlocked ? handleUnblock : handleBlock}
+                      disabled={blockLoading}
+                      style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: blockLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "10px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: isBlocked ? "var(--muted)" : "var(--espresso)", textAlign: "left", transition: "background 0.15s", opacity: blockLoading ? 0.5 : 1 }}
+                      onMouseEnter={e => { if (!blockLoading) e.currentTarget.style.background = "var(--cream)"; }}
+                      onMouseLeave={e => e.currentTarget.style.background = "none"}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/>
+                        {isBlocked
+                          ? <path d="M5 8h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                          : <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                        }
+                      </svg>
+                      {blockLoading
+                        ? (lang === "en" ? "Processing…" : "처리 중…")
+                        : isBlocked
+                          ? (lang === "en" ? `Unblock @${recipe.author}` : `@${recipe.author} 차단 해제`)
+                          : (lang === "en" ? `Block @${recipe.author}` : `@${recipe.author} 차단하기`)}
+                    </button>
+                    {isBlocked && (
+                      <div style={{ padding: "6px 16px 10px", fontSize: "0.7rem", color: "var(--muted)", lineHeight: 1.4 }}>
+                        {lang === "en" ? "Blocked users' content won't appear in your feed." : "차단된 사용자의 콘텐츠는 피드에서 보이지 않아요."}
+                      </div>
+                    )}
+                  </div>
+                </>)}
+              </div>
             )}
           </div>
         </div>
@@ -5715,9 +5867,15 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     loadRecipes();
   };
 
+  const blocked = React.useMemo(() => {
+    try { return JSON.parse(localStorage.getItem(`brewlog_blocked_${user?.uid}`) || "[]"); } catch { return []; }
+  }, [user?.uid]);
+
   const filtered = recipes.filter(r => {
     // 비공개 레시피는 본인만 볼 수 있음
     if (r.isPublic === false && r.uid !== user?.uid) return false;
+    // 차단된 유저 레시피 숨김
+    if (blocked.includes(r.uid)) return false;
     if (myRecipesOnly && r.uid !== user?.uid) return false;
     if (feedTab === "bookmarks" && !bookmarks.includes(r.id)) return false;
     if (feedTab === "following" && !following.includes(r.uid) && !following.includes(r.author)) return false;
