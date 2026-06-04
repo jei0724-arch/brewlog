@@ -742,8 +742,8 @@ const CSS = `
       box-sizing: content-box;
     }
     .bookmark-tab::-webkit-scrollbar { display: none; }
-    .bookmark-tab-btn {
-      white-space: nowrap;
+    .tab-groups-wrap { flex-wrap: wrap !important; gap: "6px" !important; }
+    .bookmark-tab-btn {      white-space: nowrap;
       padding: 0 12px;
       font-size: 0.73rem;
       flex-shrink: 0;
@@ -2491,7 +2491,11 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 
   const savedBean = loadMyBean();
   const savedDefaults = loadRecipeDefaults();
-  const [form, setForm] = useState(isEdit ? { ...editTarget } : {
+  const [form, setForm] = useState(isEdit ? {
+    ...editTarget,
+    // 기존 레시피 중 waterTemp가 비어있는 경우 기본값 93 채움
+    waterTemp: editTarget.waterTemp || "93",
+  } : {
     company: savedBean?.company || "",
     bean: savedBean?.bean || "",
     roastDate: savedBean?.roastDate || "",
@@ -2597,7 +2601,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       seconds:        form.seconds,
       infusionSeconds:form.infusionSeconds || "0",
       espressoMl:     form.espressoMl,
-      waterTemp:      form.isIced ? "" : (form.waterTemp || ""),
+      waterTemp:      form.waterTemp || "",
       grindSize:      form.grindSize,
       diluteMl:       form.diluteMl,
       diluteType:     form.diluteType,
@@ -3089,29 +3093,59 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             </div>
           )}
 
-          <div className="field" data-field="company">
-            <label style={{ color: errors.company ? "#c0392b" : undefined }}>{t.company}</label>
-            <input value={form.company} onChange={e => { set("company", e.target.value); setErrors(p => ({...p, company: false})); }}
-              placeholder="블루보틀 …"
-              style={{ borderColor: errors.company ? "#c0392b" : undefined }} />
-            {errors.company && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
-            {savedBean?.company && form.company === savedBean.company && !errors.company && (
-              <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.3rem", display: "flex", alignItems: "center", gap: "4px" }}>
-                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4 7h6M4 9.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><rect x="3" y="1" width="8" height="3" rx="1" fill="currentColor" opacity="0.35"/></svg>
-                {lang === "ko" ? "이전 기록에서 불러왔어요" : "Loaded from last record"}
-              </p>
-            )}
-          </div>
-          <div className="field" data-field="bean">
-            <label style={{ color: errors.bean ? "#c0392b" : undefined }}>{t.bean}</label>
-            <input value={form.bean} onChange={e => { set("bean", e.target.value); setErrors(p => ({...p, bean: false})); }}
-              placeholder="에티오피아 예가체프"
-              style={{ borderColor: errors.bean ? "#c0392b" : undefined }} />
-            {errors.bean && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
-          </div>
-          <div className="field full"><label>{t ? t.roastDate : "로스팅 일자"}</label>
-            <input type="date" value={form.roastDate || ""} onChange={e => set("roastDate", e.target.value)} max={new Date().toISOString().split("T")[0]} />
-          </div>
+          {/* 원두 회사명 / 원두 이름 / 로스팅 일자 — 내 원두 선택 시 숨김 */}
+          {!linkedBeanId && (
+            <div className="field" data-field="company">
+              <label style={{ color: errors.company ? "#c0392b" : undefined }}>{t.company}</label>
+              <input value={form.company} onChange={e => { set("company", e.target.value); setErrors(p => ({...p, company: false})); }}
+                placeholder="블루보틀 …"
+                style={{ borderColor: errors.company ? "#c0392b" : undefined }} />
+              {errors.company && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
+              {savedBean?.company && form.company === savedBean.company && !errors.company && (
+                <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.3rem", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4 7h6M4 9.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><rect x="3" y="1" width="8" height="3" rx="1" fill="currentColor" opacity="0.35"/></svg>
+                  {lang === "ko" ? "이전 기록에서 불러왔어요" : "Loaded from last record"}
+                </p>
+              )}
+            </div>
+          )}
+          {!linkedBeanId && (
+            <div className="field" data-field="bean">
+              <label style={{ color: errors.bean ? "#c0392b" : undefined }}>{t.bean}</label>
+              <input value={form.bean} onChange={e => { set("bean", e.target.value); setErrors(p => ({...p, bean: false})); }}
+                placeholder="에티오피아 예가체프"
+                style={{ borderColor: errors.bean ? "#c0392b" : undefined }} />
+              {errors.bean && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
+            </div>
+          )}
+          {!linkedBeanId && (
+            <div className="field full">
+              <label>{t ? t.roastDate : "로스팅 일자"}</label>
+              <input type="date" value={form.roastDate || ""} onChange={e => set("roastDate", e.target.value)} max={new Date().toISOString().split("T")[0]} />
+            </div>
+          )}
+          {/* 내 원두 선택 시 원두 정보 요약 표시 */}
+          {linkedBeanId && (() => {
+            const bean = myBeans.find(b => b.id === linkedBeanId);
+            if (!bean) return null;
+            return (
+              <div className="field full">
+                <div style={{ background: "var(--cream)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--espresso)" }}>{bean.bean}</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "2px", display: "flex", gap: "8px" }}>
+                      {bean.company && <span>{bean.company}</span>}
+                      {bean.roastDate && <span>로스팅 {bean.roastDate}</span>}
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => { setLinkedBeanId(null); }}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.72rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", padding: "4px 8px", borderRadius: "6px", border: "1px solid var(--steam)" }}>
+                    {lang === "en" ? "Change" : "변경"}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
           <div style={{ gridColumn: "1 / -1", margin: "36px 0 16px" }}>
             <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: 700, color: "var(--espresso)", letterSpacing: "0.04em" }}>장비 설정</span>
             <div style={{ height: "1px", background: "var(--divider)", marginTop: "10px" }}/>
@@ -3630,22 +3664,6 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 function MyModal({ onClose, user, lang = 'ko', onLogout }) {
   const t = I18N[lang];
 
-  // 머신
-  const [machine, setMachine] = useState(loadMyMachine() || { brand: "", model: "", equipType: "machine" });
-  const [machineEditing, setMachineEditing] = useState(!machine.brand && !machine.handDripName);
-  const [machineBrand, setMachineBrand] = useState(machine.brand || "");
-  const [machineModel, setMachineModel] = useState(machine.model || "");
-  const [equipType, setEquipType] = useState(machine.equipType || "machine");
-  const [handDripName, setHandDripName] = useState(machine.handDripName || "");
-  const [machineMsg, setMachineMsg] = useState(null);
-
-  // 그라인더
-  const [grinder, setGrinder] = useState(loadMyGrinder() || { brand: "", model: "" });
-  const [grinderEditing, setGrinderEditing] = useState(!grinder.brand);
-  const [grinderBrand, setGrinderBrand] = useState(grinder.brand || "");
-  const [grinderModel, setGrinderModel] = useState(grinder.model || "");
-  const [grinderMsg, setGrinderMsg] = useState(null);
-
   // 비밀번호
   const [curPw, setCurPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -3675,28 +3693,6 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
   };
   const setEP = (k, v) => setEditingPreset(p => ({ ...p, [k]: v }));
 
-  const saveMachine = () => {
-    if (equipType === "machine" && !machineBrand) return setMachineMsg({ type: "error", text: lang === "en" ? "Please select a brand." : "브랜드를 선택해주세요." });
-    if (equipType === "handdrip" && !handDripName.trim()) return setMachineMsg({ type: "error", text: lang === "en" ? "Please enter equipment name." : "기구명을 입력해주세요." });
-    const data = equipType === "handdrip"
-      ? { brand: "", model: "", equipType: "handdrip", handDripName: handDripName.trim() }
-      : { brand: machineBrand, model: machineModel, equipType: "machine", handDripName: "" };
-    saveMyMachine(data);
-    setMachine(data);
-    setMachineEditing(false);
-    setMachineMsg({ type: "ok", text: lang === "en" ? "Saved ✓" : "저장됐어요 ✓" });
-    setTimeout(() => setMachineMsg(null), 2000);
-  };
-
-  const saveGrinder = () => {
-    if (!grinderBrand) return setGrinderMsg({ type: "error", text: lang === "en" ? "Please select a brand." : "브랜드를 선택해주세요." });
-    saveMyGrinder({ brand: grinderBrand, model: grinderModel });
-    setGrinder({ brand: grinderBrand, model: grinderModel });
-    setGrinderEditing(false);
-    setGrinderMsg({ type: "ok", text: lang === "en" ? "Saved ✓" : "저장됐어요 ✓" });
-    setTimeout(() => setGrinderMsg(null), 2000);
-  };
-
   const handlePwChange = async () => {
     setPwMsg(null);
     if (!curPw) return setPwMsg({ type: "error", text: "현재 비밀번호를 입력해주세요." });
@@ -3720,7 +3716,28 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
     setPwSaving(false);
   };
 
-  // 공통 버튼 스타일
+  // 차단 목록
+  const BLOCKED_KEY = `brewlog_blocked_${user?.uid}`;
+  const [blockedIds, setBlockedIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(BLOCKED_KEY) || "[]"); } catch { return []; }
+  });
+  const [blockedProfiles, setBlockedProfiles] = useState([]);
+
+  useEffect(() => {
+    if (!blockedIds.length) { setBlockedProfiles([]); return; }
+    Promise.all(blockedIds.map(id =>
+      getDoc(doc(db, "users", id))
+        .then(d => d.exists() ? { id, ...d.data() } : { id, nickname: id.slice(0, 8) + "…" })
+    )).then(setBlockedProfiles).catch(() => {});
+  }, [blockedIds.join(",")]);
+
+  const unblock = async (uid) => {
+    const newList = blockedIds.filter(id => id !== uid);
+    localStorage.setItem(BLOCKED_KEY, JSON.stringify(newList));
+    await updateDoc(doc(db, "users", user.uid), { blockedUsers: newList }).catch(() => {});
+    setBlockedIds(newList);
+    setBlockedProfiles(p => p.filter(u => u.id !== uid));
+  };
   const tabBtn = (active) => ({
     flex: 1, height: "42px", border: "1px solid",
     borderColor: active ? "var(--espresso)" : "var(--steam)",
@@ -3731,119 +3748,10 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
     borderRadius: "8px", cursor: "pointer", transition: "all 0.2s",
   });
 
-  const lockedRow = (val, onEdit) => (
-    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-      <div style={{ flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontSize: "0.95rem", color: val ? "var(--espresso)" : "var(--muted)", fontWeight: val ? 500 : 400 }}>
-        {val || (lang === "en" ? "Not set" : "미설정")}
-      </div>
-      <button onClick={onEdit} style={{ height: "42px", padding: "0 16px", background: "none", border: "1px solid var(--steam)", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.2s" }}>
-        {lang === "en" ? "Edit" : "변경"}
-      </button>
-    </div>
-  );
-
   return (
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <h2>{lang === "en" ? "My Settings" : "MY 설정"}</h2>
-
-        {/* ── 추출 기구 ── */}
-        <div className="my-section">
-          <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <path d="M3 4h10v5a5 5 0 0 1-10 0V4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-              <path d="M13 6h1.5a1.5 1.5 0 0 1 0 3H13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-              <path d="M6 13.8V15M10 13.8V15M4 15h8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-            </svg>
-            {lang === "en" ? "Equipment" : "추출 기구"}
-          </div>
-
-          {!machineEditing ? (
-            lockedRow(
-              machine.equipType === "handdrip"
-                ? machine.handDripName
-                : (machine.brand ? `${machine.brand}${machine.model ? " " + machine.model : ""}` : ""),
-              () => setMachineEditing(true)
-            )
-          ) : (<>
-            {/* 머신/핸드드립 탭 */}
-            <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-              <button style={tabBtn(equipType === "machine")} onClick={() => setEquipType("machine")}>
-                {lang === "en" ? "Coffee Machine" : "커피 머신"}
-              </button>
-              <button style={tabBtn(equipType === "handdrip")} onClick={() => setEquipType("handdrip")}>
-                {lang === "en" ? "Hand Drip" : "핸드드립"}
-              </button>
-            </div>
-
-            {equipType === "machine" ? (<>
-              <div className="field full" style={{ marginBottom: "10px" }}>
-                <label>{lang === "en" ? "Brand" : "브랜드"}</label>
-                <BrandInput value={machineBrand} onChange={v => { setMachineBrand(v); setMachineModel(""); }} brands={MACHINE_BRANDS} />
-              </div>
-              {machineBrand && (
-                <div className="field full" style={{ marginBottom: "10px" }}>
-                  <label>{lang === "en" ? "Model" : "세부 모델명"}</label>
-                  <input value={machineModel} onChange={e => setMachineModel(e.target.value)} placeholder={lang === "en" ? "e.g. Barista Express …" : "예) Barista Express …"} />
-                </div>
-              )}
-            </>) : (
-              <div className="field full" style={{ marginBottom: "10px" }}>
-                <label>{lang === "en" ? "Equipment Name" : "기구명"}</label>
-                <input value={handDripName} onChange={e => setHandDripName(e.target.value)} placeholder={lang === "en" ? "e.g. Hario V60, Chemex …" : "예) 하리오 V60, 케멕스 …"} />
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "4px" }}>
-              {(machine.brand || machine.handDripName) && (
-                <button className="btn-cancel" onClick={() => { setMachineBrand(machine.brand); setMachineModel(machine.model); setEquipType(machine.equipType || "machine"); setHandDripName(machine.handDripName || ""); setMachineEditing(false); }}>
-                  {lang === "en" ? "Cancel" : "취소"}
-                </button>
-              )}
-              <button className="btn-save-sm" onClick={saveMachine}>{lang === "en" ? "Save" : "저장"}</button>
-            </div>
-          </>)}
-          {machineMsg && <p className={machineMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "8px" }}>{machineMsg.text}</p>}
-        </div>
-
-        {/* ── 그라인더 ── */}
-        <div className="my-section">
-          <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="9" r="4" stroke="currentColor" strokeWidth="1.3"/>
-              <path d="M8 5V2M6 2h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-              <circle cx="8" cy="9" r="1.5" fill="currentColor" opacity="0.4"/>
-            </svg>
-            {lang === "en" ? "Grinder" : "그라인더"}
-          </div>
-
-          {!grinderEditing ? (
-            lockedRow(
-              grinder.brand ? `${grinder.brand}${grinder.model ? " " + grinder.model : ""}` : "",
-              () => setGrinderEditing(true)
-            )
-          ) : (<>
-            <div className="field full" style={{ marginBottom: "10px" }}>
-              <label>{lang === "en" ? "Brand" : "브랜드"}</label>
-              <BrandInput value={grinderBrand} onChange={v => { setGrinderBrand(v); setGrinderModel(""); }} brands={GRINDER_BRANDS} />
-            </div>
-            {grinderBrand && (
-              <div className="field full" style={{ marginBottom: "10px" }}>
-                <label>{lang === "en" ? "Model" : "세부 모델명"}</label>
-                <input value={grinderModel} onChange={e => setGrinderModel(e.target.value)} placeholder={lang === "en" ? "e.g. Encore, C40 …" : "예) 엔코어, C40 …"} />
-              </div>
-            )}
-            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "4px" }}>
-              {grinder.brand && (
-                <button className="btn-cancel" onClick={() => { setGrinderBrand(grinder.brand); setGrinderModel(grinder.model); setGrinderEditing(false); }}>
-                  {lang === "en" ? "Cancel" : "취소"}
-                </button>
-              )}
-              <button className="btn-save-sm" onClick={saveGrinder}>{lang === "en" ? "Save" : "저장"}</button>
-            </div>
-          </>)}
-          {grinderMsg && <p className={grinderMsg.type === "error" ? "msg-error" : "msg-ok"} style={{ marginTop: "8px" }}>{grinderMsg.text}</p>}
-        </div>
 
         {/* ── 비밀번호 변경 ── */}
         {!user?.providerData?.some(p => p.providerId === "google.com") && (
@@ -4004,7 +3912,7 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
                             p.gram && `${p.gram}g`,
                             p.seconds && `${p.seconds}s`,
                             p.espressoMl && `${p.espressoMl}ml`,
-                            p.waterTemp && !p.isIced && `${p.waterTemp}°C`,
+                            p.waterTemp && `${p.waterTemp}°C`,
                             p.grindSize && `분쇄도 ${p.grindSize}`,
                           ].filter(Boolean).map((tag, i) => (
                             <span key={i} style={{ padding: "2px 7px", background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "4px", fontSize: "0.7rem", color: "var(--muted)" }}>
@@ -4037,57 +3945,32 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
         </div>
 
         {/* ── 차단 목록 ── */}
-        {(() => {
-          const BLOCKED_KEY = `brewlog_blocked_${user?.uid}`;
-          const [blockedIds, setBlockedIds] = useState(() => {
-            try { return JSON.parse(localStorage.getItem(BLOCKED_KEY) || "[]"); } catch { return []; }
-          });
-          const [blockedProfiles, setBlockedProfiles] = useState([]);
-
-          useEffect(() => {
-            if (!blockedIds.length) return;
-            Promise.all(blockedIds.map(id =>
-              getDoc(doc(db, "users", id)).then(d => d.exists() ? { id, ...d.data() } : { id, nickname: id.slice(0,8) + "…" })
-            )).then(setBlockedProfiles).catch(() => {});
-          }, [blockedIds.join(",")]);
-
-          const unblock = async (uid) => {
-            const newList = blockedIds.filter(id => id !== uid);
-            localStorage.setItem(BLOCKED_KEY, JSON.stringify(newList));
-            await updateDoc(doc(db, "users", user.uid), { blockedUsers: newList }).catch(() => {});
-            setBlockedIds(newList);
-            setBlockedProfiles(p => p.filter(u => u.id !== uid));
-          };
-
-          return (
-            <div className="my-section">
-              <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/>
-                  <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                </svg>
-                {lang === "en" ? "Blocked Users" : "차단 목록"}
-              </div>
-              {blockedIds.length === 0 ? (
-                <p style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-                  {lang === "en" ? "No blocked users." : "차단한 사용자가 없어요."}
-                </p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {blockedProfiles.map(u => (
-                    <div key={u.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--cream)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "10px 14px" }}>
-                      <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--espresso)" }}>@{u.nickname || u.id}</span>
-                      <button onClick={() => unblock(u.id)}
-                        style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "6px", padding: "4px 10px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>
-                        {lang === "en" ? "Unblock" : "차단 해제"}
-                      </button>
-                    </div>
-                  ))}
+        <div className="my-section">
+          <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            {lang === "en" ? "Blocked Users" : "차단 목록"}
+          </div>
+          {blockedIds.length === 0 ? (
+            <p style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+              {lang === "en" ? "No blocked users." : "차단한 사용자가 없어요."}
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {blockedProfiles.map(u => (
+                <div key={u.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--cream)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "10px 14px" }}>
+                  <span style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--espresso)" }}>@{u.nickname || u.id}</span>
+                  <button onClick={() => unblock(u.id)}
+                    style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "6px", padding: "4px 10px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>
+                    {lang === "en" ? "Unblock" : "차단 해제"}
+                  </button>
                 </div>
-              )}
+              ))}
             </div>
-          );
-        })()}
+          )}
+        </div>
 
         {/* ── 통화 설정 ── */}
         <div className="my-section">
@@ -4425,7 +4308,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             )}
           </div>
           <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
-          {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang === "en" ? "Temp" : "물 온도"}</span></div>}
+          {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{recipe.isIced ? (lang === "en" ? "Brew Temp" : "추출온도") : (lang === "en" ? "Temp" : "물온도")}</span></div>}
         </div>
         {recipe.diluteMl && (
           <div className="card-dilution">{recipe.diluteType} {recipe.diluteMl}ml 희석</div>
@@ -4500,7 +4383,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                       ? { lbl: "인퓨전",   val: `${recipe.infusionSeconds}s` } : null,
                     recipe.seconds    && { lbl: "추출시간", val: `${recipe.seconds}s` },
                     recipe.espressoMl && { lbl: "추출량",   val: `${recipe.espressoMl}ml` },
-                    !recipe.isIced && recipe.waterTemp && { lbl: "물온도", val: `${recipe.waterTemp}°C` },
+                    recipe.waterTemp && { lbl: recipe.isIced ? (lang === "en" ? "Brew Temp" : "추출온도") : (lang === "en" ? "Water Temp" : "물온도"), val: `${recipe.waterTemp}°C` },
                     recipe.grindSize  && { lbl: "분쇄도",   val: `${recipe.grindSize}` },
                   ].filter(Boolean);
 
@@ -4934,7 +4817,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
             )}
           </div>
         <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
-        {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang === "en" ? "Temp" : "물 온도"}</span></div>}
+        {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{recipe.isIced ? (lang === "en" ? "Brew Temp" : "추출온도") : (lang === "en" ? "Temp" : "물온도")}</span></div>}
       </div>
       {recipe.diluteMl && <div className="card-dilution">{lang === "en" ? (recipe.diluteType === "물" ? "Water" : recipe.diluteType === "우유" ? "Milk" : recipe.diluteType === "두유" ? "Soy Milk" : recipe.diluteType) : recipe.diluteType} {recipe.diluteMl}ml {t.dilution}</div>}
       {recipe.syrup && <div className="card-dilution">{recipe.syrup}</div>}
@@ -5038,7 +4921,7 @@ function EquipmentModal({ lang, user, editTarget, onClose, onSaved }) {
     { id: "handdrip", labelKo: "핸드드립",   labelEn: "Hand Drip",      color: "#2980b9" },
     { id: "other",    labelKo: "기타",       labelEn: "Other",           color: "#8C8480" },
   ];
-  const empty = { category: "machine", brand: "", model: "", purchaseDate: "", note: "", isPrimary: false };
+  const empty = { category: "machine", brand: "", model: "", purchaseDate: "", price: "", note: "", isPrimary: false };
   const [form, setForm] = useState(editTarget ? { ...empty, ...editTarget } : empty);
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -5108,9 +4991,25 @@ function EquipmentModal({ lang, user, editTarget, onClose, onSaved }) {
             />
           </div>
           {/* 구매일 */}
-          <div className="field full">
+          <div className="field">
             <label>{t.equipPurchaseDate}</label>
             <input type="date" value={form.purchaseDate} onChange={e => set("purchaseDate", e.target.value)} />
+          </div>
+
+          {/* 구매가격 */}
+          <div className="field">
+            <label>{lang === "en" ? "Purchase Price" : "구매 가격"}</label>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "0.88rem", color: "var(--muted)", pointerEvents: "none" }}>₩</span>
+              <input
+                type="number"
+                value={form.price}
+                onChange={e => set("price", e.target.value)}
+                placeholder="0"
+                min="0"
+                style={{ paddingLeft: "28px", width: "100%", boxSizing: "border-box" }}
+              />
+            </div>
           </div>
           {/* 메모 */}
           <div className="field full">
@@ -5250,7 +5149,8 @@ function EquipmentVault({ user, lang }) {
                     </div>
                     {eq.model && <div style={{ fontSize: "0.82rem", color: "var(--muted)" }}>{eq.model}</div>}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", fontSize: "0.7rem", color: "var(--muted)", marginTop: "4px" }}>
-                      {eq.purchaseDate && <span>구매: {eq.purchaseDate}</span>}
+                      {eq.purchaseDate && <span>{lang === "en" ? "Purchased" : "구매"}: {eq.purchaseDate}</span>}
+                      {eq.price && <span>{lang === "en" ? "Price" : "가격"}: ₩{parseInt(eq.price).toLocaleString()}</span>}
                       {eq.note && <span style={{ fontStyle: "italic" }}>"{eq.note}"</span>}
                     </div>
                   </div>
@@ -6427,15 +6327,46 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           <div className="section-sub">{sub}</div>
         </>);
       })()}
-      {/* 탭 + 검색 + 버튼 - 타이틀 바로 아래 */}
+      {/* ── 탭 바 — 2그룹 구조 ── */}
       {(<>
-        <div className="bookmark-tab" style={{ margin: "1rem 0 0.6rem" }}>
-          <button className={`bookmark-tab-btn ${feedTab === "all" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].allRecipes}</button>
-          <button className={`bookmark-tab-btn ${feedTab === "following" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("following"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].followingFeed} {following.length > 0 ? `(${following.length})` : ""}</button>
-          <button className={`bookmark-tab-btn ${feedTab === "bookmarks" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].myBookmarks} {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}</button>
-          {user && <button className={`bookmark-tab-btn ${feedTab === "mine" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].myRecipes}</button>}
-          {user && <button className={`bookmark-tab-btn ${feedTab === "beans" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("beans"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].myBeans}</button>}
-          {user && <button className={`bookmark-tab-btn ${feedTab === "equip" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("equip"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].myEquip}</button>}
+        <div style={{ margin: "1rem 0 0.6rem", display: "flex", flexDirection: "column", gap: "8px" }}>
+          {/* 그룹 1: 피드 탭 + 그룹 2: 내 것 탭 — 한 줄에 양쪽 정렬 */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+            {/* 왼쪽: 피드 탭 */}
+            <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
+              <button className={`bookmark-tab-btn ${feedTab === "all" && !showRanking ? "active" : ""}`}
+                onClick={() => { setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                {I18N[lang].allRecipes}
+              </button>
+              <button className={`bookmark-tab-btn ${feedTab === "following" && !showRanking ? "active" : ""}`}
+                onClick={() => { setFeedTab("following"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                {I18N[lang].followingFeed}{following.length > 0 ? ` (${following.length})` : ""}
+              </button>
+              <button className={`bookmark-tab-btn ${feedTab === "bookmarks" && !showRanking ? "active" : ""}`}
+                onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                {I18N[lang].myBookmarks}{bookmarks.length > 0 ? ` (${bookmarks.length})` : ""}
+              </button>
+            </div>
+            {/* 구분선 */}
+            {user && <div style={{ width: "1px", height: "20px", background: "var(--divider)", flexShrink: 0 }}/>}
+            {/* 오른쪽: 내 것 탭 */}
+            {user && (
+              <div style={{ display: "flex", gap: "4px", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flexShrink: 1 }}>
+                <button className={`bookmark-tab-btn ${feedTab === "mine" && !showRanking ? "active" : ""}`}
+                  onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                  {I18N[lang].myRecipes}
+                </button>
+                <button className={`bookmark-tab-btn ${feedTab === "beans" && !showRanking ? "active" : ""}`}
+                  onClick={() => { setFeedTab("beans"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                  {I18N[lang].myBeans}
+                </button>
+                <button className={`bookmark-tab-btn ${feedTab === "equip" && !showRanking ? "active" : ""}`}
+                  onClick={() => { setFeedTab("equip"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                  {I18N[lang].myEquip}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         {/* 두 번째 행: beans 탭 → 필터+추가하기 / 나머지 → 검색+기록하기 */}
         {feedTab === "beans" ? (
