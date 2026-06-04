@@ -1835,7 +1835,16 @@ const I18N = {
     commentPlaceholder: "댓글을 남겨보세요…", commentSubmit: "등록", commentDelete: "삭제", commentLogin: "로그인 후 댓글 작성 가능해요", comments: "댓글",
     report: "신고", reportDone: "신고가 접수됐어요", reportAlready: "이미 신고한 콘텐츠예요", reportReasons: ["스팸/홍보", "욕설/혐오", "부적절한 내용", "기타"],
     bookmarks: "즐겨찾기", bookmarkSave: "저장됨", bookmarkAdd: "즐겨찾기 추가", bookmarkRemove: "즐겨찾기 해제",
-    allRecipes: "전체", myBookmarks: "즐겨찾기", myRecipes: "내 레시피", myBeans: "내 원두",
+    allRecipes: "전체", myBookmarks: "즐겨찾기", myRecipes: "내 레시피", myBeans: "내 원두", myEquip: "내 장비",
+    equipVaultSub: "내가 사용하는 장비를 관리해요.",
+    equipEmpty: "등록된 장비가 없어요.", equipEmptySub: "자주 쓰는 머신과 그라인더를 추가해보세요.",
+    equipAdd: "장비 추가", equipEdit: "장비 수정", equipDelete: "장비 삭제",
+    equipName: "장비 이름 *", equipBrand: "머신 브랜드 *", equipModel: "세부 모델",
+    equipGrinder: "그라인더 브랜드", equipGrinderModel: "그라인더 모델",
+    equipPurchaseDate: "구매일", equipNote: "메모",
+    equipSetPrimary: "대표로 설정", equipIsPrimary: "대표 장비",
+    equipDeleteConfirm: "이 장비를 삭제할까요?",
+    equipTypeMachine: "커피 머신", equipTypeHanddrip: "핸드드립",
     beanVault: "Bean Vault", beanVaultSub: "내가 사용 중인 원두 재고를 관리해요.",
     beanAdd: "원두 추가", beanEdit: "원두 수정", beanDelete: "삭제",
     beanName: "원두 이름 *", beanRoastery: "로스터리 *",
@@ -1908,7 +1917,16 @@ const I18N = {
     commentPlaceholder: "Leave a comment…", commentSubmit: "Post", commentDelete: "Delete", commentLogin: "Sign in to leave a comment", comments: "Comments",
     report: "Report", reportDone: "Report submitted", reportAlready: "Already reported", reportReasons: ["Spam", "Hate speech", "Inappropriate content", "Other"],
     bookmarks: "Bookmarks", bookmarkSave: "Saved", bookmarkAdd: "Save recipe", bookmarkRemove: "Remove bookmark",
-    allRecipes: "All", myBookmarks: "Bookmarks", myRecipes: "My Recipes", myBeans: "My Beans",
+    allRecipes: "All", myBookmarks: "Bookmarks", myRecipes: "My Recipes", myBeans: "My Beans", myEquip: "My Gear",
+    equipVaultSub: "Manage your brewing equipment.",
+    equipEmpty: "No equipment yet.", equipEmptySub: "Add your machines and grinders.",
+    equipAdd: "Add Equipment", equipEdit: "Edit", equipDelete: "Delete",
+    equipName: "Equipment Name *", equipBrand: "Machine Brand *", equipModel: "Model",
+    equipGrinder: "Grinder Brand", equipGrinderModel: "Grinder Model",
+    equipPurchaseDate: "Purchase Date", equipNote: "Notes",
+    equipSetPrimary: "Set as Primary", equipIsPrimary: "Primary",
+    equipDeleteConfirm: "Delete this equipment?",
+    equipTypeMachine: "Coffee Machine", equipTypeHanddrip: "Hand Drip",
     beanVault: "Bean Vault", beanVaultSub: "Track your current bean inventory.",
     beanAdd: "Add Bean", beanEdit: "Edit Bean", beanDelete: "Delete",
     beanName: "Bean Name *", beanRoastery: "Roastery *",
@@ -2049,9 +2067,8 @@ const COFFEE_MENUS = [
   { id: "cappuccino", label: "카푸치노",   labelEn: "Cappuccino",  needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk",  hasSyrup: false, canIce: true },
   { id: "flatwhite",  label: "플랫화이트", labelEn: "Flat White",  needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk",  hasSyrup: false, canIce: false },
   { id: "macchiato",  label: "마끼아또",   labelEn: "Macchiato",   needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk",  hasSyrup: true,  canIce: true },
-  { id: "cortado",    label: "코르타도",   labelEn: "Cortado",     needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk",  hasSyrup: false, canIce: false },
-  { id: "cold_brew",  label: "콜드브루",   labelEn: "Cold Brew",   needsDilute: true,  fixedDilute: null,   hasSyrup: true,  canIce: true },
   { id: "hand_drip",  label: "핸드드립",   labelEn: "Hand Drip",   needsDilute: false, fixedDilute: null,   hasSyrup: false, canIce: false },
+  { id: "cold_brew",  label: "콜드브루",   labelEn: "Cold Brew",   needsDilute: true,  fixedDilute: null,   hasSyrup: true,  canIce: true },
   { id: "other",      label: "기타",       labelEn: "Other",       needsDilute: true,  fixedDilute: null,   hasSyrup: false, canIce: true },
 ];
 
@@ -2405,6 +2422,30 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   // ── 내 원두 목록 로드 ──────────────────────────────
   const [myBeans, setMyBeans] = useState([]);
   const [linkedBeanId, setLinkedBeanId] = useState(editTarget?.linkedBeanId || null);
+  const [myEquips, setMyEquips] = useState([]);
+  const [selectedEquipIds, setSelectedEquipIds] = useState({}); // { category: equipId }
+
+  // 내 장비 로드
+  useEffect(() => {
+    if (!user?.uid) return;
+    getDocs(query(collection(db, "equipments"), where("uid", "==", user.uid)))
+      .then(snap => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
+        setMyEquips(list);
+        // 대표 장비 자동 적용 (신규 작성 시, 카테고리별로 각각)
+        if (!isEdit) {
+          const primaryMachine  = list.find(e => e.category === "machine"  && e.isPrimary);
+          const primaryGrinder  = list.find(e => e.category === "grinder"  && e.isPrimary);
+          const primaryHanddrip = list.find(e => e.category === "handdrip" && e.isPrimary);
+          const newSelected = {};
+          if (primaryHanddrip) { applyEquipment(primaryHanddrip); newSelected.handdrip = primaryHanddrip.id; }
+          else if (primaryMachine) { applyEquipment(primaryMachine); newSelected.machine = primaryMachine.id; }
+          if (primaryGrinder) { applyEquipment(primaryGrinder); newSelected.grinder = primaryGrinder.id; }
+          setSelectedEquipIds(newSelected);
+        }
+      }).catch(() => {});
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -2492,6 +2533,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const [presets, setPresets] = useState(() => loadPresets(user?.uid));
   const [showPresetSave, setShowPresetSave] = useState(false);
   const [presetName, setPresetName] = useState("");
+  const [activePresetId, setActivePresetId] = useState(null);
 
   const applyPreset = (preset) => {
     // 메뉴
@@ -2525,7 +2567,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       seconds:        preset.seconds        ?? "",
       infusionSeconds:preset.infusionSeconds ?? "0",
       espressoMl:     preset.espressoMl     ?? "",
-      waterTemp:      preset.isIced ? "" : (preset.waterTemp ?? (menu?.canIce ? "" : "93")),
+      waterTemp:      preset.waterTemp ?? "",
       grindSize:      preset.grindSize      ?? "",
       diluteMl:       preset.diluteMl       ?? "",
       diluteType:     preset.diluteType     ?? "물",
@@ -2572,6 +2614,26 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     const updated = presets.filter(p => p.id !== id);
     savePresets(user?.uid, updated);
     setPresets(updated);
+  };
+
+  // 장비 선택 시 머신/그라인더 자동 입력
+  const applyEquipment = (eq) => {
+    if (!eq) return;
+    if (eq.category === "handdrip") {
+      setMachineType("handdrip");
+      setHandDripName(`${eq.brand}${eq.model ? " " + eq.model : ""}`);
+      setMachineBrand(""); setMachineModel("");
+      setMachineLocked(true);
+    } else if (eq.category === "machine") {
+      setMachineType("semi");
+      setMachineBrand(eq.brand || "");
+      setMachineModel(eq.model || "");
+      setMachineLocked(true);
+    } else if (eq.category === "grinder") {
+      setGrinderBrand(eq.brand || "");
+      setGrinderModel(eq.model || "");
+      setGrinderLocked(true);
+    }
   };
 
   const currentMenu = COFFEE_MENUS.find(m => m.id === selectedMenu);
@@ -2828,20 +2890,26 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                   const compatible = !p.equipType || p.equipType === (isHandDrip ? "handdrip" : "machine");
                   return (
                     <button key={p.id} type="button"
-                      onClick={() => compatible && applyPreset(p)}
+                      onClick={() => { if (compatible) { applyPreset(p); setActivePresetId(p.id); } }}
                       disabled={!compatible}
                       title={!compatible ? (lang === "en" ? "Different equipment type" : "기구 타입이 달라요") : ""}
                       style={{
                         padding: "6px 14px", borderRadius: "8px",
-                        border: `1px solid ${compatible ? "var(--latte)" : "var(--steam)"}`,
-                        background: compatible ? "#FDF6EF" : "var(--cream)",
-                        color: compatible ? "var(--latte)" : "var(--muted)",
+                        border: `1px solid ${!compatible ? "var(--steam)" : activePresetId === p.id ? "var(--espresso)" : "var(--latte)"}`,
+                        background: !compatible ? "var(--cream)" : activePresetId === p.id ? "var(--espresso)" : "#FDF6EF",
+                        color: !compatible ? "var(--muted)" : activePresetId === p.id ? "var(--cream)" : "var(--latte)",
                         fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem",
                         cursor: compatible ? "pointer" : "not-allowed",
                         opacity: compatible ? 1 : 0.45,
                         fontWeight: 500,
                         transition: "all 0.15s",
+                        display: "flex", alignItems: "center", gap: "5px",
                       }}>
+                      {activePresetId === p.id && (
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
                       {p.name}
                     </button>
                   );
@@ -2897,10 +2965,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               {t.coffeeMenu}
             </label>
             <div className="menu-selector" style={{ border: errors.menu ? "1px solid #c0392b" : "none", borderRadius: "8px", padding: errors.menu ? "0.5rem" : "0" }}>
-              {(machineType === "handdrip"
-                ? COFFEE_MENUS.filter(m => m.id === "hand_drip" || m.id === "other")
-                : COFFEE_MENUS.filter(m => m.id !== "hand_drip")
-              ).map(m => (
+              {COFFEE_MENUS.map(m => (
                 <button
                   key={m.id}
                   type="button"
@@ -2932,7 +2997,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                   HOT
                 </button>
                 <button type="button"
-                  onClick={() => { set("isIced", true); set("waterTemp", ""); }}
+                  onClick={() => { set("isIced", true); }}
                   style={{ flex: 1, height: "44px", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", fontWeight: form.isIced ? 600 : 400, transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
                     borderColor: form.isIced ? "#2980b9" : "var(--steam)",
                     background: form.isIced ? "#EBF5FB" : "var(--foam)",
@@ -3051,7 +3116,75 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: 700, color: "var(--espresso)", letterSpacing: "0.04em" }}>장비 설정</span>
             <div style={{ height: "1px", background: "var(--divider)", marginTop: "10px" }}/>
           </div>
-          {/* 커피 머신 / 핸드드립 */}
+
+          {/* 내 장비에서 선택 */}
+          {myEquips.length > 0 && (
+            <div className="field full">
+              <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                  <rect x="1.5" y="4" width="9" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M4 4V3a2 2 0 0 1 4 0v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  <path d="M10.5 7h1.5a1.5 1.5 0 0 1 0 3h-1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                </svg>
+                {lang === "en" ? "Select from My Gear" : "내 장비에서 선택"}
+              </label>
+              {/* 카테고리별 그룹 - 순서: 커피머신 → 핸드드립 → 그라인더 → 기타 */}
+              {[
+                { cat: "machine",  labelKo: "커피 머신",   labelEn: "Machine" },
+                { cat: "handdrip", labelKo: "핸드드립 기구", labelEn: "Hand Drip" },
+                { cat: "grinder",  labelKo: "그라인더",    labelEn: "Grinder" },
+                { cat: "other",    labelKo: "기타",        labelEn: "Other" },
+              ].map(({ cat, labelKo, labelEn }) => {
+                const catEquips = myEquips.filter(e => e.category === cat);
+                if (!catEquips.length) return null;
+                return (
+                  <div key={cat} style={{ marginBottom: "8px" }}>
+                    <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>
+                      {lang === "en" ? labelEn : labelKo}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {catEquips.map(eq => {
+                        const isSelected = selectedEquipIds[eq.category] === eq.id;
+                        return (
+                          <button key={eq.id} type="button"
+                            onClick={() => {
+                              const newIds = { ...selectedEquipIds };
+                              if (isSelected) {
+                                delete newIds[eq.category];
+                                setSelectedEquipIds(newIds);
+                              } else {
+                                // 머신 선택 시 핸드드립 해제, 핸드드립 선택 시 머신 해제
+                                if (eq.category === "machine") delete newIds.handdrip;
+                                if (eq.category === "handdrip") delete newIds.machine;
+                                newIds[eq.category] = eq.id;
+                                setSelectedEquipIds(newIds);
+                                applyEquipment(eq);
+                              }
+                            }}
+                            style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s",
+                              display: "flex", alignItems: "center", gap: "5px",
+                              borderColor: isSelected ? "var(--espresso)" : "var(--steam)",
+                              background: isSelected ? "var(--espresso)" : "var(--foam)",
+                              boxShadow: isSelected ? "none" : "none" }}>
+                            {isSelected && (
+                              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                                <path d="M2 6l3 3 5-5" stroke="var(--cream)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            )}
+                            <span style={{ fontWeight: 600, color: isSelected ? "var(--cream)" : "var(--espresso)" }}>{eq.brand}</span>
+                            {eq.isPrimary && !isSelected && <span style={{ fontSize: "0.6rem", color: "var(--latte)" }}>★</span>}
+                            {eq.model && <span style={{ color: isSelected ? "var(--cream)" : "var(--muted)", fontSize: "0.72rem", opacity: isSelected ? 0.8 : 1 }}>{eq.model}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {/* 내 장비 미등록 시에만 표시: 머신/핸드드립 탭, 그라인더 */}
+          {!myEquips.some(e => e.category === "machine" || e.category === "handdrip") && (
           <div className="field full">
             <label>{machineType === "handdrip" ? (lang === "en" ? "Hand Drip Equipment" : "핸드드립 기구") : (t ? t.machine : "커피 머신")}</label>
             {/* 커피머신 / 핸드드립 탭 — 항상 표시 */}
@@ -3131,9 +3264,10 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               </>
             )}
           </div>
+          )} {/* 머신/핸드드립 섹션 조건부 끝 */}
 
-          {/* 그라인더 - 전자동이면 숨김 */}
-          {!isAutoMode && (
+          {/* 그라인더 - 전자동이면 숨김, 내 장비에 그라인더 있으면 숨김 */}
+          {!myEquips.some(e => e.category === "grinder") && !isAutoMode && (
             grinderLocked ? (
               <div className="field full">
                 <label>{t ? t.grinder : "그라인더"}</label>
@@ -3256,13 +3390,20 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               style={{ borderColor: errors.espressoMl ? "#c0392b" : undefined }} />
             {errors.espressoMl && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
           </div>
-          {!form.isIced && (
-            <div className="field">
-              <label>{lang === "en" ? "Water Temp (°C)" : "물 온도 (°C)"}</label>
-              <input type="number" value={form.waterTemp} onChange={e => set("waterTemp", String(Math.max(0, Number(e.target.value))))}
-                placeholder="93" min="0" max="100" />
-            </div>
-          )}
+          <div className="field">
+            <label>
+              {form.isIced
+                ? (lang === "en" ? "Brew Temp (°C)" : "추출 물온도 (°C)")
+                : (lang === "en" ? "Water Temp (°C)" : "물 온도 (°C)")}
+              {form.isIced && (
+                <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "var(--muted)", fontWeight: 400 }}>
+                  {lang === "en" ? "(hot water for espresso extraction)" : "(에스프레소 추출 시 물온도)"}
+                </span>
+              )}
+            </label>
+            <input type="number" value={form.waterTemp} onChange={e => set("waterTemp", String(Math.max(0, Number(e.target.value))))}
+              placeholder="93" min="0" max="100" />
+          </div>
           {needsDilute && (<>
             <div className="field">
               <label>{t ? t.diluteType : "희석 종류"}</label>
@@ -4888,6 +5029,262 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
 }
 
 // ─── MainApp ───────────────────────────────────────────────────────
+// ─── Equipment Vault ─────────────────────────────────────────────
+function EquipmentModal({ lang, user, editTarget, onClose, onSaved }) {
+  const t = I18N[lang];
+  const CATEGORIES = [
+    { id: "machine",  labelKo: "커피 머신",  labelEn: "Coffee Machine", color: "#e67e22" },
+    { id: "grinder",  labelKo: "그라인더",   labelEn: "Grinder",        color: "#27ae60" },
+    { id: "handdrip", labelKo: "핸드드립",   labelEn: "Hand Drip",      color: "#2980b9" },
+    { id: "other",    labelKo: "기타",       labelEn: "Other",           color: "#8C8480" },
+  ];
+  const empty = { category: "machine", brand: "", model: "", purchaseDate: "", note: "", isPrimary: false };
+  const [form, setForm] = useState(editTarget ? { ...empty, ...editTarget } : empty);
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const getBrands = () => {
+    if (form.category === "machine") return MACHINE_BRANDS;
+    if (form.category === "grinder") return GRINDER_BRANDS;
+    return [];
+  };
+
+  const handleSave = async () => {
+    if (!form.brand.trim()) return alert(lang === "en" ? "Please enter a brand." : "브랜드를 입력해주세요.");
+    setSaving(true);
+    try {
+      const payload = { ...form, uid: user.uid, updatedAt: serverTimestamp() };
+      if (editTarget?.id) {
+        await updateDoc(doc(db, "equipments", editTarget.id), payload);
+      } else {
+        await addDoc(collection(db, "equipments"), { ...payload, createdAt: serverTimestamp() });
+      }
+      onSaved(); onClose();
+    } catch(e) { alert("저장 오류: " + e.message); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: "420px" }}>
+        <h2>{editTarget ? t.equipEdit : t.equipAdd}</h2>
+        <div className="modal-grid">
+          {/* 장비 종류 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Category" : "장비 종류"}</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+              {CATEGORIES.map(c => (
+                <button key={c.id} type="button"
+                  onClick={() => { set("category", c.id); set("brand", ""); set("model", ""); }}
+                  style={{ height: "42px", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", transition: "all 0.2s",
+                    borderColor: form.category === c.id ? "var(--espresso)" : "var(--steam)",
+                    background: form.category === c.id ? "var(--espresso)" : "var(--foam)",
+                    color: form.category === c.id ? "var(--cream)" : "var(--muted)",
+                    fontWeight: form.category === c.id ? 600 : 400 }}>
+                  {lang === "en" ? c.labelEn : c.labelKo}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* 브랜드 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Brand *" : "브랜드 *"}</label>
+            {getBrands().length > 0
+              ? <BrandInput value={form.brand} onChange={v => set("brand", v)} brands={getBrands()} />
+              : <input value={form.brand} onChange={e => set("brand", e.target.value)}
+                  placeholder={lang === "en" ? "e.g. Hario, Kalita…" : "예) 하리오, 칼리타…"} />
+            }
+          </div>
+          {/* 모델명 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Model" : "모델명"}</label>
+            <input value={form.model} onChange={e => set("model", e.target.value)}
+              placeholder={
+                form.category === "machine" ? (lang === "en" ? "e.g. Barista Express Pro" : "예) Barista Express Pro") :
+                form.category === "grinder" ? (lang === "en" ? "e.g. Encore, C40" : "예) 엔코어, C40") :
+                form.category === "handdrip" ? (lang === "en" ? "e.g. V60, Chemex" : "예) V60 02, 케멕스") :
+                (lang === "en" ? "Model name" : "모델명")
+              }
+            />
+          </div>
+          {/* 구매일 */}
+          <div className="field full">
+            <label>{t.equipPurchaseDate}</label>
+            <input type="date" value={form.purchaseDate} onChange={e => set("purchaseDate", e.target.value)} />
+          </div>
+          {/* 메모 */}
+          <div className="field full">
+            <label>{t.equipNote}</label>
+            <textarea value={form.note} onChange={e => set("note", e.target.value)} rows={2}
+              placeholder={lang === "en" ? "Any notes about this equipment…" : "이 장비에 대한 메모…"} />
+          </div>
+          {/* 대표 */}
+          <div className="field full" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <input type="checkbox" id="isPrimaryEq" checked={form.isPrimary}
+              onChange={e => set("isPrimary", e.target.checked)}
+              style={{ width: "16px", height: "16px", accentColor: "var(--latte)", cursor: "pointer" }} />
+            <label htmlFor="isPrimaryEq" style={{ cursor: "pointer", fontSize: "0.88rem", color: "var(--espresso)", fontWeight: 500 }}>
+              {t.equipSetPrimary}
+              <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 400, marginLeft: "6px" }}>
+                ({lang === "en" ? "auto-selected in recipe" : "레시피 기록 시 자동 선택"})
+              </span>
+            </label>
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button className="btn-cancel" onClick={onClose}>{lang === "en" ? "Cancel" : "취소"}</button>
+          <button className="btn-primary" onClick={handleSave} disabled={saving}
+            style={{ marginTop: 0, width: "auto", padding: "0.7rem 1.5rem" }}>
+            {saving ? (lang === "en" ? "Saving…" : "저장 중…") : (lang === "en" ? "Save" : "저장")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EquipmentVault({ user, lang }) {
+  const t = I18N[lang];
+  const CATEGORIES = [
+    { id: "machine",  labelKo: "커피 머신",  labelEn: "Coffee Machine", color: "#e67e22" },
+    { id: "grinder",  labelKo: "그라인더",   labelEn: "Grinder",        color: "#27ae60" },
+    { id: "handdrip", labelKo: "핸드드립",   labelEn: "Hand Drip",      color: "#2980b9" },
+    { id: "other",    labelKo: "기타",       labelEn: "Other",           color: "#8C8480" },
+  ];
+  const [equips, setEquips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+
+  const loadEquips = async () => {
+    setLoading(true);
+    try {
+      const q = query(collection(db, "equipments"), where("uid", "==", user.uid));
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const catOrder = { machine: 0, grinder: 1, handdrip: 2, other: 3 };
+      data.sort((a, b) => {
+        if ((catOrder[a.category] ?? 9) !== (catOrder[b.category] ?? 9))
+          return (catOrder[a.category] ?? 9) - (catOrder[b.category] ?? 9);
+        if (a.isPrimary && !b.isPrimary) return -1;
+        if (!a.isPrimary && b.isPrimary) return 1;
+        return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+      });
+      setEquips(data);
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadEquips(); }, [user?.uid]);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm(t.equipDeleteConfirm)) return;
+    await deleteDoc(doc(db, "equipments", id));
+    loadEquips();
+  };
+
+  const handleSetPrimary = async (eq) => {
+    await Promise.all(
+      equips.filter(e => e.category === eq.category).map(e =>
+        updateDoc(doc(db, "equipments", e.id), { isPrimary: e.id === eq.id })
+      )
+    );
+    loadEquips();
+  };
+
+  const grouped = ["machine", "grinder", "handdrip", "other"].map(cat => ({
+    cat, info: CATEGORIES.find(c => c.id === cat),
+    items: equips.filter(e => e.category === cat),
+  })).filter(g => g.items.length > 0);
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+        <button className="btn-new" onClick={() => { setEditTarget(null); setShowModal(true); }}>
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+          {t.equipAdd}
+        </button>
+      </div>
+
+      {loading && (
+        <div style={{ display: "flex", justifyContent: "center", padding: "48px 0", color: "var(--muted)", gap: "8px", fontSize: "0.85rem" }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ animation: "spin 1s linear infinite" }}><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.8" strokeDasharray="12 26" strokeLinecap="round"/></svg>
+          {lang === "en" ? "Loading…" : "불러오는 중…"}
+        </div>
+      )}
+
+      {!loading && equips.length === 0 && (
+        <div className="empty-state">
+          <svg className="empty-state-icon" viewBox="0 0 56 56" fill="none">
+            <rect x="10" y="18" width="28" height="22" rx="4" stroke="currentColor" strokeWidth="2"/>
+            <path d="M38 26h4a4 4 0 0 1 0 8h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            <path d="M16 40v4M28 40v4M12 44h20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+          <div className="empty-state-title">{t.equipEmpty}</div>
+          <div className="empty-state-sub">{t.equipEmptySub}</div>
+        </div>
+      )}
+
+      {!loading && grouped.map(({ cat, info, items }) => (
+        <div key={cat} style={{ marginBottom: "28px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+            <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: info.color, flexShrink: 0 }}/>
+            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 700, color: "var(--espresso)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              {lang === "en" ? info.labelEn : info.labelKo}
+            </span>
+            <div style={{ flex: 1, height: "1px", background: "var(--divider)" }}/>
+            <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>{items.length}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {items.map(eq => (
+              <div key={eq.id} style={{ background: "var(--foam)", borderRadius: "10px", padding: "14px 16px", borderLeft: `3px solid ${eq.isPrimary ? info.color : "var(--divider)"}`, border: `1px solid ${eq.isPrimary ? info.color + "50" : "var(--divider)"}` }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
+                      <span style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)" }}>{eq.brand}</span>
+                      {eq.isPrimary && (
+                        <span style={{ fontSize: "0.6rem", fontWeight: 700, color: info.color, background: info.color + "15", border: `1px solid ${info.color}40`, borderRadius: "4px", padding: "1px 6px" }}>
+                          {t.equipIsPrimary}
+                        </span>
+                      )}
+                    </div>
+                    {eq.model && <div style={{ fontSize: "0.82rem", color: "var(--muted)" }}>{eq.model}</div>}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", fontSize: "0.7rem", color: "var(--muted)", marginTop: "4px" }}>
+                      {eq.purchaseDate && <span>구매: {eq.purchaseDate}</span>}
+                      {eq.note && <span style={{ fontStyle: "italic" }}>"{eq.note}"</span>}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "5px", flexShrink: 0 }}>
+                    {!eq.isPrimary && (
+                      <button onClick={() => handleSetPrimary(eq)}
+                        style={{ padding: "4px 8px", border: `1px solid ${info.color}60`, borderRadius: "6px", background: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: info.color }}>
+                        {t.equipSetPrimary}
+                      </button>
+                    )}
+                    <button onClick={() => { setEditTarget(eq); setShowModal(true); }}
+                      style={{ padding: "4px 8px", border: "1px solid var(--steam)", borderRadius: "6px", background: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)" }}>
+                      {t.equipEdit}
+                    </button>
+                    <button onClick={() => handleDelete(eq.id)}
+                      style={{ padding: "4px 8px", border: "1px solid #c0392b30", borderRadius: "6px", background: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "#c0392b" }}>
+                      {t.equipDelete}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {showModal && (
+        <EquipmentModal lang={lang} user={user} editTarget={editTarget}
+          onClose={() => setShowModal(false)} onSaved={loadEquips} />
+      )}
+    </div>
+  );
+}
+
 // ─── Bean Vault ────────────────────────────────────────────────────
 const ROAST_LEVELS = [
   { id: "green",      ko: "생두",       en: "Green bean", pct: 0   },
@@ -6020,6 +6417,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           title = I18N[lang].bookmarksFeedTitle; sub = I18N[lang].bookmarksFeedSub;
         } else if (feedTab === "beans") {
           title = I18N[lang].beanVault; sub = I18N[lang].beanVaultSub;
+        } else if (feedTab === "equip") {
+          title = I18N[lang].myEquip; sub = I18N[lang].equipVaultSub;
         } else {
           title = I18N[lang].feedTitle; sub = I18N[lang].feedSub;
         }
@@ -6036,6 +6435,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           <button className={`bookmark-tab-btn ${feedTab === "bookmarks" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].myBookmarks} {bookmarks.length > 0 ? `(${bookmarks.length})` : ""}</button>
           {user && <button className={`bookmark-tab-btn ${feedTab === "mine" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].myRecipes}</button>}
           {user && <button className={`bookmark-tab-btn ${feedTab === "beans" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("beans"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].myBeans}</button>}
+          {user && <button className={`bookmark-tab-btn ${feedTab === "equip" && !showRanking ? "active" : ""}`} onClick={() => { setFeedTab("equip"); setMyRecipesOnly(false); setShowRanking(false); }}>{I18N[lang].myEquip}</button>}
         </div>
         {/* 두 번째 행: beans 탭 → 필터+추가하기 / 나머지 → 검색+기록하기 */}
         {feedTab === "beans" ? (
@@ -6055,6 +6455,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
               {lang === "en" ? "Add Bean" : "추가하기"}
             </button>
           </div>
+        ) : feedTab === "equip" ? (
+          <div style={{ marginBottom: "1.2rem" }}/>
         ) : (
           <div className="search-row" style={{ display: "flex", gap: "0.5rem", marginBottom: "1.2rem", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
             <div className="search-box" style={{ flex: 1, minWidth: 0 }}>
@@ -6085,7 +6487,10 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           editTarget={beanEditTarget} setEditTarget={setBeanEditTarget}
           currency={loadCurrency()} />
       )}
-      {feedTab !== "beans" && feedTab === "all" && !myRecipesOnly && !showRanking && (() => {
+      {feedTab === "equip" && user && (
+        <EquipmentVault user={user} lang={lang} />
+      )}
+      {feedTab !== "beans" && feedTab !== "equip" && feedTab === "all" && !myRecipesOnly && !showRanking && (() => {
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const startOfWeek = new Date(startOfDay);
@@ -6445,7 +6850,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         </div>
       )}
 
-      {feedTab !== "beans" && <div className="recipes-grid">
+      {feedTab !== "beans" && feedTab !== "equip" && <div className="recipes-grid">
         {filtered.length === 0 ? (
           <div className="empty-state">
             {(() => {
