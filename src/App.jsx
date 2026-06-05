@@ -2060,18 +2060,18 @@ const MenuIcons = {
 };
 
 const COFFEE_MENUS = [
-  { id: "espresso",   label: "에스프레소", labelEn: "Espresso",    needsDilute: false, fixedDilute: null,   hasSyrup: false, canIce: false },
-  { id: "ristretto",  label: "리스트레토", labelEn: "Ristretto",   needsDilute: false, fixedDilute: null,   hasSyrup: false, canIce: false },
-  { id: "lungo",      label: "룽고",       labelEn: "Lungo",       needsDilute: false, fixedDilute: null,   hasSyrup: false, canIce: false },
-  { id: "americano",  label: "아메리카노", labelEn: "Americano",   needsDilute: true,  fixedDilute: "물",   fixedDiluteEn: "Water", hasSyrup: false, canIce: true },
-  { id: "long_black", label: "롱블랙",     labelEn: "Long Black",  needsDilute: true,  fixedDilute: "물",   fixedDiluteEn: "Water", hasSyrup: false, canIce: true },
-  { id: "latte",      label: "카페라떼",   labelEn: "Latte",       needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk",  hasSyrup: true,  canIce: true },
-  { id: "cappuccino", label: "카푸치노",   labelEn: "Cappuccino",  needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk",  hasSyrup: false, canIce: true },
-  { id: "flatwhite",  label: "플랫화이트", labelEn: "Flat White",  needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk",  hasSyrup: false, canIce: false },
-  { id: "macchiato",  label: "마끼아또",   labelEn: "Macchiato",   needsDilute: true,  fixedDilute: "우유", fixedDiluteEn: "Milk",  hasSyrup: true,  canIce: true },
-  { id: "hand_drip",  label: "핸드드립",   labelEn: "Hand Drip",   needsDilute: false, fixedDilute: null,   hasSyrup: false, canIce: false },
-  { id: "cold_brew",  label: "콜드브루",   labelEn: "Cold Brew",   needsDilute: true,  fixedDilute: null,   hasSyrup: true,  canIce: true },
-  { id: "other",      label: "기타",       labelEn: "Other",       needsDilute: true,  fixedDilute: null,   hasSyrup: false, canIce: true },
+  { id: "espresso",   label: "에스프레소", labelEn: "Espresso",    needsDilute: false, hasSyrup: false, canIce: false },
+  { id: "ristretto",  label: "리스트레토", labelEn: "Ristretto",   needsDilute: false, hasSyrup: false, canIce: false },
+  { id: "lungo",      label: "룽고",       labelEn: "Lungo",       needsDilute: false, hasSyrup: false, canIce: false },
+  { id: "americano",  label: "아메리카노", labelEn: "Americano",   needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "물" },
+  { id: "long_black", label: "롱블랙",     labelEn: "Long Black",  needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "물" },
+  { id: "latte",      label: "카페라떼",   labelEn: "Latte",       needsDilute: true,  hasSyrup: true,  canIce: true,  defaultDilute: "우유" },
+  { id: "cappuccino", label: "카푸치노",   labelEn: "Cappuccino",  needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "우유" },
+  { id: "flatwhite",  label: "플랫화이트", labelEn: "Flat White",  needsDilute: true,  hasSyrup: false, canIce: false, defaultDilute: "우유" },
+  { id: "macchiato",  label: "마끼아또",   labelEn: "Macchiato",   needsDilute: true,  hasSyrup: true,  canIce: true,  defaultDilute: "우유" },
+  { id: "hand_drip",  label: "핸드드립",   labelEn: "Hand Drip",   needsDilute: false, hasSyrup: false, canIce: false },
+  { id: "cold_brew",  label: "콜드브루",   labelEn: "Cold Brew",   needsDilute: true,  hasSyrup: true,  canIce: true },
+  { id: "other",      label: "기타",       labelEn: "Other",       needsDilute: true,  hasSyrup: false, canIce: true },
 ];
 
 
@@ -2211,7 +2211,7 @@ function TimerField({ value, infusionValue, onChange, onInfusionChange, lang, t 
   return (
     <div>
       {/* 수동 입력 행 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "10px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.2fr", gap: "8px", marginBottom: "10px" }}>
         {[
           { lbl: lang === "en" ? "Infusion (s)" : "인퓨전 (초)", val: infusionValue, onChange: v => { onInfusionChange(v); onChange(String((parseInt(v)||0) + (parseInt(value)||0) - (parseInt(infusionValue)||0))); } },
           { lbl: lang === "en" ? "Extraction (s)" : "추출 (초)", val: String(Math.max(0, (parseInt(value)||0) - (parseInt(infusionValue)||0))), onChange: v => onChange(String((parseInt(infusionValue)||0) + (parseInt(v)||0))) },
@@ -2221,7 +2221,7 @@ function TimerField({ value, infusionValue, onChange, onInfusionChange, lang, t 
             <div style={{ fontSize: "0.62rem", color: highlight ? "var(--espresso)" : "var(--muted)", fontWeight: highlight ? 600 : 400, marginBottom: "4px", fontFamily: "'DM Sans',sans-serif" }}>{lbl}</div>
             <input type="number" value={val} min="0"
               onChange={e => oc(String(Math.max(0, Number(e.target.value))))}
-              style={{ width: "100%", padding: "0.65rem 0.7rem", border: `1px solid ${highlight ? "var(--latte)" : "var(--steam)"}`, borderRadius: "8px", background: highlight ? "#FDF6EF" : "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box", fontWeight: highlight ? 600 : 400 }}
+              style={{ width: "100%", padding: "0.65rem 0.4rem", border: `1px solid ${highlight ? "var(--latte)" : "var(--steam)"}`, borderRadius: "8px", background: highlight ? "#FDF6EF" : "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box", fontWeight: highlight ? 600 : 400, textAlign: "center" }}
             />
           </div>
         ))}
@@ -2497,6 +2497,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     ...editTarget,
     // 기존 레시피 중 waterTemp가 비어있는 경우 기본값 93 채움
     waterTemp: editTarget.waterTemp || "93",
+    waterType: editTarget.waterType || "",
+    waterBrand: editTarget.waterBrand || "",
   } : {
     company: savedBean?.company || "",
     bean: savedBean?.bean || "",
@@ -2511,6 +2513,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     diluteMl: savedDefaults?.diluteMl || "",
     diluteType: savedDefaults?.diluteType || "물",
     waterTemp: savedDefaults?.waterTemp || "93",
+    waterType: savedDefaults?.waterType || "",
+    waterBrand: savedDefaults?.waterBrand || "",
     grindSize: savedDefaults?.grindSize || "",
     isPublic: isEdit ? (editTarget.isPublic !== false) : true,
     isIced: isEdit ? (editTarget.isIced || false) : false,
@@ -2535,6 +2539,19 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   }, []);
   const [selectedMenu, setSelectedMenu] = useState(isEdit ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : ""));
 
+  // 핸드드립 메뉴 선택 시 머신 자동 해제
+  useEffect(() => {
+    if (selectedMenu === "hand_drip") {
+      setSelectedEquipIds(prev => {
+        if (!prev.machine) return prev;
+        const next = { ...prev };
+        delete next.machine;
+        return next;
+      });
+      setMachineBrand(""); setMachineModel(""); setMachineLocked(false);
+    }
+  }, [selectedMenu]);
+
   // ── 프리셋 ──────────────────────────────────────────────────────
   const [presets, setPresets] = useState(() => loadPresets(user?.uid));
   const [showPresetSave, setShowPresetSave] = useState(false);
@@ -2545,6 +2562,19 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     // 메뉴
     if (preset.menuId) setSelectedMenu(preset.menuId);
     const menu = COFFEE_MENUS.find(m => m.id === preset.menuId);
+
+    // 원두 연결
+    if (preset.linkedBeanId) {
+      setLinkedBeanId(preset.linkedBeanId);
+      const bean = myBeans.find(b => b.id === preset.linkedBeanId);
+      if (bean) {
+        set("company", bean.roastery || "");
+        set("bean", bean.name || "");
+        set("roastDate", bean.roastDate || "");
+      }
+    } else {
+      setLinkedBeanId(null);
+    }
 
     // 머신 — 완전 교체 (이전 값 잔존 방지)
     if (preset.equipType === "handdrip") {
@@ -2565,20 +2595,24 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     setGrinderModel(preset.grinderModel || "");
     setGrinderLocked(!!preset.grinderBrand);
 
-    // form 전체를 프리셋 값으로 완전 교체 (|| 없이 덮어씀)
+    // 장비 선택 IDs 복원
+    if (preset.selectedEquipIds) setSelectedEquipIds({ ...preset.selectedEquipIds });
+
+    // form 전체를 프리셋 값으로 완전 교체
     setForm(f => ({
       ...f,
-      isIced:         preset.isIced         ?? false,
-      gram:           preset.gram           ?? "",
-      seconds:        preset.seconds        ?? "",
-      infusionSeconds:preset.infusionSeconds ?? "0",
-      espressoMl:     preset.espressoMl     ?? "",
-      waterTemp:      preset.waterTemp ?? "",
-      grindSize:      preset.grindSize      ?? "",
-      diluteMl:       preset.diluteMl       ?? "",
-      diluteType:     preset.diluteType     ?? "물",
-      // 메뉴에 따라 syrup 초기화
-      syrup:          menu?.hasSyrup ? f.syrup : "",
+      isIced:          preset.isIced          ?? false,
+      gram:            preset.gram            ?? "",
+      seconds:         preset.seconds         ?? "",
+      infusionSeconds: preset.infusionSeconds ?? "0",
+      espressoMl:      preset.espressoMl      ?? "",
+      waterTemp:       preset.waterTemp       ?? "",
+      waterType:       preset.waterType       ?? "",
+      waterBrand:      preset.waterBrand      ?? "",
+      grindSize:       preset.grindSize       ?? "",
+      diluteMl:        preset.diluteMl        ?? "",
+      diluteType:      preset.diluteType      ?? "물",
+      syrup:           preset.syrup           ?? "",
     }));
   };
 
@@ -2588,25 +2622,30 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       id: `preset_${Date.now()}`,
       name: presetName.trim(),
       // 기본 정보
-      menuId:         selectedMenu,
-      isIced:         form.isIced || false,
+      menuId:          selectedMenu,
+      isIced:          form.isIced || false,
+      linkedBeanId:    linkedBeanId || null,
       // 장비 설정
-      equipType:      isHandDrip ? "handdrip" : "machine",
-      handDripName:   isHandDrip ? handDripName : "",
-      machineBrand:   isHandDrip ? "" : machineBrand,
-      machineModel:   isHandDrip ? "" : machineModel,
-      machineType:    isHandDrip ? "" : machineType,
-      grinderBrand:   grinderBrand,
-      grinderModel:   grinderModel,
+      equipType:       isHandDrip ? "handdrip" : "machine",
+      handDripName:    isHandDrip ? handDripName : "",
+      machineBrand:    isHandDrip ? "" : machineBrand,
+      machineModel:    isHandDrip ? "" : machineModel,
+      machineType:     isHandDrip ? "" : machineType,
+      grinderBrand:    grinderBrand,
+      grinderModel:    grinderModel,
+      selectedEquipIds: { ...selectedEquipIds },
       // 추출 파라미터
-      gram:           form.gram,
-      seconds:        form.seconds,
-      infusionSeconds:form.infusionSeconds || "0",
-      espressoMl:     form.espressoMl,
-      waterTemp:      form.waterTemp || "",
-      grindSize:      form.grindSize,
-      diluteMl:       form.diluteMl,
-      diluteType:     form.diluteType,
+      gram:            form.gram,
+      seconds:         form.seconds,
+      infusionSeconds: form.infusionSeconds || "0",
+      espressoMl:      form.espressoMl,
+      waterTemp:       form.waterTemp || "",
+      waterType:       form.waterType || "",
+      waterBrand:      form.waterBrand || "",
+      grindSize:       form.grindSize,
+      diluteMl:        form.diluteMl,
+      diluteType:      form.diluteType,
+      syrup:           form.syrup || "",
       createdAt: new Date().toISOString(),
     };
     const updated = [...presets, newPreset];
@@ -2644,8 +2683,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 
   const currentMenu = COFFEE_MENUS.find(m => m.id === selectedMenu);
   const needsDilute = !currentMenu || currentMenu.needsDilute;
-  const fixedDilute = currentMenu?.fixedDilute || null;
-  const fixedDiluteEn = currentMenu?.fixedDiluteEn || null;
+  const defaultDilute = currentMenu?.defaultDilute || null;
   const hasSyrup = currentMenu?.hasSyrup || false;
   const canIce = currentMenu?.canIce || false;
 
@@ -2911,11 +2949,6 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                         transition: "all 0.15s",
                         display: "flex", alignItems: "center", gap: "5px",
                       }}>
-                      {activePresetId === p.id && (
-                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
                       {p.name}
                     </button>
                   );
@@ -3017,137 +3050,68 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               </div>
             </div>
           )}
-          {/* 내 원두에서 선택 */}
-          {myBeans.length > 0 && (
+          {/* 원두 선택 — 내 원두에서만 */}
+          {myBeans.length === 0 ? (
             <div className="field full">
-              <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <ellipse cx="7" cy="10" rx="4" ry="1.5" stroke="currentColor" strokeWidth="1.2"/>
-                  <path d="M3 10C3 6 4.5 2 7 2S11 6 11 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                </svg>
-                {lang === "en" ? "Select from My Beans" : "내 원두에서 선택"}
+              <div style={{ background: "var(--cream)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "14px 16px", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.6 }}>
+                {lang === "en"
+                  ? "No beans registered. Add beans in the My Beans tab first."
+                  : "등록된 원두가 없어요. 내 원두 탭에서 원두를 먼저 추가해주세요."}
+              </div>
+            </div>
+          ) : (
+            <div className="field full">
+              <label style={{ color: errors.bean ? "#c0392b" : undefined }}>
+                {lang === "en" ? "Select Bean *" : "원두 선택 *"}
               </label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 {myBeans.map(b => {
+                  const roastDays = b.roastDate ? Math.floor((Date.now() - new Date(b.roastDate)) / 86400000) : null;
+                  const isExhausted = b.status === "empty";
                   const isSelected = linkedBeanId === b.id;
-                  const daysOld = b.roastDate ? Math.floor((new Date() - new Date(b.roastDate)) / 86400000) : null;
-                  // 소진 판단: status가 empty이거나 (weight와 usedCount로 추정 불가 → DB 기준으로만)
-                  const isEmpty = b.status === "empty";
                   return (
                     <button key={b.id} type="button"
-                      disabled={isEmpty}
+                      disabled={isExhausted}
                       onClick={() => {
-                        if (isEmpty) return;
                         if (isSelected) {
                           setLinkedBeanId(null);
+                          set("company", ""); set("bean", ""); set("roastDate", "");
                         } else {
                           setLinkedBeanId(b.id);
                           set("company", b.roastery || "");
                           set("bean", b.name || "");
-                          if (b.roastDate) set("roastDate", b.roastDate);
-                          setErrors(p => ({ ...p, company: false, bean: false }));
+                          set("roastDate", b.roastDate || "");
+                          setErrors(p => ({ ...p, bean: false, company: false }));
                         }
                       }}
                       style={{
                         padding: "6px 12px", border: "1px solid", borderRadius: "8px",
                         fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem",
-                        cursor: isEmpty ? "not-allowed" : "pointer",
-                        transition: "all 0.18s", textAlign: "left", lineHeight: 1.4,
-                        borderColor: isEmpty ? "var(--steam)" : isSelected ? "var(--latte)" : "var(--steam)",
-                        background: isEmpty ? "var(--cream)" : isSelected ? "#FDF6EF" : "var(--foam)",
-                        color: isEmpty ? "var(--muted)" : isSelected ? "var(--roast)" : "var(--muted)",
-                        fontWeight: isSelected ? 600 : 400,
-                        opacity: isEmpty ? 0.5 : 1,
-                        boxShadow: isSelected ? "0 0 0 1.5px var(--latte)" : "none",
+                        cursor: isExhausted ? "not-allowed" : "pointer",
+                        borderColor: isSelected ? "var(--espresso)" : "var(--steam)",
+                        background: isSelected ? "var(--espresso)" : isExhausted ? "var(--divider)" : "var(--foam)",
+                        color: isSelected ? "var(--cream)" : isExhausted ? "var(--muted)" : "var(--espresso)",
+                        opacity: isExhausted ? 0.5 : 1,
+                        textAlign: "left", lineHeight: 1.4,
+                        transition: "all 0.15s",
                       }}>
-                      <span style={{ color: isEmpty ? "var(--muted)" : "var(--espresso)", fontWeight: isSelected ? 700 : 500 }}>{b.name}</span>
-                      <span style={{ opacity: 0.6, margin: "0 4px" }}>·</span>
-                      <span>{b.roastery}</span>
-                      {isEmpty ? (
-                        <span style={{ marginLeft: "4px", fontSize: "0.65rem", color: "#999", background: "#f0f0f0", padding: "1px 5px", borderRadius: "3px" }}>
-                          {lang === "en" ? "empty" : "소진"}
+                      <span style={{ fontWeight: 600 }}>{b.name}</span>
+                      <span style={{ marginLeft: "4px", fontSize: "0.72rem", opacity: 0.7 }}>· {b.roastery}</span>
+                      {roastDays !== null && (
+                        <span style={{ marginLeft: "4px", fontSize: "0.65rem", opacity: 0.6 }}>
+                          ({roastDays}{lang === "en" ? "d" : "일"})
                         </span>
-                      ) : (<>
-                        {daysOld !== null && (
-                          <span style={{ marginLeft: "4px", fontSize: "0.68rem", opacity: 0.55 }}>
-                            ({daysOld}{lang === "en" ? "d" : "일"})
-                          </span>
-                        )}
-                        {b.usedCount > 0 && (
-                          <span style={{ marginLeft: "4px", fontSize: "0.65rem", color: "var(--latte)", opacity: 0.8 }}>
-                            ×{b.usedCount}
-                          </span>
-                        )}
-                      </>)}
+                      )}
+                      {b.usedCount > 0 && (
+                        <span style={{ marginLeft: "3px", fontSize: "0.65rem", color: isSelected ? "var(--cream)" : "var(--latte)", opacity: 0.8 }}>×{b.usedCount}</span>
+                      )}
                     </button>
                   );
                 })}
               </div>
-              {linkedBeanId && (
-                <p style={{ fontSize: "0.75rem", color: "var(--latte)", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
-                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.3"/>
-                    <path d="M4.5 7l2 2 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  {lang === "en" ? "Linked — usage count will update on save" : "연결됨 — 저장 시 사용 횟수가 업데이트돼요"}
-                </p>
-              )}
+              {errors.bean && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.4rem" }}>⚠️ {lang === "en" ? "Please select a bean." : "원두를 선택해주세요."}</p>}
             </div>
           )}
-
-          {/* 원두 회사명 / 원두 이름 / 로스팅 일자 — 내 원두 선택 시 숨김 */}
-          {!linkedBeanId && (
-            <div className="field" data-field="company">
-              <label style={{ color: errors.company ? "#c0392b" : undefined }}>{t.company}</label>
-              <input value={form.company} onChange={e => { set("company", e.target.value); setErrors(p => ({...p, company: false})); }}
-                placeholder="블루보틀 …"
-                style={{ borderColor: errors.company ? "#c0392b" : undefined }} />
-              {errors.company && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
-              {savedBean?.company && form.company === savedBean.company && !errors.company && (
-                <p style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "0.3rem", display: "flex", alignItems: "center", gap: "4px" }}>
-                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4 7h6M4 9.5h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><rect x="3" y="1" width="8" height="3" rx="1" fill="currentColor" opacity="0.35"/></svg>
-                  {lang === "ko" ? "이전 기록에서 불러왔어요" : "Loaded from last record"}
-                </p>
-              )}
-            </div>
-          )}
-          {!linkedBeanId && (
-            <div className="field" data-field="bean">
-              <label style={{ color: errors.bean ? "#c0392b" : undefined }}>{t.bean}</label>
-              <input value={form.bean} onChange={e => { set("bean", e.target.value); setErrors(p => ({...p, bean: false})); }}
-                placeholder="에티오피아 예가체프"
-                style={{ borderColor: errors.bean ? "#c0392b" : undefined }} />
-              {errors.bean && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
-            </div>
-          )}
-          {!linkedBeanId && (
-            <div className="field full">
-              <label>{t ? t.roastDate : "로스팅 일자"}</label>
-              <input type="date" value={form.roastDate || ""} onChange={e => set("roastDate", e.target.value)} max={new Date().toISOString().split("T")[0]} />
-            </div>
-          )}
-          {/* 내 원두 선택 시 원두 정보 요약 표시 */}
-          {linkedBeanId && (() => {
-            const bean = myBeans.find(b => b.id === linkedBeanId);
-            if (!bean) return null;
-            return (
-              <div className="field full">
-                <div style={{ background: "var(--cream)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--espresso)" }}>{bean.bean}</div>
-                    <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "2px", display: "flex", gap: "8px" }}>
-                      {bean.company && <span>{bean.company}</span>}
-                      {bean.roastDate && <span>로스팅 {bean.roastDate}</span>}
-                    </div>
-                  </div>
-                  <button type="button" onClick={() => { setLinkedBeanId(null); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.72rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", padding: "4px 8px", borderRadius: "6px", border: "1px solid var(--steam)" }}>
-                    {lang === "en" ? "Change" : "변경"}
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
           <div style={{ gridColumn: "1 / -1", margin: "36px 0 16px" }}>
             <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: 700, color: "var(--espresso)", letterSpacing: "0.04em" }}>장비 설정</span>
             <div style={{ height: "1px", background: "var(--divider)", marginTop: "10px" }}/>
@@ -3171,6 +3135,10 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                 { cat: "grinder",  labelKo: "그라인더",    labelEn: "Grinder" },
                 { cat: "other",    labelKo: "기타",        labelEn: "Other" },
               ].map(({ cat, labelKo, labelEn }) => {
+                // 핸드드립 메뉴 선택 시 커피 머신 카테고리 숨김
+                if (cat === "machine" && selectedMenu === "hand_drip") return null;
+                // 핸드드립 메뉴 선택 시 머신이 아닌 경우에만 핸드드립 기구 표시 (반대로 머신 메뉴면 핸드드립 기구 숨김)
+                if (cat === "handdrip" && selectedMenu && selectedMenu !== "hand_drip" && selectedMenu !== "other") return null;
                 const catEquips = myEquips.filter(e => e.category === cat);
                 if (!catEquips.length) return null;
                 return (
@@ -3202,11 +3170,6 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                               borderColor: isSelected ? "var(--espresso)" : "var(--steam)",
                               background: isSelected ? "var(--espresso)" : "var(--foam)",
                               boxShadow: isSelected ? "none" : "none" }}>
-                            {isSelected && (
-                              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                                <path d="M2 6l3 3 5-5" stroke="var(--cream)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            )}
                             <span style={{ fontWeight: 600, color: isSelected ? "var(--cream)" : "var(--espresso)" }}>{eq.brand}</span>
                             {eq.isPrimary && !isSelected && <span style={{ fontSize: "0.6rem", color: "var(--latte)" }}>★</span>}
                             {eq.model && <span style={{ color: isSelected ? "var(--cream)" : "var(--muted)", fontSize: "0.72rem", opacity: isSelected ? 0.8 : 1 }}>{eq.model}</span>}
@@ -3431,30 +3394,94 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             <input type="number" value={form.waterTemp} onChange={e => set("waterTemp", String(Math.max(0, Number(e.target.value))))}
               placeholder="93" min="0" max="100" />
           </div>
+          {/* 물 종류 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Water Type" : "물 종류"}</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
+              {[
+                { id: "tap",    ko: "수돗물",    en: "Tap Water" },
+                { id: "filter", ko: "정수기",    en: "Filtered" },
+                { id: "bottle", ko: "생수",      en: "Bottled" },
+                { id: "other",  ko: "기타",      en: "Other" },
+              ].map(w => {
+                const isSelected = form.waterType === w.id;
+                return (
+                  <button key={w.id} type="button"
+                    onClick={() => set("waterType", isSelected ? "" : w.id)}
+                    style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px",
+                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s",
+                      borderColor: isSelected ? "var(--espresso)" : "var(--steam)",
+                      background: isSelected ? "var(--espresso)" : "var(--foam)",
+                      color: isSelected ? "var(--cream)" : "var(--espresso)" }}>
+                    {lang === "en" ? w.en : w.ko}
+                  </button>
+                );
+              })}
+            </div>
+            {/* 정수기/생수/기타 선택 시 브랜드명 입력 */}
+            {(form.waterType === "filter" || form.waterType === "bottle" || form.waterType === "other") && (
+              <input
+                value={form.waterBrand || ""}
+                onChange={e => set("waterBrand", e.target.value)}
+                placeholder={
+                  form.waterType === "filter" ? (lang === "en" ? "e.g. Coway, Brita…" : "예) 코웨이, 브리타, 직수…") :
+                  form.waterType === "bottle" ? (lang === "en" ? "e.g. Evian, Volvic…" : "예) 삼다수, 에비앙, 평창수…") :
+                  (lang === "en" ? "Specify…" : "직접 입력…")
+                }
+              />
+            )}
+          </div>
           {needsDilute && (<>
-            <div className="field">
+            {/* 희석 종류 — 물/우유 칩 선택 */}
+            <div className="field full">
               <label>{t ? t.diluteType : "희석 종류"}</label>
-              {fixedDilute ? (
-                <div style={{ padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--steam)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>
-                  {lang === "en" ? (fixedDiluteEn || fixedDilute) : fixedDilute} {lang === "en" ? "(Fixed)" : "(고정)"}
+              {/* 물 그룹 */}
+              <div style={{ marginBottom: "6px" }}>
+                <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>
+                  {lang === "en" ? "Water" : "물"}
                 </div>
-              ) : (
-                <input
-                  value={lang === "en"
-                    ? (form.diluteType === "물" ? "Water" : form.diluteType === "우유" ? "Milk" : form.diluteType === "두유" ? "Soy Milk" : form.diluteType)
-                    : form.diluteType}
-                  onChange={e => {
-                    const v = e.target.value;
-                    // 영어 입력을 한국어로 저장
-                    if (lang === "en") {
-                      const map = { "Water": "물", "Milk": "우유", "Soy Milk": "두유" };
-                      set("diluteType", map[v] || v);
-                    } else {
-                      set("diluteType", v);
-                    }
-                  }}
-                  placeholder={lang === "en" ? "Water / Milk / Soy Milk" : "물/우유/두유"} />
-              )}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {["물"].map(v => {
+                    const isSelected = form.diluteType === v;
+                    return (
+                      <button key={v} type="button" onClick={() => set("diluteType", isSelected ? "" : v)}
+                        style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s",
+                          borderColor: isSelected ? "var(--espresso)" : "var(--steam)",
+                          background: isSelected ? "var(--espresso)" : "var(--foam)",
+                          color: isSelected ? "var(--cream)" : "var(--espresso)" }}>
+                        {lang === "en" ? "Water" : "물"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* 우유 그룹 */}
+              <div>
+                <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>
+                  {lang === "en" ? "Milk" : "우유"}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {[
+                    { id: "우유",       en: "Whole Milk" },
+                    { id: "저지방우유", en: "Low-fat Milk" },
+                    { id: "두유",       en: "Soy Milk" },
+                    { id: "귀리우유",   en: "Oat Milk" },
+                    { id: "아몬드우유", en: "Almond Milk" },
+                    { id: "코코넛우유", en: "Coconut Milk" },
+                  ].map(m => {
+                    const isSelected = form.diluteType === m.id;
+                    return (
+                      <button key={m.id} type="button" onClick={() => set("diluteType", isSelected ? "" : m.id)}
+                        style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s",
+                          borderColor: isSelected ? "var(--espresso)" : "var(--steam)",
+                          background: isSelected ? "var(--espresso)" : "var(--foam)",
+                          color: isSelected ? "var(--cream)" : "var(--espresso)" }}>
+                        {lang === "en" ? m.en : m.id}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
             <div className="field full"><label>{t.diluteMl}</label>
               <input type="number" value={form.diluteMl} onChange={e => set("diluteMl", String(Math.max(0, Number(e.target.value))))} placeholder="150" min="0" />
@@ -4271,6 +4298,18 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
               }
             </span>
           </>)}
+          {(recipe.waterType || recipe.waterBrand) && (<>
+            <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Water" : "물 종류"}</span>
+            <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+            <span>
+              {(() => {
+                const types = { tap: "수돗물", filter: "정수기", bottle: "생수", other: "기타" };
+                const typesEn = { tap: "Tap", filter: "Filtered", bottle: "Bottled", other: "Other" };
+                const label = lang === "en" ? typesEn[recipe.waterType] : types[recipe.waterType];
+                return [label, recipe.waterBrand].filter(Boolean).join(" · ");
+              })()}
+            </span>
+          </>)}
           {recipe.weather && (<>
             <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Weather" : "날씨"}</span>
             <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
@@ -4785,6 +4824,18 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
           <span>{lang === "en" ? "Private" : "비공개"}</span>
         </>)}
         {recipe.weather && (<>
+          {(recipe.waterType || recipe.waterBrand) && (<>
+            <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Water" : "물 종류"}</span>
+            <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
+            <span>
+              {(() => {
+                const types = { tap: "수돗물", filter: "정수기", bottle: "생수", other: "기타" };
+                const typesEn = { tap: "Tap", filter: "Filtered", bottle: "Bottled", other: "Other" };
+                const label = lang === "en" ? typesEn[recipe.waterType] : types[recipe.waterType];
+                return [label, recipe.waterBrand].filter(Boolean).join(" · ");
+              })()}
+            </span>
+          </>)}
           <span style={{ fontWeight: 600, color: "var(--roast)", opacity: 0.6, whiteSpace: "nowrap" }}>{lang === "en" ? "Weather" : "날씨"}</span>
           <span style={{ width: "1px", background: "var(--steam)", alignSelf: "stretch", margin: "0.2rem 0" }} />
           <span>{recipe.weather.icon} {recipe.weather.descKo || recipe.weather.condition} {recipe.weather.temp}°C · {lang === "en" ? "Humidity" : "습도"} {recipe.weather.humidity}%</span>
