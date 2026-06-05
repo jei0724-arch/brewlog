@@ -300,15 +300,15 @@ const CSS = `
     color: var(--espresso); margin-bottom: 4px; line-height: 1.3; font-weight: 700; text-align: left;
   }
   /* 스탯 박스 */
-  .card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
-  .stat { background: var(--cream); padding: 8px 6px; border-radius: 6px; text-align: center; border: 1px solid var(--divider); }
+  .card-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 16px; }
+  .stat { background: var(--cream); padding: 8px 4px; border-radius: 6px; text-align: center; border: 1px solid var(--divider); min-width: 0; }
   .stat-val {
-    font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 600;
-    color: var(--roast); display: block; letter-spacing: -0.01em;
+    font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 600;
+    color: var(--roast); display: block; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .stat-label {
-    font-family: 'DM Sans', sans-serif; font-size: 0.68rem; color: var(--muted);
-    letter-spacing: 0.04em; display: block; margin-top: 0.15rem;
+    font-family: 'DM Sans', sans-serif; font-size: 0.62rem; color: var(--muted);
+    letter-spacing: 0.02em; display: block; margin-top: 0.15rem; white-space: nowrap;
   }
   /* 희석 / 날씨 */
   .card-dilution {
@@ -777,8 +777,10 @@ const CSS = `
     .menu-btn svg { width: 16px; height: 16px; }
 
     /* 카드 */
-    .card-stats { gap: 6px; }
-    .stat-val { font-size: 0.95rem; }
+    .card-stats { gap: 4px; }
+    .stat { padding: 7px 3px; }
+    .stat-val { font-size: 0.88rem; }
+    .stat-label { font-size: 0.58rem; }
     .card-bean { font-size: 0.98rem; }
     .card-machine { font-size: 0.72rem; }
     .nick-badge { display: none; }
@@ -3425,16 +3427,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             {errors.espressoMl && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ 필수 항목이에요</p>}
           </div>
           <div className="field">
-            <label>
-              {form.isIced
-                ? (lang === "en" ? "Brew Temp (°C)" : "추출 물온도 (°C)")
-                : (lang === "en" ? "Water Temp (°C)" : "물 온도 (°C)")}
-              {form.isIced && (
-                <span style={{ marginLeft: "6px", fontSize: "0.68rem", color: "var(--muted)", fontWeight: 400 }}>
-                  {lang === "en" ? "(hot water for espresso extraction)" : "(에스프레소 추출 시 물온도)"}
-                </span>
-              )}
-            </label>
+            <label>{lang === "en" ? "Water Temp (°C)" : "물온도 (°C)"}</label>
             <input type="number" value={form.waterTemp} onChange={e => set("waterTemp", String(Math.max(0, Number(e.target.value))))}
               placeholder="93" min="0" max="100" />
           </div>
@@ -4294,13 +4287,13 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
           <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--roast)", opacity: 0.6, marginBottom: "0.15rem" }}>{lang === "en" ? "Product" : "제품명"}</div>
           <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.25rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1.25 }}>{recipe.bean}</div>
         </div>
-        <div className="card-stats" style={{ marginBottom: "1rem", gridTemplateColumns: recipe.waterTemp ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
+        <div className="card-stats" style={{ marginBottom: "1rem", gridTemplateColumns: "repeat(4, 1fr)" }}>
           <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
           <div className="stat">
             <span className="stat-val">{recipe.seconds}s</span>
             <span className="stat-label">{t.statSeconds}</span>
             {recipe.infusionSeconds && parseInt(recipe.infusionSeconds) > 0 && (
-              <span style={{ fontSize: "0.58rem", color: "var(--muted)", display: "block", lineHeight: 1.3, marginTop: "1px" }}>
+              <span style={{ fontSize: "0.55rem", color: "var(--muted)", display: "block", lineHeight: 1.2, marginTop: "1px", whiteSpace: "nowrap" }}>
                 {lang === "en"
                   ? `${recipe.infusionSeconds}+${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`
                   : `인퓨전 ${recipe.infusionSeconds}+추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`}
@@ -4308,7 +4301,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             )}
           </div>
           <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
-          {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{recipe.isIced ? (lang === "en" ? "Brew Temp" : "추출온도") : (lang === "en" ? "Temp" : "물온도")}</span></div>}
+          {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang === "en" ? "Temp" : "물온도"}</span></div>}
         </div>
         {recipe.diluteMl && (
           <div className="card-dilution">{recipe.diluteType} {recipe.diluteMl}ml 희석</div>
@@ -4803,7 +4796,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
         <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--roast)", opacity: 0.6, marginBottom: "0.15rem" }}>{lang === "en" ? "Product" : "제품명"}</div>
         <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.25rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1.25, letterSpacing: "-0.01em" }}>{recipe.bean}</div>
       </div>
-      <div className="card-stats" style={{ gridTemplateColumns: recipe.waterTemp ? "repeat(4, 1fr)" : "repeat(3, 1fr)" }}>
+      <div className="card-stats" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
         <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
         <div className="stat">
             <span className="stat-val">{recipe.seconds}s</span>
@@ -4817,7 +4810,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
             )}
           </div>
         <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
-        {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{recipe.isIced ? (lang === "en" ? "Brew Temp" : "추출온도") : (lang === "en" ? "Temp" : "물온도")}</span></div>}
+        {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang === "en" ? "Temp" : "물온도"}</span></div>}
       </div>
       {recipe.diluteMl && <div className="card-dilution">{lang === "en" ? (recipe.diluteType === "물" ? "Water" : recipe.diluteType === "우유" ? "Milk" : recipe.diluteType === "두유" ? "Soy Milk" : recipe.diluteType) : recipe.diluteType} {recipe.diluteMl}ml {t.dilution}</div>}
       {recipe.syrup && <div className="card-dilution">{recipe.syrup}</div>}
@@ -6114,7 +6107,12 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     try {
       const q = query(collection(db, "recipes"), orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
-      setRecipes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setRecipes(snap.docs.map(d => {
+        const data = { id: d.id, ...d.data() };
+        // 기존 저장된 레시피 중 waterTemp 빈값 보정
+        if (!data.waterTemp && data.waterTemp !== 0) data.waterTemp = "93";
+        return data;
+      }));
     } catch (e) { console.error(e); }
   }, []);
 
