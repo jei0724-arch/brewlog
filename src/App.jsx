@@ -2063,15 +2063,15 @@ const COFFEE_MENUS = [
   { id: "espresso",   label: "에스프레소", labelEn: "Espresso",    needsDilute: false, hasSyrup: false, canIce: false },
   { id: "ristretto",  label: "리스트레토", labelEn: "Ristretto",   needsDilute: false, hasSyrup: false, canIce: false },
   { id: "lungo",      label: "룽고",       labelEn: "Lungo",       needsDilute: false, hasSyrup: false, canIce: false },
-  { id: "americano",  label: "아메리카노", labelEn: "Americano",   needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "물" },
-  { id: "long_black", label: "롱블랙",     labelEn: "Long Black",  needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "물" },
-  { id: "latte",      label: "카페라떼",   labelEn: "Latte",       needsDilute: true,  hasSyrup: true,  canIce: true,  defaultDilute: "우유" },
-  { id: "cappuccino", label: "카푸치노",   labelEn: "Cappuccino",  needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "우유" },
-  { id: "flatwhite",  label: "플랫화이트", labelEn: "Flat White",  needsDilute: true,  hasSyrup: false, canIce: false, defaultDilute: "우유" },
-  { id: "macchiato",  label: "마끼아또",   labelEn: "Macchiato",   needsDilute: true,  hasSyrup: true,  canIce: true,  defaultDilute: "우유" },
+  { id: "americano",  label: "아메리카노", labelEn: "Americano",   needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "물",  diluteCategory: "water" },
+  { id: "long_black", label: "롱블랙",     labelEn: "Long Black",  needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "물",  diluteCategory: "water" },
+  { id: "latte",      label: "카페라떼",   labelEn: "Latte",       needsDilute: true,  hasSyrup: true,  canIce: true,  defaultDilute: "우유", diluteCategory: "milk" },
+  { id: "cappuccino", label: "카푸치노",   labelEn: "Cappuccino",  needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "우유", diluteCategory: "milk" },
+  { id: "flatwhite",  label: "플랫화이트", labelEn: "Flat White",  needsDilute: true,  hasSyrup: false, canIce: false, defaultDilute: "우유", diluteCategory: "milk" },
+  { id: "macchiato",  label: "마끼아또",   labelEn: "Macchiato",   needsDilute: true,  hasSyrup: true,  canIce: true,  defaultDilute: "우유", diluteCategory: "milk" },
   { id: "hand_drip",  label: "핸드드립",   labelEn: "Hand Drip",   needsDilute: false, hasSyrup: false, canIce: false },
-  { id: "cold_brew",  label: "콜드브루",   labelEn: "Cold Brew",   needsDilute: true,  hasSyrup: true,  canIce: true },
-  { id: "other",      label: "기타",       labelEn: "Other",       needsDilute: true,  hasSyrup: false, canIce: true },
+  { id: "cold_brew",  label: "콜드브루",   labelEn: "Cold Brew",   needsDilute: true,  hasSyrup: true,  canIce: true,  defaultDilute: "",    diluteCategory: "both" },
+  { id: "other",      label: "기타",       labelEn: "Other",       needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "",    diluteCategory: "both" },
 ];
 
 
@@ -2499,6 +2499,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     waterTemp: editTarget.waterTemp || "93",
     waterType: editTarget.waterType || "",
     waterBrand: editTarget.waterBrand || "",
+    diluteCustom: editTarget.diluteCustom || "",
   } : {
     company: savedBean?.company || "",
     bean: savedBean?.bean || "",
@@ -2515,6 +2516,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     waterTemp: savedDefaults?.waterTemp || "93",
     waterType: savedDefaults?.waterType || "",
     waterBrand: savedDefaults?.waterBrand || "",
+    diluteCustom: "",
     grindSize: savedDefaults?.grindSize || "",
     isPublic: isEdit ? (editTarget.isPublic !== false) : true,
     isIced: isEdit ? (editTarget.isIced || false) : false,
@@ -2684,6 +2686,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const currentMenu = COFFEE_MENUS.find(m => m.id === selectedMenu);
   const needsDilute = !currentMenu || currentMenu.needsDilute;
   const defaultDilute = currentMenu?.defaultDilute || null;
+  const diluteCategory = currentMenu?.diluteCategory || "both";
   const hasSyrup = currentMenu?.hasSyrup || false;
   const canIce = currentMenu?.canIce || false;
 
@@ -2909,18 +2912,10 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         {/* ── 프리셋 (모달 최상단) ── */}
         {!isEdit && (
           <div style={{ marginBottom: "20px", paddingBottom: "20px", borderBottom: "1px solid var(--divider)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+            <div style={{ marginBottom: "10px" }}>
               <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>
                 {lang === "en" ? "Presets" : "프리셋"}
               </span>
-              <button type="button"
-                onClick={() => setShowPresetSave(true)}
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: "0.72rem", color: "var(--latte)", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", gap: "3px", padding: 0 }}>
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                  <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                {lang === "en" ? "Save current" : "현재 설정 저장"}
-              </button>
             </div>
             {presets.length === 0 ? (
               <p style={{ fontSize: "0.78rem", color: "var(--muted)", opacity: 0.7 }}>
@@ -3435,26 +3430,23 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             {/* 희석 종류 — 물/우유 칩 선택 */}
             <div className="field full">
               <label>{t ? t.diluteType : "희석 종류"}</label>
-              {/* 물 그룹 */}
-              <div style={{ marginBottom: "6px" }}>
-                <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>
-                  {lang === "en" ? "Water" : "물"}
+              {/* 물 그룹 — milk only 메뉴에서 숨김 */}
+              {diluteCategory !== "milk" && (
+                <div style={{ marginBottom: "10px" }}>
+                  <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>
+                    {lang === "en" ? "Water" : "물"}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                    <button type="button" onClick={() => set("diluteType", form.diluteType === "물" ? "" : "물")}
+                      style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s",
+                        borderColor: form.diluteType === "물" ? "var(--espresso)" : "var(--steam)",
+                        background: form.diluteType === "물" ? "var(--espresso)" : "var(--foam)",
+                        color: form.diluteType === "물" ? "var(--cream)" : "var(--espresso)" }}>
+                      {lang === "en" ? "Water" : "물"}
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  {["물"].map(v => {
-                    const isSelected = form.diluteType === v;
-                    return (
-                      <button key={v} type="button" onClick={() => set("diluteType", isSelected ? "" : v)}
-                        style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s",
-                          borderColor: isSelected ? "var(--espresso)" : "var(--steam)",
-                          background: isSelected ? "var(--espresso)" : "var(--foam)",
-                          color: isSelected ? "var(--cream)" : "var(--espresso)" }}>
-                        {lang === "en" ? "Water" : "물"}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              )}
               {/* 우유 그룹 */}
               <div>
                 <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>
@@ -3462,25 +3454,33 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                   {[
-                    { id: "우유",       en: "Whole Milk" },
-                    { id: "저지방우유", en: "Low-fat Milk" },
-                    { id: "두유",       en: "Soy Milk" },
-                    { id: "귀리우유",   en: "Oat Milk" },
-                    { id: "아몬드우유", en: "Almond Milk" },
-                    { id: "코코넛우유", en: "Coconut Milk" },
+                    { id: "우유",           en: "Whole Milk" },
+                    { id: "저지방우유",     en: "Low-fat Milk" },
+                    { id: "두유",           en: "Soy Milk" },
+                    { id: "귀리우유",       en: "Oat Milk" },
+                    { id: "아몬드우유",     en: "Almond Milk" },
+                    { id: "코코넛우유",     en: "Coconut Milk" },
+                    { id: "기타우유",       en: "Other Milk" },
                   ].map(m => {
                     const isSelected = form.diluteType === m.id;
                     return (
-                      <button key={m.id} type="button" onClick={() => set("diluteType", isSelected ? "" : m.id)}
+                      <button key={m.id} type="button" onClick={() => { set("diluteType", isSelected ? "" : m.id); if (m.id !== "기타우유") set("diluteCustom", ""); }}
                         style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s",
                           borderColor: isSelected ? "var(--espresso)" : "var(--steam)",
                           background: isSelected ? "var(--espresso)" : "var(--foam)",
                           color: isSelected ? "var(--cream)" : "var(--espresso)" }}>
-                        {lang === "en" ? m.en : m.id}
+                        {lang === "en" ? m.en : m.id === "기타우유" ? "기타" : m.id}
                       </button>
                     );
                   })}
                 </div>
+                {/* 기타 우유 직접 입력 */}
+                {form.diluteType === "기타우유" && (
+                  <input style={{ marginTop: "6px" }}
+                    value={form.diluteCustom || ""}
+                    onChange={e => set("diluteCustom", e.target.value)}
+                    placeholder={lang === "en" ? "e.g. Rice milk, Macadamia milk…" : "예) 쌀우유, 마카다미아 우유…"} />
+                )}
               </div>
             </div>
             <div className="field full"><label>{t.diluteMl}</label>
@@ -3669,6 +3669,20 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             </p>
           </div>
         </div>
+        {/* 현재 설정을 프리셋으로 저장 — 저장 버튼 바로 위 */}
+        {!isEdit && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px" }}>
+            <button type="button" onClick={() => setShowPresetSave(true)}
+              style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "8px", padding: "7px 14px", cursor: "pointer", fontSize: "0.78rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", gap: "5px", transition: "all 0.2s" }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--latte)"; e.currentTarget.style.color = "var(--latte)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--steam)"; e.currentTarget.style.color = "var(--muted)"; }}>
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              {lang === "en" ? "Save as Preset" : "현재 설정 프리셋으로 저장"}
+            </button>
+          </div>
+        )}
         <div className="modal-actions">
           <button className="btn-cancel" onClick={onClose}>{t.cancel}</button>
           <button className="btn-primary" style={{ width: "auto", marginTop: 0, padding: "0.7rem 2rem" }} onClick={save} disabled={saving}>
