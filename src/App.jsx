@@ -4421,110 +4421,115 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                   const iced = recipe.isIced ? "ICE" : (COFFEE_MENUS.find(m => m.id === recipe.menuId)?.canIce ? "HOT" : "");
                   const stars = recipe.rating > 0 ? "★".repeat(recipe.rating) + "☆".repeat(5 - recipe.rating) : "";
 
-                  // 파라미터 박스
+                  // 파라미터 박스 (숫자형 핵심 수치)
                   const params = [
-                    recipe.gram       && { lbl: "원두량",   val: `${recipe.gram}g` },
-                    recipe.infusionSeconds && parseInt(recipe.infusionSeconds) > 0
-                      ? { lbl: "인퓨전",   val: `${recipe.infusionSeconds}s` } : null,
-                    recipe.seconds    && { lbl: "추출시간", val: `${recipe.seconds}s` },
-                    recipe.espressoMl && { lbl: "추출량",   val: `${recipe.espressoMl}ml` },
-                    recipe.waterTemp && { lbl: recipe.isIced ? (lang === "en" ? "Brew Temp" : "추출온도") : (lang === "en" ? "Water Temp" : "물온도"), val: `${recipe.waterTemp}°C` },
-                    recipe.grindSize  && { lbl: "분쇄도",   val: `${recipe.grindSize}` },
+                    recipe.gram            && { lbl: lang==="en"?"Dose":"원두량",   val: `${recipe.gram}g` },
+                    (recipe.infusionSeconds && parseInt(recipe.infusionSeconds) > 0)
+                      ? { lbl: lang==="en"?"Infusion":"인퓨전", val: `${recipe.infusionSeconds}s` } : null,
+                    recipe.seconds         && { lbl: lang==="en"?"Time":"추출시간", val: `${recipe.seconds}s` },
+                    recipe.espressoMl      && { lbl: lang==="en"?"Yield":"추출량",  val: `${recipe.espressoMl}ml` },
+                    recipe.waterTemp       && { lbl: lang==="en"?"Temp":"물온도",   val: `${recipe.waterTemp}°C` },
+                    recipe.grindSize       && { lbl: lang==="en"?"Grind":"분쇄도",  val: `${recipe.grindSize}` },
                   ].filter(Boolean);
 
-                  // 라벨 행 (machine, grinder, dilute, syrup, roastDate, weather)
+                  // 물 종류 표시
+                  const waterTypes = { tap:"수돗물", filter:"정수기", bottle:"생수", other:"기타" };
+                  const waterLabel = recipe.waterType
+                    ? [waterTypes[recipe.waterType] || recipe.waterType, recipe.waterBrand].filter(Boolean).join(" · ")
+                    : "";
+
+                  // 희석 표시
+                  const diluteLabel = recipe.diluteMl
+                    ? [recipe.diluteType === "기타우유" ? (recipe.diluteCustom || "기타") : recipe.diluteType, `${recipe.diluteMl}ml`].filter(Boolean).join(" ")
+                    : "";
+
+                  // 라벨 행 (장비/환경 정보)
                   const labelRows = [
-                    recipe.machine    && { lbl: "머신",     val: `${recipe.machine}${recipe.machineModel ? " " + recipe.machineModel : ""}` },
-                    recipe.grinder    && { lbl: "그라인더", val: `${recipe.grinder}${recipe.grindSize ? ` (${recipe.grindSize})` : ""}` },
-                    recipe.diluteMl   && { lbl: "희석",     val: `${recipe.diluteType || "물"} ${recipe.diluteMl}ml` },
-                    recipe.syrup      && { lbl: "시럽",     val: recipe.syrup },
-                    recipe.roastDate  && { lbl: "로스팅",   val: recipe.roastDate },
-                    recipe.weather    && { lbl: "날씨",     val: `${recipe.weather.icon || ""} ${recipe.weather.descKo || ""} ${recipe.weather.temp}°C · 습도 ${recipe.weather.humidity}%` },
+                    recipe.roastDate  && { lbl: lang==="en"?"Roasted":"로스팅",     val: recipe.roastDate },
+                    recipe.machine    && { lbl: lang==="en"?"Machine":"머신",       val: [recipe.machine, recipe.machineModel].filter(Boolean).join(" ") },
+                    recipe.grinder    && { lbl: lang==="en"?"Grinder":"그라인더",   val: [recipe.grinder, recipe.grinderModel].filter(Boolean).join(" ") },
+                    waterLabel        && { lbl: lang==="en"?"Water":"물 종류",      val: waterLabel },
+                    diluteLabel       && { lbl: lang==="en"?"Dilute":"희석",        val: diluteLabel },
+                    recipe.syrup      && { lbl: lang==="en"?"Syrup":"시럽",         val: recipe.syrup },
+                    recipe.weather    && { lbl: lang==="en"?"Weather":"날씨",       val: `${recipe.weather.icon||""} ${recipe.weather.descKo||""} ${recipe.weather.temp}°C · ${lang==="en"?"Humidity":"습도"} ${recipe.weather.humidity}%` },
                   ].filter(Boolean);
 
-                  // 플레이버 값
+                  // 플레이버
                   const flavorKeys = ["Acidity","Sweet","Bitter","Aroma","Aftertaste","Balance","Body"];
                   const flavorLabels = { Acidity:"산미", Sweet:"단맛", Bitter:"쓴맛", Aroma:"아로마", Aftertaste:"후미", Balance:"밸런스", Body:"바디" };
-                  const flavors = flavorKeys.map(k => ({
-                    lbl: flavorLabels[k],
-                    val: parseInt(recipe[`flavor${k}`]) || 0,
-                  })).filter(f => f.val > 0);
+                  const flavors = flavorKeys.map(k => ({ lbl: flavorLabels[k], val: parseInt(recipe[`flavor${k}`])||0 })).filter(f => f.val > 0);
 
                   const el = document.createElement("div");
                   el.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:420px;background:#FBFBFA;font-family:'DM Sans',sans-serif;border-radius:20px;overflow:hidden;`;
 
                   el.innerHTML = `
-                    <div style="padding:28px 28px 22px;">
+                    <div style="padding:24px 24px 20px;">
                       <!-- 헤더 -->
-                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
-                        <div style="display:flex;align-items:center;gap:7px;">
-                          <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="#1A1614" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
-                          <span style="font-size:13px;font-weight:700;color:#1A1614;letter-spacing:-0.01em;">Brewlog Note</span>
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+                        <div style="display:flex;align-items:center;gap:6px;">
+                          <svg width="14" height="14" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="#1A1614" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
+                          <span style="font-size:12px;font-weight:700;color:#1A1614;">Brewlog Note</span>
                         </div>
-                        <span style="font-size:11px;color:#8C8480;">@${recipe.author || ""}</span>
+                        <span style="font-size:11px;color:#8C8480;">@${recipe.author||""}</span>
                       </div>
 
                       <!-- 메뉴 + ICE/HOT -->
-                      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
-                        <span style="font-size:12px;color:#8C8480;">${menuLabel}</span>
-                        ${iced ? `<span style="font-size:10px;font-weight:700;color:${iced==="ICE"?"#2980b9":"#e67e22"};background:${iced==="ICE"?"#EBF5FB":"#FEF3E8"};border:1px solid ${iced==="ICE"?"#AED6F1":"#FAD7A0"};border-radius:4px;padding:1px 6px;">${iced}</span>` : ""}
+                      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+                        <span style="font-size:11px;color:#8C8480;">${menuLabel}</span>
+                        ${iced ? `<span style="font-size:9px;font-weight:700;color:${iced==="ICE"?"#2980b9":"#e67e22"};background:${iced==="ICE"?"#EBF5FB":"#FEF3E8"};border:1px solid ${iced==="ICE"?"#AED6F1":"#FAD7A0"};border-radius:4px;padding:1px 5px;">${iced}</span>` : ""}
                       </div>
 
                       <!-- 원두명 / 로스터리 -->
-                      <div style="font-size:26px;font-weight:700;color:#1A1614;letter-spacing:-0.02em;line-height:1.2;margin-bottom:4px;">${recipe.bean || ""}</div>
-                      <div style="font-size:12px;color:#8C8480;margin-bottom:20px;">${recipe.company || ""}</div>
+                      <div style="font-size:24px;font-weight:700;color:#1A1614;letter-spacing:-0.02em;line-height:1.2;margin-bottom:3px;">${recipe.bean||""}</div>
+                      <div style="font-size:12px;color:#8C8480;margin-bottom:16px;">${recipe.company||""}</div>
 
-                      <!-- 구분선 -->
-                      <div style="height:1px;background:#F0EFEF;margin-bottom:18px;"></div>
+                      <div style="height:1px;background:#F0EFEF;margin-bottom:16px;"></div>
 
-                      <!-- 추출 파라미터 박스 -->
+                      <!-- 파라미터 박스 -->
                       ${params.length > 0 ? `
-                      <div style="display:grid;grid-template-columns:repeat(${Math.min(params.length, 4)},1fr);gap:8px;margin-bottom:18px;">
-                        ${params.map(p => `
-                          <div style="text-align:center;background:#FAFAF9;border:1px solid #F0EFEF;border-radius:8px;padding:10px 6px;">
-                            <div style="font-size:15px;font-weight:700;color:#1A1614;line-height:1;">${p.val}</div>
-                            <div style="font-size:10px;color:#8C8480;margin-top:4px;">${p.lbl}</div>
-                          </div>`).join("")}
+                      <div style="display:grid;grid-template-columns:repeat(${Math.min(params.length,4)},1fr);gap:6px;margin-bottom:16px;">
+                        ${params.map(p => `<div style="text-align:center;background:#FAFAF9;border:1px solid #F0EFEF;border-radius:8px;padding:9px 4px;">
+                          <div style="font-size:14px;font-weight:700;color:#1A1614;line-height:1;">${p.val}</div>
+                          <div style="font-size:9px;color:#8C8480;margin-top:3px;">${p.lbl}</div>
+                        </div>`).join("")}
                       </div>` : ""}
 
-                      <!-- 라벨 행 (머신/그라인더/희석 등) -->
+                      <!-- 라벨 행 -->
                       ${labelRows.length > 0 ? `
-                      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:18px;">
-                        ${labelRows.map(r => `
-                          <div style="display:flex;gap:10px;font-size:12px;">
-                            <span style="color:#8C8480;min-width:52px;">${r.lbl}</span>
-                            <span style="color:#1A1614;font-weight:500;">${r.val}</span>
-                          </div>`).join("")}
+                      <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:16px;">
+                        ${labelRows.map(r => `<div style="display:flex;gap:8px;font-size:11px;">
+                          <span style="color:#8C8480;min-width:48px;flex-shrink:0;">${r.lbl}</span>
+                          <span style="color:#1A1614;font-weight:500;">${r.val}</span>
+                        </div>`).join("")}
                       </div>` : ""}
 
                       <!-- 플레이버 프로파일 -->
                       ${flavors.length > 0 ? `
-                      <div style="margin-bottom:18px;">
-                        <div style="font-size:10px;color:#8C8480;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">플레이버 프로파일</div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                          ${flavors.map(f => `
-                            <div>
-                              <div style="display:flex;justify-content:space-between;font-size:11px;color:#1A1614;margin-bottom:3px;">
-                                <span>${f.lbl}</span><span style="color:#B07D54;font-weight:600;">${f.val}/5</span>
-                              </div>
-                              <div style="height:3px;background:#F0EFEF;border-radius:2px;">
-                                <div style="height:100%;width:${f.val/5*100}%;background:#B07D54;border-radius:2px;"></div>
-                              </div>
-                            </div>`).join("")}
+                      <div style="margin-bottom:16px;">
+                        <div style="font-size:9px;color:#8C8480;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Flavor Profile</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+                          ${flavors.map(f => `<div>
+                            <div style="display:flex;justify-content:space-between;font-size:10px;color:#1A1614;margin-bottom:2px;">
+                              <span>${f.lbl}</span><span style="color:#B07D54;font-weight:600;">${f.val}/5</span>
+                            </div>
+                            <div style="height:3px;background:#F0EFEF;border-radius:2px;">
+                              <div style="height:100%;width:${f.val/5*100}%;background:#B07D54;border-radius:2px;"></div>
+                            </div>
+                          </div>`).join("")}
                         </div>
                       </div>` : ""}
 
                       <!-- 별점 -->
-                      ${stars ? `<div style="font-size:18px;color:#B07D54;margin-bottom:${recipe.note ? "12px" : "0"};">${stars}</div>` : ""}
+                      ${stars ? `<div style="font-size:16px;color:#B07D54;margin-bottom:${recipe.note?"10px":"0"};">${stars}</div>` : ""}
 
                       <!-- 메모 -->
-                      ${recipe.note ? `<div style="font-size:12px;color:#8C8480;background:#FAFAF9;border-left:3px solid #B07D54;padding:10px 14px;border-radius:0 8px 8px 0;line-height:1.6;">"${recipe.note}"</div>` : ""}
+                      ${recipe.note ? `<div style="font-size:11px;color:#8C8480;background:#FAFAF9;border-left:3px solid #B07D54;padding:9px 12px;border-radius:0 8px 8px 0;line-height:1.6;">"${recipe.note}"</div>` : ""}
                     </div>
 
                     <!-- 푸터 -->
-                    <div style="background:#F0EFEF;padding:10px 28px;display:flex;align-items:center;justify-content:space-between;">
-                      <span style="font-size:10px;color:#8C8480;">brewlog-jade.vercel.app</span>
-                      <span style="font-size:10px;color:#B07D54;font-weight:600;">Brewlog Note</span>
+                    <div style="background:#F0EFEF;padding:9px 24px;display:flex;align-items:center;justify-content:space-between;">
+                      <span style="font-size:9px;color:#8C8480;">brewlog-jade.vercel.app</span>
+                      <span style="font-size:9px;color:#B07D54;font-weight:600;">Brewlog Note</span>
                     </div>
                   `;
 
@@ -4533,21 +4538,21 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                   document.body.removeChild(el);
 
                   canvas.toBlob(async (blob) => {
-                    const file = new File([blob], `${recipe.bean || "recipe"}.png`, { type: "image/png" });
+                    const file = new File([blob], `${recipe.bean||"recipe"}.png`, { type: "image/png" });
                     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                       await navigator.share({ files: [file], title: `${recipe.bean} 레시피`, text: "Brewlog Note에서 기록한 레시피예요." })
                         .catch(e => { if (e.name !== "AbortError") console.warn(e); });
                     } else {
                       const a = document.createElement("a");
                       a.href = URL.createObjectURL(blob);
-                      a.download = `${recipe.bean || "recipe"}_brewlog.png`;
+                      a.download = `${recipe.bean||"recipe"}_brewlog.png`;
                       a.click();
                       URL.revokeObjectURL(a.href);
                     }
                   }, "image/png");
                 } catch(e) {
                   console.error("[share]", e);
-                  alert(lang === "en" ? "Share failed. Please try again." : "공유에 실패했어요. 다시 시도해주세요.");
+                  alert(lang === "en" ? "Share failed." : "공유에 실패했어요.");
                 }
               }}
               style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "inline-flex", alignItems: "center", transition: "color 0.15s" }}
