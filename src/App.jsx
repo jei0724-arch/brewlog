@@ -447,11 +447,12 @@ const CSS = `
   .follow-btn.following:hover { background: #c0392b; border-color: #c0392b; }
   .bookmark-tab { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
   .bookmark-tab-btn {
-    padding: 0 16px; height: 36px;
+    padding: 7px 14px;
     border: 1px solid var(--steam); border-radius: 8px; background: var(--foam);
     font-family: 'DM Sans', sans-serif; font-size: 0.8rem; color: var(--muted);
     cursor: pointer; transition: all 0.2s; white-space: nowrap;
     display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    line-height: 1;
   }
   .bookmark-tab-btn:hover { border-color: #C5BFB8; color: var(--espresso); background: var(--cream); }
   .bookmark-tab-btn.active { background: var(--espresso); color: var(--foam); border-color: var(--espresso); font-weight: 500; }
@@ -744,10 +745,10 @@ const CSS = `
     .bookmark-tab::-webkit-scrollbar { display: none; }
     .tab-groups-wrap { flex-wrap: wrap !important; gap: "6px" !important; }
     .bookmark-tab-btn {      white-space: nowrap;
-      padding: 0 12px;
+      padding: 6px 12px;
       font-size: 0.73rem;
       flex-shrink: 0;
-      height: 32px;
+      line-height: 1;
     }
 
     /* 검색행 — 전체 너비 안에서만 */
@@ -6467,7 +6468,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       {/* ── 탭 바 + 검색행 ── */}
       <div style={{
         background: "var(--cream)", borderBottom: "1px solid var(--divider)",
-        padding: "12px 24px 14px",
+        padding: "14px 24px 14px",
       }}>
       {(<>
         <div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -6510,47 +6511,49 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           </div>
         </div>
         {/* 두 번째 행: beans 탭 → 필터+추가하기 / 나머지 → 검색+기록하기 */}
-        <div style={{ maxWidth: "900px", margin: "0 auto" }}>
-        {feedTab === "beans" ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "0" }}>
-            <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flex: 1 }}>
-              {[["all", lang === "en" ? "All" : "전체"], ["open", I18N[lang].beanOpen], ["sealed", I18N[lang].beanSealed]].map(([v, lbl]) => (
-                <button key={v} className={`bookmark-tab-btn ${beanFilterStatus === v ? "active" : ""}`}
-                  onClick={() => setBeanFilterStatus(v)} style={{ fontSize: "0.75rem", height: "30px", padding: "0 12px", flexShrink: 0 }}>
-                  {lbl}
+        {(feedTab === "beans" || feedTab !== "equip") && (
+          <div style={{ borderTop: "1px solid var(--divider)", marginTop: "10px", paddingTop: "10px", maxWidth: "900px", margin: "10px auto 0" }}>
+            {feedTab === "beans" ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                <div style={{ display: "flex", gap: "5px", flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
+                  {[["all", lang === "en" ? "All" : "전체"], ["open", I18N[lang].beanOpen], ["sealed", I18N[lang].beanSealed]].map(([v, lbl]) => (
+                    <button key={v} onClick={() => setBeanFilterStatus(v)}
+                      style={{ padding: "5px 12px", border: "1px solid", borderRadius: "20px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s", lineHeight: 1,
+                        borderColor: beanFilterStatus === v ? "var(--espresso)" : "var(--steam)",
+                        background: beanFilterStatus === v ? "var(--espresso)" : "transparent",
+                        color: beanFilterStatus === v ? "var(--cream)" : "var(--muted)",
+                        fontWeight: beanFilterStatus === v ? 600 : 400 }}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+                <button className="btn-new" style={{ flexShrink: 0 }} onClick={() => { setBeanEditTarget(null); setBeanShowModal(true); }}>
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                  {lang === "en" ? "Add Bean" : "추가하기"}
                 </button>
-              ))}
-            </div>
-            <button className="btn-new" style={{ flexShrink: 0 }} onClick={() => { setBeanEditTarget(null); setBeanShowModal(true); }}>
-              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-              </svg>
-              {lang === "en" ? "Add Bean" : "추가하기"}
-            </button>
-          </div>
-        ) : feedTab === "equip" ? (
-          null
-        ) : (
-          <div className="search-row" style={{ display: "flex", gap: "0.5rem", marginBottom: "0", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
-            <div className="search-box" style={{ flex: 1, minWidth: 0 }}>
-              <span className="search-icon">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </span>
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
-            </div>
-            <button className="btn-new" style={{ flexShrink: 0 }} onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { openModal(); } }}>
-              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M9.5 1.5l3 3-7 7H2.5v-3l7-7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-                <path d="M7.5 3.5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-              </svg>
-              <span className="btn-new-text">{I18N[lang].newRecipe}</span>
-            </button>
+              </div>
+            ) : feedTab !== "equip" ? (
+              <div className="search-row" style={{ display: "flex", gap: "0.5rem", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
+                <div className="search-box" style={{ flex: 1, minWidth: 0 }}>
+                  <span className="search-icon">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </span>
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder={I18N[lang].searchPlaceholder} />
+                </div>
+                <button className="btn-new" style={{ flexShrink: 0 }} onClick={() => { if (!user && onRequireAuth) { onRequireAuth(); } else { openModal(); } }}>
+                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                    <path d="M9.5 1.5l3 3-7 7H2.5v-3l7-7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+                    <path d="M7.5 3.5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  </svg>
+                  <span className="btn-new-text">{I18N[lang].newRecipe}</span>
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
-        </div> {/* 두번째 행 maxWidth wrapper 끝 */}
       </>)}
       </div> {/* 탭바 wrapper 끝 */}
     </div> {/* fixed top-bar 끝 */}
