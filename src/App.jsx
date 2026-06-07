@@ -214,6 +214,7 @@ const CSS = `
     margin-bottom: 4px;
     letter-spacing: -0.03em;
     font-weight: 700;
+    margin-bottom: 2px;
   }
   .section-sub {
     font-size: 0.82rem;
@@ -223,7 +224,7 @@ const CSS = `
     letter-spacing: 0.01em;
     opacity: 0.85;
   }
-  .divider { height: 1px; background: var(--divider); margin: 0.5rem 0 1.2rem; }
+  .divider { height: 1px; background: var(--divider); margin: 0.4rem 0 0.8rem; }
 
   .toolbar-sticky {
     position: sticky; top: 56px; z-index: 90;
@@ -446,7 +447,7 @@ const CSS = `
   .follow-btn.following:hover { background: #c0392b; border-color: #c0392b; }
   .bookmark-tab { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
   .bookmark-tab-btn {
-    padding: 0 16px; height: 34px;
+    padding: 0 16px; height: 36px;
     border: 1px solid var(--steam); border-radius: 8px; background: var(--foam);
     font-family: 'DM Sans', sans-serif; font-size: 0.8rem; color: var(--muted);
     cursor: pointer; transition: all 0.2s; white-space: nowrap;
@@ -466,7 +467,7 @@ const CSS = `
   .btn-heart span { font-size: 0.72rem; font-family: 'DM Sans', sans-serif; }
 
   /* ── 베스트 섹션 — 매거진 리스트 스타일 ── */
-  .best-section { margin-bottom: 24px; }
+  .best-section { margin-bottom: 16px; }
   .best-title {
     font-family: 'Playfair Display', serif;
     font-size: 0.9rem;
@@ -746,7 +747,7 @@ const CSS = `
       padding: 0 12px;
       font-size: 0.73rem;
       flex-shrink: 0;
-      height: 30px;
+      height: 32px;
     }
 
     /* 검색행 — 전체 너비 안에서만 */
@@ -6466,10 +6467,10 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       {/* ── 탭 바 + 검색행 ── */}
       <div style={{
         background: "var(--cream)", borderBottom: "1px solid var(--divider)",
-        padding: "8px 24px 10px",
+        padding: "12px 24px 14px",
       }}>
       {(<>
-        <div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "8px" }}>
+        <div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "6px" }}>
           {/* 그룹 1: 피드 탭 + 그룹 2: 내 것 탭 — 한 줄에 양쪽 정렬 */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
             {/* 왼쪽: 피드 탭 */}
@@ -6511,7 +6512,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         {/* 두 번째 행: beans 탭 → 필터+추가하기 / 나머지 → 검색+기록하기 */}
         <div style={{ maxWidth: "900px", margin: "0 auto" }}>
         {feedTab === "beans" ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "1.2rem", overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "0" }}>
             <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flex: 1 }}>
               {[["all", lang === "en" ? "All" : "전체"], ["open", I18N[lang].beanOpen], ["sealed", I18N[lang].beanSealed]].map(([v, lbl]) => (
                 <button key={v} className={`bookmark-tab-btn ${beanFilterStatus === v ? "active" : ""}`}
@@ -6528,9 +6529,9 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             </button>
           </div>
         ) : feedTab === "equip" ? (
-          <div style={{ marginBottom: "1.2rem" }}/>
+          null
         ) : (
-          <div className="search-row" style={{ display: "flex", gap: "0.5rem", marginBottom: "1.2rem", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
+          <div className="search-row" style={{ display: "flex", gap: "0.5rem", marginBottom: "0", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
             <div className="search-box" style={{ flex: 1, minWidth: 0 }}>
               <span className="search-icon">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -6756,7 +6757,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
 
     {/* 레시피 목록 - 랭킹 페이지에선 숨김 */}
-    {!showRanking && <div className="main-wrap" style={{ paddingTop: `${topBarHeight + 8}px` }}>
+    {!showRanking && <div className="main-wrap" style={{ paddingTop: "0" }}>
 
       {/* ── 내 레시피 통계 ── */}
       {feedTab === "mine" && (() => {
