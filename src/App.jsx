@@ -6221,36 +6221,37 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [feedTab, setFeedTab] = useState("all"); // "all" | "bookmarks" | "following"
 
-  // 탭 순서 — user 여부에 따라 동적
-  const TAB_ORDER = user
-    ? ["all", "following", "bookmarks", "mine", "beans", "equip"]
-    : ["all", "following", "bookmarks"];
+  // 탭 순서 — user 여부에 따라 동적 (스와이프 핸들러 내부에서 직접 사용)
 
   // 스와이프 감지
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
+
   const handleTouchStart = (e) => {
+    // 입력창/버튼/스크롤 가능 영역에서는 무시
+    const tag = e.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON" || tag === "SELECT") return;
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
   };
+
   const handleTouchEnd = (e) => {
     if (touchStartX.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
-    // 수평 스와이프만 (수직 스크롤과 구분: 수평이 수직보다 1.5배 이상 클 때)
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    const cur = TAB_ORDER.indexOf(feedTab);
-    if (dx < 0 && cur < TAB_ORDER.length - 1) {
-      // 왼쪽 스와이프 → 다음 탭
-      setFeedTab(TAB_ORDER[cur + 1]);
-      setMyRecipesOnly(false); setShowRanking(false);
-    } else if (dx > 0 && cur > 0) {
-      // 오른쪽 스와이프 → 이전 탭
-      setFeedTab(TAB_ORDER[cur - 1]);
-      setMyRecipesOnly(false); setShowRanking(false);
-    }
     touchStartX.current = null;
     touchStartY.current = null;
+    // 수평 50px 이상 & 수직보다 수평이 더 클 때만
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+    const tabs = user
+      ? ["all", "following", "bookmarks", "mine", "beans", "equip"]
+      : ["all", "following", "bookmarks"];
+    const cur = tabs.indexOf(feedTab);
+    if (dx < 0 && cur < tabs.length - 1) {
+      setFeedTab(tabs[cur + 1]); setMyRecipesOnly(false); setShowRanking(false);
+    } else if (dx > 0 && cur > 0) {
+      setFeedTab(tabs[cur - 1]); setMyRecipesOnly(false); setShowRanking(false);
+    }
   };
   const [bestPeriod, setBestPeriod] = useState("month"); // "day" | "week" | "month"
   const [showRanking, setShowRanking] = useState(false); // true면 TOP100 페이지
@@ -7292,7 +7293,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
     { key: "brands",  label: "브랜드 관리" },
   ];
 
-  return (<div style={{ overflowX: "hidden", width: "100%" }}
+  return (<div style={{ width: "100%", touchAction: "pan-y" }}
     onTouchStart={handleTouchStart}
     onTouchEnd={handleTouchEnd}
   >
