@@ -4457,7 +4457,51 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                   // 플레이버
                   const flavorKeys = ["Acidity","Sweet","Bitter","Aroma","Aftertaste","Balance","Body"];
                   const flavorLabels = { Acidity:"산미", Sweet:"단맛", Bitter:"쓴맛", Aroma:"아로마", Aftertaste:"후미", Balance:"밸런스", Body:"바디" };
-                  const flavors = flavorKeys.map(k => ({ lbl: flavorLabels[k], val: parseInt(recipe[`flavor${k}`])||0 })).filter(f => f.val > 0);
+                  const flavors = flavorKeys.map(k => ({ key: k, lbl: flavorLabels[k], val: parseInt(recipe[`flavor${k}`])||0 })).filter(f => f.val > 0);
+
+                  // 7각형 레이더 차트 SVG — 항상 전체 7축 표시
+                  const radarSVG = (() => {
+                    const cx = 120, cy = 120, R = 88;
+                    const n = flavorKeys.length; // 7
+                    const startAngle = -Math.PI / 2;
+                    const getPoint = (i, r) => {
+                      const a = startAngle + (2 * Math.PI * i / n);
+                      return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+                    };
+                    // 격자 (5단계)
+                    const gridLines = [1,2,3,4,5].map(level => {
+                      const r = (R * level) / 5;
+                      const pts = flavorKeys.map((_, i) => getPoint(i, r).join(",")).join(" ");
+                      return `<polygon points="${pts}" fill="${level===5?"#FAFAF9":"none"}" stroke="#E8E6E3" stroke-width="${level===5?"1.2":"0.7"}"/>`;
+                    }).join("");
+                    // 축선
+                    const axisLines = flavorKeys.map((_, i) => {
+                      const [x, y] = getPoint(i, R);
+                      return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#E8E6E3" stroke-width="0.8"/>`;
+                    }).join("");
+                    // 데이터 폴리곤
+                    const vals = flavorKeys.map(k => (parseInt(recipe[`flavor${k}`]) || 0) / 5);
+                    const dataPts = flavorKeys.map((_, i) => getPoint(i, Math.max(vals[i], 0.05) * R).join(",")).join(" ");
+                    // 점
+                    const dots = flavorKeys.map((_, i) => {
+                      if (vals[i] === 0) return "";
+                      const [x, y] = getPoint(i, vals[i] * R);
+                      return `<circle cx="${x}" cy="${y}" r="3.5" fill="#B07D54" stroke="white" stroke-width="1"/>`;
+                    }).join("");
+                    // 레이블
+                    const labels = flavorKeys.map((k, i) => {
+                      const [x, y] = getPoint(i, R + 20);
+                      const anchor = x < cx - 8 ? "end" : x > cx + 8 ? "start" : "middle";
+                      const v = parseInt(recipe[`flavor${k}`]) || 0;
+                      return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="9.5" fill="${v>0?"#1A1614":"#C0BBBA"}" font-family="DM Sans,sans-serif" font-weight="${v>0?"600":"400"}">${flavorLabels[k]}</text>`;
+                    }).join("");
+
+                    return `<svg width="240" height="240" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+                      ${gridLines}${axisLines}
+                      <polygon points="${dataPts}" fill="#B07D54" fill-opacity="0.18" stroke="#B07D54" stroke-width="1.8" stroke-linejoin="round"/>
+                      ${dots}${labels}
+                    </svg>`;
+                  })();
 
                   const el = document.createElement("div");
                   el.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:420px;background:#FBFBFA;font-family:'DM Sans',sans-serif;border-radius:20px;overflow:hidden;`;
@@ -4506,8 +4550,13 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                       <!-- 플레이버 프로파일 -->
                       ${flavors.length > 0 ? `
                       <div style="margin-bottom:16px;">
-                        <div style="font-size:9px;color:#8C8480;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Flavor Profile</div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+                        <div style="font-size:9px;color:#8C8480;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Flavor Profile</div>
+                        <!-- 레이더 차트 중앙 배치 -->
+                        <div style="display:flex;justify-content:center;margin-bottom:12px;">
+                          ${radarSVG}
+                        </div>
+                        <!-- 바 차트 2열 -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;">
                           ${flavors.map(f => `<div>
                             <div style="display:flex;justify-content:space-between;font-size:10px;color:#1A1614;margin-bottom:2px;">
                               <span>${f.lbl}</span><span style="color:#B07D54;font-weight:600;">${f.val}/5</span>
