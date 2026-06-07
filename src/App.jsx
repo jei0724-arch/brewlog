@@ -6220,6 +6220,38 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [myRecipesOnly, setMyRecipesOnly] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [feedTab, setFeedTab] = useState("all"); // "all" | "bookmarks" | "following"
+
+  // 탭 순서 — user 여부에 따라 동적
+  const TAB_ORDER = user
+    ? ["all", "following", "bookmarks", "mine", "beans", "equip"]
+    : ["all", "following", "bookmarks"];
+
+  // 스와이프 감지
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    // 수평 스와이프만 (수직 스크롤과 구분: 수평이 수직보다 1.5배 이상 클 때)
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const cur = TAB_ORDER.indexOf(feedTab);
+    if (dx < 0 && cur < TAB_ORDER.length - 1) {
+      // 왼쪽 스와이프 → 다음 탭
+      setFeedTab(TAB_ORDER[cur + 1]);
+      setMyRecipesOnly(false); setShowRanking(false);
+    } else if (dx > 0 && cur > 0) {
+      // 오른쪽 스와이프 → 이전 탭
+      setFeedTab(TAB_ORDER[cur - 1]);
+      setMyRecipesOnly(false); setShowRanking(false);
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  };
   const [bestPeriod, setBestPeriod] = useState("month"); // "day" | "week" | "month"
   const [showRanking, setShowRanking] = useState(false); // true면 TOP100 페이지
   const [statModeVal, setStatModeVal] = useState("machine"); // "machine" | "handdrip"
@@ -7260,7 +7292,10 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
     { key: "brands",  label: "브랜드 관리" },
   ];
 
-  return (<div style={{ overflowX: "hidden", width: "100%" }}>
+  return (<div style={{ overflowX: "hidden", width: "100%" }}
+    onTouchStart={handleTouchStart}
+    onTouchEnd={handleTouchEnd}
+  >
     <header className="app-header">
       <div className="logo">
         <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
