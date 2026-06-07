@@ -132,9 +132,7 @@ const CSS = `
     padding: 0 24px;
     height: 56px;
     display: flex; align-items: center; justify-content: space-between;
-    position: sticky; top: 0; z-index: 200;
     border-bottom: 1px solid var(--divider);
-    transition: transform 0.25s ease;
   }
   .app-header .logo {
     font-family: 'Playfair Display', serif;
@@ -6058,7 +6056,19 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
   // 스크롤 방향 감지 — 내리면 헤더 숨김, 올리면 표시
   const [headerVisible, setHeaderVisible] = useState(true);
+  const [topBarHeight, setTopBarHeight] = useState(120);
   const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const measure = () => {
+      const el = document.getElementById("top-bar");
+      if (el) setTopBarHeight(el.offsetHeight);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
   useEffect(() => {
     const onScroll = () => {
       const currentY = window.scrollY;
@@ -6278,7 +6288,15 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         <button className="notice-banner-close" onClick={() => setNoticeDismissed(true)}>✕</button>
       </div>
     )}
-    <header className="app-header" style={{ position: "sticky", top: 0, zIndex: 200, transform: headerVisible ? "translateY(0)" : "translateY(-100%)", transition: "transform 0.25s ease" }}>
+    {/* ── Fixed 상단 바 (헤더 + 탭바) ── */}
+    <div id="top-bar" style={{
+      position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
+      transform: headerVisible ? "translateY(0)" : "translateY(-100%)",
+      transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
+      background: "var(--cream)",
+      boxShadow: "0 1px 0 var(--divider)",
+    }}>
+    <header className="app-header" style={{ transform: "none", transition: "none" }}>
       <div className="logo">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="9" cy="9" r="8" stroke="var(--espresso)" strokeWidth="1.5"/>
@@ -6406,12 +6424,9 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           <div className="section-sub">{sub}</div>
         </>);
       })()}
-      {/* ── 탭 바 + 검색행 (스크롤 감지 sticky) ── */}
+      {/* ── 탭 바 + 검색행 ── */}
       <div style={{
-        position: "sticky", top: 0, zIndex: 100,
         background: "var(--cream)", paddingBottom: "2px",
-        transform: headerVisible ? "translateY(0)" : "translateY(-100%)",
-        transition: "transform 0.25s ease",
         marginBottom: "0.2rem",
       }}>
       {(<>
@@ -6495,7 +6510,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           </div>
         )}
       </>)}
-      </div> {/* sticky wrapper 끝 */}
+      </div> {/* 탭바 wrapper 끝 */}
+    </div> {/* fixed top-bar 끝 */}
       <div className="divider" style={{ marginBottom: "1.5rem" }} />
       {/* 내 원두 탭 */}
       {feedTab === "beans" && user && (
@@ -6618,7 +6634,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       }).sort((a, b) => (b.likedBy?.length || 0) - (a.likedBy?.length || 0)).slice(0, 100);
 
       return (
-        <div className="main-wrap" style={{ paddingTop: "1rem" }}>
+        <div className="main-wrap" style={{ paddingTop: `${topBarHeight + 16}px` }}>
           {/* 헤더 */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1.2rem" }}>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.2rem", color: "var(--espresso)", fontWeight: 700 }}>
@@ -6676,7 +6692,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
 
     {/* 레시피 목록 - 랭킹 페이지에선 숨김 */}
-    {!showRanking && <div className="main-wrap" style={{ paddingTop: "1rem" }}>
+    {!showRanking && <div className="main-wrap" style={{ paddingTop: `${topBarHeight + 16}px` }}>
 
       {/* ── 내 레시피 통계 ── */}
       {feedTab === "mine" && (() => {
