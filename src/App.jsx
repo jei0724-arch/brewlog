@@ -206,7 +206,7 @@ const CSS = `
   }
   .btn-my:hover { border-color: var(--espresso); color: var(--espresso); }
 
-  .main-wrap { max-width: 900px; margin: 0 auto; padding: 16px 24px 40px; }
+  .main-wrap { max-width: 900px; margin: 0 auto; padding: 12px 24px 40px; }
   .section-title {
     font-family: 'Playfair Display', serif;
     font-size: 1.75rem;
@@ -218,12 +218,12 @@ const CSS = `
   .section-sub {
     font-size: 0.82rem;
     color: var(--muted);
-    margin-bottom: 24px;
+    margin-bottom: 12px;
     font-weight: 300;
     letter-spacing: 0.01em;
     opacity: 0.85;
   }
-  .divider { height: 1px; background: var(--divider); margin: 0.5rem 0 2rem; }
+  .divider { height: 1px; background: var(--divider); margin: 0.5rem 0 1.2rem; }
 
   .toolbar-sticky {
     position: sticky; top: 56px; z-index: 90;
@@ -466,7 +466,7 @@ const CSS = `
   .btn-heart span { font-size: 0.72rem; font-family: 'DM Sans', sans-serif; }
 
   /* ── 베스트 섹션 — 매거진 리스트 스타일 ── */
-  .best-section { margin-bottom: 40px; }
+  .best-section { margin-bottom: 24px; }
   .best-title {
     font-family: 'Playfair Display', serif;
     font-size: 0.9rem;
@@ -716,7 +716,7 @@ const CSS = `
     .nick-badge { height: 28px; padding: 0 8px; font-size: 0.65rem; max-width: 80px; }
 
     /* 메인 래퍼 — 가로 넘침 차단 */
-    .main-wrap { padding: 16px 12px; overflow-x: hidden; box-sizing: border-box; width: 100%; }
+    .main-wrap { padding: 10px 14px 32px; overflow-x: hidden; box-sizing: border-box; width: 100%; }
     .recipes-grid { grid-template-columns: 1fr; }
     .recipe-card { padding: 16px; }
 
@@ -6465,11 +6465,11 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     </header>
       {/* ── 탭 바 + 검색행 ── */}
       <div style={{
-        background: "var(--cream)", paddingBottom: "2px",
-        marginBottom: "0.2rem",
+        background: "var(--cream)", borderBottom: "1px solid var(--divider)",
+        padding: "8px 24px 10px",
       }}>
       {(<>
-        <div style={{ margin: "1rem 0 0.6rem", display: "flex", flexDirection: "column", gap: "8px" }}>
+        <div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "8px" }}>
           {/* 그룹 1: 피드 탭 + 그룹 2: 내 것 탭 — 한 줄에 양쪽 정렬 */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
             {/* 왼쪽: 피드 탭 */}
@@ -6509,6 +6509,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           </div>
         </div>
         {/* 두 번째 행: beans 탭 → 필터+추가하기 / 나머지 → 검색+기록하기 */}
+        <div style={{ maxWidth: "900px", margin: "0 auto" }}>
         {feedTab === "beans" ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", marginBottom: "1.2rem", overflow: "hidden" }}>
             <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flex: 1 }}>
@@ -6548,6 +6549,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             </button>
           </div>
         )}
+        </div> {/* 두번째 행 maxWidth wrapper 끝 */}
       </>)}
       </div> {/* 탭바 wrapper 끝 */}
     </div> {/* fixed top-bar 끝 */}
