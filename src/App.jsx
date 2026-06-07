@@ -6226,33 +6226,45 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   // 스와이프 감지
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
+  const swipeContainerRef = useRef(null);
 
-  const handleTouchStart = (e) => {
-    // 입력창/버튼/스크롤 가능 영역에서는 무시
-    const tag = e.target.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON" || tag === "SELECT") return;
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
+  useEffect(() => {
+    const el = swipeContainerRef.current;
+    if (!el) return;
 
-  const handleTouchEnd = (e) => {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
-    touchStartX.current = null;
-    touchStartY.current = null;
-    // 수평 50px 이상 & 수직보다 수평이 더 클 때만
-    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
-    const tabs = user
-      ? ["all", "following", "bookmarks", "mine", "beans", "equip"]
-      : ["all", "following", "bookmarks"];
-    const cur = tabs.indexOf(feedTab);
-    if (dx < 0 && cur < tabs.length - 1) {
-      setFeedTab(tabs[cur + 1]); setMyRecipesOnly(false); setShowRanking(false);
-    } else if (dx > 0 && cur > 0) {
-      setFeedTab(tabs[cur - 1]); setMyRecipesOnly(false); setShowRanking(false);
-    }
-  };
+    const onStart = (e) => {
+      const tag = e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON" || tag === "SELECT") return;
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+    };
+
+    const onEnd = (e) => {
+      if (touchStartX.current === null) return;
+      const dx = e.changedTouches[0].clientX - touchStartX.current;
+      const dy = e.changedTouches[0].clientY - touchStartY.current;
+      touchStartX.current = null;
+      touchStartY.current = null;
+      if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
+
+      const tabs = user
+        ? ["all", "following", "bookmarks", "mine", "beans", "equip"]
+        : ["all", "following", "bookmarks"];
+      const cur = tabs.indexOf(feedTab);
+      if (dx < 0 && cur < tabs.length - 1) {
+        setFeedTab(tabs[cur + 1]); setMyRecipesOnly(false); setShowRanking(false);
+      } else if (dx > 0 && cur > 0) {
+        setFeedTab(tabs[cur - 1]); setMyRecipesOnly(false); setShowRanking(false);
+      }
+    };
+
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchend", onEnd);
+    };
+  }, [user, feedTab]);
   const [bestPeriod, setBestPeriod] = useState("month"); // "day" | "week" | "month"
   const [showRanking, setShowRanking] = useState(false); // true면 TOP100 페이지
   const [statModeVal, setStatModeVal] = useState("machine"); // "machine" | "handdrip"
@@ -7293,10 +7305,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
     { key: "brands",  label: "브랜드 관리" },
   ];
 
-  return (<div style={{ width: "100%", touchAction: "pan-y" }}
-    onTouchStart={handleTouchStart}
-    onTouchEnd={handleTouchEnd}
-  >
+  return (<div ref={swipeContainerRef} style={{ width: "100%" }}>
     <header className="app-header">
       <div className="logo">
         <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
