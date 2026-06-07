@@ -6058,6 +6058,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [headerVisible, setHeaderVisible] = useState(true);
   const [topBarHeight, setTopBarHeight] = useState(120);
   const lastScrollY = useRef(0);
+  const scrollTimer = useRef(null);
 
   useEffect(() => {
     const measure = () => {
@@ -6072,9 +6073,17 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   useEffect(() => {
     const onScroll = () => {
       const currentY = window.scrollY;
-      if (currentY < 60) { setHeaderVisible(true); }
-      else if (currentY > lastScrollY.current + 4) { setHeaderVisible(false); }
-      else if (currentY < lastScrollY.current - 4) { setHeaderVisible(true); }
+      const diff = currentY - lastScrollY.current;
+
+      if (currentY < 80) {
+        setHeaderVisible(true);
+      } else if (diff > 8) {
+        // 빠르게 내리는 중
+        setHeaderVisible(false);
+      } else if (diff < -8) {
+        // 빠르게 올리는 중
+        setHeaderVisible(true);
+      }
       lastScrollY.current = currentY;
     };
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -6292,7 +6301,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     <div id="top-bar" style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
       transform: headerVisible ? "translateY(0)" : "translateY(-100%)",
-      transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1)",
+      transition: "transform 0.35s cubic-bezier(0.4,0,0.2,1)",
       background: "var(--cream)",
       boxShadow: "0 1px 0 var(--divider)",
     }}>
@@ -6401,29 +6410,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         )}
       </div>
     </header>
-    {/* 타이틀 + 베스트 */}
-    <div className="main-wrap">
-      {/* 타이틀 */}
-      {(() => {
-        let title, sub;
-        if (myRecipesOnly || feedTab === "mine") {
-          title = I18N[lang].myFeedTitle; sub = I18N[lang].myFeedSub;
-        } else if (feedTab === "following") {
-          title = I18N[lang].followingFeedTitle; sub = I18N[lang].followingFeedSub;
-        } else if (feedTab === "bookmarks") {
-          title = I18N[lang].bookmarksFeedTitle; sub = I18N[lang].bookmarksFeedSub;
-        } else if (feedTab === "beans") {
-          title = I18N[lang].beanVault; sub = I18N[lang].beanVaultSub;
-        } else if (feedTab === "equip") {
-          title = I18N[lang].myEquip; sub = I18N[lang].equipVaultSub;
-        } else {
-          title = I18N[lang].feedTitle; sub = I18N[lang].feedSub;
-        }
-        return (<>
-          <div className="section-title">{title}</div>
-          <div className="section-sub">{sub}</div>
-        </>);
-      })()}
       {/* ── 탭 바 + 검색행 ── */}
       <div style={{
         background: "var(--cream)", paddingBottom: "2px",
@@ -6512,6 +6498,29 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       </>)}
       </div> {/* 탭바 wrapper 끝 */}
     </div> {/* fixed top-bar 끝 */}
+    {/* 타이틀 + 베스트 */}
+    <div className="main-wrap">
+      {/* 타이틀 */}
+      {(() => {
+        let title, sub;
+        if (myRecipesOnly || feedTab === "mine") {
+          title = I18N[lang].myFeedTitle; sub = I18N[lang].myFeedSub;
+        } else if (feedTab === "following") {
+          title = I18N[lang].followingFeedTitle; sub = I18N[lang].followingFeedSub;
+        } else if (feedTab === "bookmarks") {
+          title = I18N[lang].bookmarksFeedTitle; sub = I18N[lang].bookmarksFeedSub;
+        } else if (feedTab === "beans") {
+          title = I18N[lang].beanVault; sub = I18N[lang].beanVaultSub;
+        } else if (feedTab === "equip") {
+          title = I18N[lang].myEquip; sub = I18N[lang].equipVaultSub;
+        } else {
+          title = I18N[lang].feedTitle; sub = I18N[lang].feedSub;
+        }
+        return (<>
+          <div className="section-title">{title}</div>
+          <div className="section-sub">{sub}</div>
+        </>);
+      })()}
       <div className="divider" style={{ marginBottom: "1.5rem" }} />
       {/* 내 원두 탭 */}
       {feedTab === "beans" && user && (
