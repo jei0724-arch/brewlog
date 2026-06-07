@@ -206,7 +206,7 @@ const CSS = `
   }
   .btn-my:hover { border-color: var(--espresso); color: var(--espresso); }
 
-  .main-wrap { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+  .main-wrap { max-width: 900px; margin: 0 auto; padding: 16px 24px 40px; }
   .section-title {
     font-family: 'Playfair Display', serif;
     font-size: 1.75rem;
@@ -6056,7 +6056,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
   // 스크롤 방향 감지 — 내리면 헤더 숨김, 올리면 표시
   const [headerVisible, setHeaderVisible] = useState(true);
-  const [topBarHeight, setTopBarHeight] = useState(120);
+  const [topBarHeight, setTopBarHeight] = useState(56); // 헤더 높이만 기본값
   const lastScrollY = useRef(0);
   const scrollTimer = useRef(null);
 
@@ -6065,23 +6065,22 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       const el = document.getElementById("top-bar");
       if (el) setTopBarHeight(el.offsetHeight);
     };
+    // 렌더 후 즉시 + 약간 딜레이 후 재측정
     measure();
+    const t = setTimeout(measure, 100);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    return () => { clearTimeout(t); window.removeEventListener("resize", measure); };
   }, []);
 
   useEffect(() => {
     const onScroll = () => {
       const currentY = window.scrollY;
       const diff = currentY - lastScrollY.current;
-
       if (currentY < 80) {
         setHeaderVisible(true);
       } else if (diff > 8) {
-        // 빠르게 내리는 중
         setHeaderVisible(false);
       } else if (diff < -8) {
-        // 빠르게 올리는 중
         setHeaderVisible(true);
       }
       lastScrollY.current = currentY;
@@ -6499,7 +6498,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       </div> {/* 탭바 wrapper 끝 */}
     </div> {/* fixed top-bar 끝 */}
     {/* 타이틀 + 베스트 */}
-    <div className="main-wrap">
+    <div className="main-wrap" style={{ paddingTop: `${topBarHeight + 8}px` }}>
       {/* 타이틀 */}
       {(() => {
         let title, sub;
@@ -6643,7 +6642,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       }).sort((a, b) => (b.likedBy?.length || 0) - (a.likedBy?.length || 0)).slice(0, 100);
 
       return (
-        <div className="main-wrap" style={{ paddingTop: `${topBarHeight + 16}px` }}>
+        <div className="main-wrap" style={{ paddingTop: `${topBarHeight + 8}px` }}>
           {/* 헤더 */}
           <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1.2rem" }}>
             <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.2rem", color: "var(--espresso)", fontWeight: 700 }}>
@@ -6701,7 +6700,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
 
     {/* 레시피 목록 - 랭킹 페이지에선 숨김 */}
-    {!showRanking && <div className="main-wrap" style={{ paddingTop: `${topBarHeight + 16}px` }}>
+    {!showRanking && <div className="main-wrap" style={{ paddingTop: `${topBarHeight + 8}px` }}>
 
       {/* ── 내 레시피 통계 ── */}
       {feedTab === "mine" && (() => {
