@@ -132,8 +132,9 @@ const CSS = `
     padding: 0 24px;
     height: 56px;
     display: flex; align-items: center; justify-content: space-between;
-    position: sticky; top: 0; z-index: 100;
+    position: sticky; top: 0; z-index: 200;
     border-bottom: 1px solid var(--divider);
+    transition: transform 0.25s ease;
   }
   .app-header .logo {
     font-family: 'Playfair Display', serif;
@@ -6055,6 +6056,21 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [showNotif, setShowNotif] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  // 스크롤 방향 감지 — 내리면 헤더 숨김, 올리면 표시
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      if (currentY < 60) { setHeaderVisible(true); }
+      else if (currentY > lastScrollY.current + 4) { setHeaderVisible(false); }
+      else if (currentY < lastScrollY.current - 4) { setHeaderVisible(true); }
+      lastScrollY.current = currentY;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   useEffect(() => {
     if (!user?.uid) return;
     const q = query(
@@ -6262,7 +6278,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         <button className="notice-banner-close" onClick={() => setNoticeDismissed(true)}>✕</button>
       </div>
     )}
-    <header className="app-header">
+    <header className="app-header" style={{ position: "sticky", top: 0, zIndex: 200, transform: headerVisible ? "translateY(0)" : "translateY(-100%)", transition: "transform 0.25s ease" }}>
       <div className="logo">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="9" cy="9" r="8" stroke="var(--espresso)" strokeWidth="1.5"/>
@@ -6390,7 +6406,14 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           <div className="section-sub">{sub}</div>
         </>);
       })()}
-      {/* ── 탭 바 — 2그룹 구조 ── */}
+      {/* ── 탭 바 + 검색행 (스크롤 감지 sticky) ── */}
+      <div style={{
+        position: "sticky", top: 0, zIndex: 100,
+        background: "var(--cream)", paddingBottom: "2px",
+        transform: headerVisible ? "translateY(0)" : "translateY(-100%)",
+        transition: "transform 0.25s ease",
+        marginBottom: "0.2rem",
+      }}>
       {(<>
         <div style={{ margin: "1rem 0 0.6rem", display: "flex", flexDirection: "column", gap: "8px" }}>
           {/* 그룹 1: 피드 탭 + 그룹 2: 내 것 탭 — 한 줄에 양쪽 정렬 */}
@@ -6472,6 +6495,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           </div>
         )}
       </>)}
+      </div> {/* sticky wrapper 끝 */}
       <div className="divider" style={{ marginBottom: "1.5rem" }} />
       {/* 내 원두 탭 */}
       {feedTab === "beans" && user && (
