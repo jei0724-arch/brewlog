@@ -6227,6 +6227,12 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
   const swipeContainerRef = useRef(null);
+  const feedTabRef = useRef(feedTab);
+  const userRef = useRef(user);
+
+  // ref를 항상 최신값으로 유지
+  useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
+  useEffect(() => { userRef.current = user; }, [user]);
 
   useEffect(() => {
     const el = swipeContainerRef.current;
@@ -6247,10 +6253,10 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       touchStartY.current = null;
       if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
 
-      const tabs = user
+      const tabs = userRef.current
         ? ["all", "following", "bookmarks", "mine", "beans", "equip"]
         : ["all", "following", "bookmarks"];
-      const cur = tabs.indexOf(feedTab);
+      const cur = tabs.indexOf(feedTabRef.current);
       if (dx < 0 && cur < tabs.length - 1) {
         setFeedTab(tabs[cur + 1]); setMyRecipesOnly(false); setShowRanking(false);
       } else if (dx > 0 && cur > 0) {
@@ -6264,7 +6270,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchend", onEnd);
     };
-  }, [user, feedTab]);
+  }, []); // 마운트 시 1회만 등록 — ref로 최신값 추적
   const [bestPeriod, setBestPeriod] = useState("month"); // "day" | "week" | "month"
   const [showRanking, setShowRanking] = useState(false); // true면 TOP100 페이지
   const [statModeVal, setStatModeVal] = useState("machine"); // "machine" | "handdrip"
