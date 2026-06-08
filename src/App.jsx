@@ -6226,51 +6226,47 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   // 스와이프 감지
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
-  const swipeContainerRef = useRef(null);
   const feedTabRef = useRef(feedTab);
   const userRef = useRef(user);
-
-  // ref를 항상 최신값으로 유지
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
   useEffect(() => { userRef.current = user; }, [user]);
 
   useEffect(() => {
-    const el = swipeContainerRef.current;
-    if (!el) return;
-
     const onStart = (e) => {
-      const tag = e.target.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON" || tag === "SELECT") return;
+      // 모달이 열려있으면 스와이프 무시
+      if (document.querySelector(".modal-backdrop")) return;
       touchStartX.current = e.touches[0].clientX;
       touchStartY.current = e.touches[0].clientY;
     };
-
     const onEnd = (e) => {
       if (touchStartX.current === null) return;
       const dx = e.changedTouches[0].clientX - touchStartX.current;
       const dy = e.changedTouches[0].clientY - touchStartY.current;
       touchStartX.current = null;
       touchStartY.current = null;
-      if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx)) return;
-
+      // 수평이 수직보다 크고 40px 이상일 때만
+      if (Math.abs(dx) < 40 || Math.abs(dy) >= Math.abs(dx)) return;
       const tabs = userRef.current
         ? ["all", "following", "bookmarks", "mine", "beans", "equip"]
         : ["all", "following", "bookmarks"];
       const cur = tabs.indexOf(feedTabRef.current);
       if (dx < 0 && cur < tabs.length - 1) {
-        setFeedTab(tabs[cur + 1]); setMyRecipesOnly(false); setShowRanking(false);
+        setFeedTab(tabs[cur + 1]);
+        setMyRecipesOnly(false);
+        setShowRanking(false);
       } else if (dx > 0 && cur > 0) {
-        setFeedTab(tabs[cur - 1]); setMyRecipesOnly(false); setShowRanking(false);
+        setFeedTab(tabs[cur - 1]);
+        setMyRecipesOnly(false);
+        setShowRanking(false);
       }
     };
-
-    el.addEventListener("touchstart", onStart, { passive: true });
-    el.addEventListener("touchend", onEnd, { passive: true });
+    document.addEventListener("touchstart", onStart, { passive: true });
+    document.addEventListener("touchend", onEnd, { passive: true });
     return () => {
-      el.removeEventListener("touchstart", onStart);
-      el.removeEventListener("touchend", onEnd);
+      document.removeEventListener("touchstart", onStart);
+      document.removeEventListener("touchend", onEnd);
     };
-  }, []); // 마운트 시 1회만 등록 — ref로 최신값 추적
+  }, []);
   const [bestPeriod, setBestPeriod] = useState("month"); // "day" | "week" | "month"
   const [showRanking, setShowRanking] = useState(false); // true면 TOP100 페이지
   const [statModeVal, setStatModeVal] = useState("machine"); // "machine" | "handdrip"
@@ -7311,7 +7307,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
     { key: "brands",  label: "브랜드 관리" },
   ];
 
-  return (<div ref={swipeContainerRef} style={{ width: "100%" }}>
+  return (<div style={{ width: "100%" }}>
     <header className="app-header">
       <div className="logo">
         <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
