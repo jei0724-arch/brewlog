@@ -6250,12 +6250,16 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         ? ["all", "following", "bookmarks", "mine", "beans", "equip"]
         : ["all", "following", "bookmarks"];
       const cur = tabs.indexOf(feedTabRef.current);
-      if (dx < 0 && cur < tabs.length - 1) {
-        setFeedTab(tabs[cur + 1]);
+      if (dx < 0) {
+        // 왼쪽 스와이프 → 다음 탭 (마지막이면 첫 탭으로)
+        const next = (cur + 1) % tabs.length;
+        setFeedTab(tabs[next]);
         setMyRecipesOnly(false);
         setShowRanking(false);
-      } else if (dx > 0 && cur > 0) {
-        setFeedTab(tabs[cur - 1]);
+      } else if (dx > 0) {
+        // 오른쪽 스와이프 → 이전 탭 (첫 탭이면 마지막 탭으로)
+        const prev = (cur - 1 + tabs.length) % tabs.length;
+        setFeedTab(tabs[prev]);
         setMyRecipesOnly(false);
         setShowRanking(false);
       }
