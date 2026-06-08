@@ -4442,8 +4442,8 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
 
                   // 라벨 그리드 항목 (카드 상단 정보)
                   const labelItems = [
-                    recipe.machine    && { lbl:"커피머신", val:[recipe.machine, recipe.machineModel].filter(Boolean).join(" ") },
-                    recipe.grinder    && { lbl:"그라인더", val:[recipe.grinder, recipe.grinderModel].filter(Boolean).join(" ") },
+                    recipe.machine    && { lbl:"커피머신", val: recipe.machine },
+                    recipe.grinder    && { lbl:"그라인더", val: recipe.grinder },
                     recipe.grindSize  && { lbl:"분쇄도",   val:recipe.grindSize },
                     recipe.company    && { lbl:"원두 회사", val:recipe.company },
                     recipe.roastDate  && { lbl:"로스팅",   val:recipe.roastDate },
