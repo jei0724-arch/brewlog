@@ -2874,11 +2874,16 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             if (beanSnap.exists()) {
               const cur      = parseFloat(beanSnap.data().consumedG) || 0;
               const curCount = beanSnap.data().usedCount || 0;
-              await updateDoc(beanRef, {
+              const updateData = {
                 consumedG:  cur + (parseFloat(form.gram) || 0),
                 usedCount:  curCount + 1,
                 lastUsedAt: serverTimestamp(),
-              });
+              };
+              // 미개봉 상태면 자동으로 개봉 중으로 변경
+              if (beanSnap.data().status === "sealed" || !beanSnap.data().status) {
+                updateData.status = "open";
+              }
+              await updateDoc(beanRef, updateData);
             }
           } catch(e) { console.error("[consumedG] 신규 반영 실패:", e.message); }
         }
