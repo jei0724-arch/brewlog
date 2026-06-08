@@ -329,7 +329,17 @@ const CSS = `
     border-top: 1px solid var(--steam); padding-top: 0.75rem; margin-top: 0.1rem;
   }
   .card-author { font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--roast); }
-  .card-actions { display: flex; gap: 0.4rem; align-items: center; }
+  .card-actions { display: flex; gap: 0; align-items: center; }
+  .card-action-btn { background: none; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; transition: background 0.15s, color 0.15s; color: var(--muted); padding: 0; }
+  .card-action-btn:hover { background: rgba(0,0,0,0.05); }
+  .card-action-btn.heart { color: var(--muted); }
+  .card-action-btn.heart.liked { color: #C0625A; }
+  .card-action-btn.heart:hover { color: #C0625A; }
+  .card-action-btn.bookmark { color: var(--muted); }
+  .card-action-btn.bookmark.saved { color: var(--latte); }
+  .card-action-btn.bookmark:hover { color: var(--latte); }
+  .card-action-btn.edit:hover { color: var(--espresso); }
+  .card-action-btn.delete:hover { color: #c0392b; }
   .card-edit { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.95rem; transition: color 0.2s; }
   .card-edit:hover { color: var(--accent); }
   .card-delete { background: none; border: none; color: #c0392b55; cursor: pointer; font-size: 0.95rem; transition: color 0.2s; }
@@ -2496,15 +2506,16 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const savedDefaults = loadRecipeDefaults();
   const [form, setForm] = useState(isEdit ? {
     ...editTarget,
-    // 기존 레시피 중 waterTemp가 비어있는 경우 기본값 93 채움
     waterTemp: editTarget.waterTemp || "93",
     waterType: editTarget.waterType || "",
     waterBrand: editTarget.waterBrand || "",
     diluteCustom: editTarget.diluteCustom || "",
+    recordDate: editTarget.recordDate || new Date().toISOString().split("T")[0],
   } : {
     company: savedBean?.company || "",
     bean: savedBean?.bean || "",
     roastDate: savedBean?.roastDate || "",
+    recordDate: new Date().toISOString().split("T")[0],
     rating: 0,
     flavorAcidity: 0, flavorSweet: 0, flavorBitter: 0,
     flavorAroma: 0, flavorAftertaste: 0, flavorBalance: 0, flavorBody: 0,
@@ -2916,7 +2927,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         <h2>{isEdit ? t.editTitle : t.recordTitle}</h2>
 
         {/* ── 프리셋 (모달 최상단) ── */}
-        {!isEdit && (
+        {(
           <div style={{ marginBottom: "20px", paddingBottom: "20px", borderBottom: "1px solid var(--divider)" }}>
             <div style={{ marginBottom: "10px" }}>
               <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>
@@ -3504,7 +3515,12 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: 700, color: "var(--espresso)", letterSpacing: "0.04em" }}>기록 & 평가</span>
             <div style={{ height: "1px", background: "var(--divider)", marginTop: "10px" }}/>
           </div>
-          {/* 날씨 정보 */}
+          {/* 기록 날짜 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Brew Date" : "기록 날짜"}</label>
+            <input type="date" value={form.recordDate || ""} onChange={e => set("recordDate", e.target.value)}
+              max={new Date().toISOString().split("T")[0]} />
+          </div>
           <div className="field full">
             <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span>{lang === "en" ? "Weather at Brew Time" : "추출 시점 날씨"}</span>
@@ -3703,6 +3719,108 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 }
 
 // ─── MyModal ──────────────────────────────────────────────────────
+function RecipeImporter({ lang, user }) {
+  const [importFile, setImportFile] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+
+  const MENU_MAP = { "에스프레소":"espresso","리스트레토":"ristretto","룽고":"lungo","아메리카노":"americano","롱블랙":"long_black","카페라떼":"latte","카푸치노":"cappuccino","플랫화이트":"flatwhite","마끼아또":"macchiato","핸드드립":"hand_drip","콜드브루":"cold_brew","기타":"other" };
+
+  const parseCSV = (text) => {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+    return lines.slice(1).map(line => {
+      // 쉼표로 split (따옴표 내부 쉼표 처리)
+      const cols = [];
+      let cur = "", inQ = false;
+      for (const ch of line) {
+        if (ch === '"') inQ = !inQ;
+        else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ""; }
+        else cur += ch;
+      }
+      cols.push(cur.trim());
+      return {
+        menuLabel:  cols[0]  || "",
+        bean:       cols[1]  || "",
+        company:    cols[2]  || "",
+        roastDate:  cols[3]  || "",
+        machine:    cols[4]  || "",
+        grinder:    cols[5]  || "",
+        grindSize:  cols[6]  || "",
+        gram:       cols[7]  || "",
+        seconds:    cols[8]  || "",
+        espressoMl: cols[9]  || "",
+        waterTemp:  cols[10] || "",
+        waterType:  cols[11] || "",
+        diluteType: cols[12] || "",
+        diluteMl:   cols[13] || "",
+        rating:     parseInt(cols[14]) || 0,
+        note:       cols[15] || "",
+        isPublic:   (cols[16] || "TRUE").toUpperCase() !== "FALSE",
+      };
+    }).filter(r => r.bean || r.menuLabel);
+  };
+
+  const handleImport = async () => {
+    if (!importFile || !user?.uid) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const text = await importFile.text();
+      const rows = parseCSV(text);
+      if (rows.length === 0) {
+        setImportResult({ ok: false, msg: "유효한 데이터가 없어요. 템플릿을 확인해주세요." });
+        setImporting(false);
+        return;
+      }
+      let success = 0, fail = 0;
+      for (const row of rows) {
+        try {
+          const menuId = MENU_MAP[row.menuLabel] || "other";
+          await addDoc(collection(db, "recipes"), {
+            ...row, menuId,
+            uid: user.uid, author: user.displayName,
+            createdAt: serverTimestamp(), isImported: true,
+          });
+          success++;
+        } catch(e) { fail++; console.error(e); }
+      }
+      setImportResult({ ok: true, msg: `${success}개 레시피를 가져왔어요.${fail > 0 ? ` (실패 ${fail}개)` : ""}` });
+      setImportFile(null);
+    } catch(e) {
+      setImportResult({ ok: false, msg: "파일 읽기 실패. CSV 형식인지 확인해주세요." });
+    }
+    setImporting(false);
+  };
+
+  return (
+    <div>
+      <label style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 14px", border: "2px dashed var(--steam)", borderRadius: "8px", cursor: "pointer", background: importFile ? "var(--foam)" : "transparent", transition: "all 0.2s" }}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 10V2M5 5l3-3 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M2 12h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+        </svg>
+        <span style={{ fontSize: "0.8rem", color: importFile ? "var(--espresso)" : "var(--muted)" }}>
+          {importFile ? importFile.name : (lang === "en" ? "Click to select CSV" : "CSV 파일 선택하기")}
+        </span>
+        <input type="file" accept=".csv,.CSV" style={{ display: "none" }}
+          onChange={e => { setImportFile(e.target.files[0] || null); setImportResult(null); }} />
+      </label>
+      {importFile && (
+        <button onClick={handleImport} disabled={importing}
+          style={{ marginTop: "8px", width: "100%", padding: "10px", background: "var(--espresso)", color: "var(--cream)", border: "none", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", cursor: importing ? "not-allowed" : "pointer", opacity: importing ? 0.6 : 1 }}>
+          {importing ? "가져오는 중…" : (lang === "en" ? "Import Recipes" : "레시피 가져오기")}
+        </button>
+      )}
+      {importResult && (
+        <p style={{ fontSize: "0.78rem", marginTop: "8px", color: importResult.ok ? "#27ae60" : "#c0392b", display: "flex", alignItems: "center", gap: "4px" }}>
+          {importResult.ok ? "✓" : "✗"} {importResult.msg}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function MyModal({ onClose, user, lang = 'ko', onLogout }) {
   const t = I18N[lang];
 
@@ -4052,6 +4170,58 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
               })()}
             </p>
           )}
+        </div>
+
+        {/* ── 레시피 일괄 가져오기 ── */}
+        <div className="my-section">
+          <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2 12V4a1 1 0 0 1 1-1h7l4 4v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+              <path d="M9 3v4h4" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+              <path d="M6 10l2 2 2-2M8 7v5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {lang === "en" ? "Import Recipes from Excel" : "엑셀에서 레시피 가져오기"}
+          </div>
+
+          {/* 단계별 안내 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+            {[
+              { step: "01", title: "템플릿 다운로드", desc: "아래 버튼으로 CSV 템플릿을 받아요" },
+              { step: "02", title: "엑셀에서 작성", desc: "엑셀/구글 시트에서 템플릿을 열고 레시피를 입력해요. 1행(헤더)은 수정하지 마세요" },
+              { step: "03", title: "CSV로 저장", desc: "파일 → 다른 이름으로 저장 → CSV UTF-8 형식으로 저장해요" },
+              { step: "04", title: "업로드", desc: "저장한 CSV 파일을 아래에 선택하면 자동으로 가져와요" },
+            ].map(({ step, title, desc }) => (
+              <div key={step} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                <span style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.78rem", fontWeight: 700, color: "var(--latte)", flexShrink: 0, minWidth: "20px" }}>{step}</span>
+                <div>
+                  <div style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--espresso)", marginBottom: "1px" }}>{title}</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--muted)", lineHeight: 1.5 }}>{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 템플릿 다운로드 버튼 */}
+          <button onClick={() => {
+            const headers = ["메뉴","원두명","원두회사","로스팅일자","기록날짜","커피머신","그라인더","분쇄도","원두량(g)","추출시간(s)","추출량(ml)","물온도(°C)","물종류","희석종류","희석량(ml)","별점(1-5)","메모","공개(TRUE/FALSE)"];
+            const example = ["아메리카노","에티오피아 예가체프","테라로사","2026-05-01","2026-06-01","Breville 870","Baratza Encore","7","18","28","36","93","생수","물","150","4","맛있었음","TRUE"];
+            const hint = ["※메뉴:에스프레소/리스트레토/룽고/아메리카노/롱블랙/카페라떼/카푸치노/플랫화이트/마끼아또/핸드드립/콜드브루/기타","","","","","","","","","","","","수돗물/정수기/생수/기타","물/우유/저지방우유/두유/귀리우유/아몬드우유/코코넛우유","","1~5","","TRUE/FALSE"];
+            const csv = "\uFEFF" + headers.join(",") + "\n" + example.join(",") + "\n" + hint.join(",");
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "brewlog_template.csv";
+            a.click();
+            URL.revokeObjectURL(a.href);
+          }} style={{ width: "100%", padding: "10px", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--foam)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "10px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 12h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            템플릿 다운로드 (CSV)
+          </button>
+
+          <RecipeImporter lang={lang} user={user} />
         </div>
 
         <div className="modal-actions" style={{ justifyContent: "space-between" }}>
@@ -4421,7 +4591,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
           </div>
           <div className="card-actions">
             {/* 공유 버튼 */}
-            <button
+            <button className="card-action-btn"
               onClick={async () => {
                 try {
                   const html2canvas = (await import("html2canvas")).default;
@@ -4576,60 +4746,45 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                   alert(lang === "en" ? "Share failed." : "공유에 실패했어요.");
                 }
               }}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 0, display: "inline-flex", alignItems: "center", transition: "color 0.15s" }}
               title={lang === "en" ? "Share recipe" : "레시피 공유"}
-              onMouseEnter={e => e.currentTarget.style.color = "var(--espresso)"}
-              onMouseLeave={e => e.currentTarget.style.color = "var(--muted)"}
             >
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12.5" cy="3" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
-                <circle cx="12.5" cy="13" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
-                <circle cx="3.5" cy="8" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
-                <path d="M5 7.2l6-3.2M5 8.8l6 3.2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <circle cx="18" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.6"/>
+                <circle cx="18" cy="19" r="2.5" stroke="currentColor" strokeWidth="1.6"/>
+                <circle cx="6" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.6"/>
+                <path d="M8.3 10.8l7.4-4.2M8.3 13.2l7.4 4.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
               </svg>
             </button>
-            <button
-              className={`btn-heart ${liked ? "liked" : ""}`}
+            {/* 하트 */}
+            <button className={`card-action-btn heart ${liked ? "liked" : ""}`}
               onClick={() => !isOwner && onLike(recipe)}
               style={{ cursor: isOwner ? "default" : "pointer", opacity: isOwner ? 0.4 : 1 }}
-              title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}
-            >
+              title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}>
               {liked ? (
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z"/>
-                </svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#C0625A"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z"/></svg>
               ) : (
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-                </svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
               )}
-              <span>{likeCount > 0 ? likeCount : ""}</span>
+              {likeCount > 0 && <span style={{ fontSize: "0.75rem", marginLeft: "1px", fontFamily: "'DM Sans',sans-serif" }}>{likeCount}</span>}
             </button>
+            {/* 수정/삭제 */}
             {isOwner && (<>
-              <button className="card-edit" onClick={() => { onClose(); onEdit(recipe); }}
-                style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center" }}>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M11.5 2.5l2 2-8 8H3.5v-2l8-8z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-                </svg>
+              <button className="card-action-btn edit" onClick={() => { onClose(); onEdit(recipe); }}
+                title={lang === "en" ? "Edit" : "수정"}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4-11 11H5.5v-4l11-11z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M14 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
               </button>
-              <button className="card-delete" onClick={() => { onClose(); onDelete(recipe.id); }}
-                style={{ background: "none", border: "none", color: "#c0392b55", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center" }}>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M3 4h10M5 4V2.5C5 2.224 5.224 2 5.5 2h5c.276 0 .5.224.5.5V4M6 7v5M10 7v5M4 4l.8 9.2c.02.44.38.8.82.8h6.76c.44 0 .8-.36.82-.8L14 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+              <button className="card-action-btn delete" onClick={() => { onClose(); onDelete(recipe.id); }}
+                title={lang === "en" ? "Delete" : "삭제"}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M9 6V4h6v2M10 11v6M14 11v6M5 6l1 14h12L19 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </button>
             </>)}
             {/* ··· 더보기 메뉴 (본인 글 제외) */}
             {!isOwner && currentUser && (
               <div style={{ position: "relative" }}>
-                <button
-                  onClick={() => setShowMore(v => !v)}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px 4px", display: "inline-flex", alignItems: "center", borderRadius: "4px", transition: "color 0.15s" }}
-                  onMouseEnter={e => e.currentTarget.style.color = "var(--espresso)"}
-                  onMouseLeave={e => e.currentTarget.style.color = "var(--muted)"}
-                >
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
-                    <circle cx="3" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="13" cy="8" r="1.2"/>
+                <button className="card-action-btn"
+                  onClick={() => setShowMore(v => !v)}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
                   </svg>
                 </button>
                 {showMore && (<>
@@ -4940,52 +5095,39 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
           <span style={{ color: "var(--muted)" }}> · {date}</span>
         </div>
         <div className="card-actions">
-          {/* 본인 글엔 하트 비활성화 */}
-          <button
-            className={`btn-heart ${liked ? "liked" : ""}`}
+          {/* 하트 */}
+          <button className={`card-action-btn heart ${liked ? "liked" : ""}`}
             onClick={e => { e.stopPropagation(); !isOwner && onLike(recipe); }}
             style={{ cursor: isOwner ? "default" : "pointer", opacity: isOwner ? 0.4 : 1 }}
-            title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}
-          >
+            title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}>
             {liked ? (
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z"/>
-              </svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#C0625A"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z"/></svg>
             ) : (
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-              </svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
             )}
-            <span>{likeCount > 0 ? likeCount : ""}</span>
+            {likeCount > 0 && <span style={{ fontSize: "0.72rem", marginLeft: "1px", fontFamily: "'DM Sans',sans-serif" }}>{likeCount}</span>}
           </button>
-          <button
-            className={`btn-bookmark ${isBookmarked ? "saved" : ""}`}
+          {/* 즐겨찾기 */}
+          <button className={`card-action-btn bookmark ${isBookmarked ? "saved" : ""}`}
             onClick={e => { e.stopPropagation(); onBookmark(recipe.id); }}
-            title={isBookmarked ? t.bookmarkRemove : t.bookmarkAdd}
-            style={{ color: isBookmarked ? "var(--latte)" : "var(--muted)" }}
-          >
+            title={isBookmarked ? t.bookmarkRemove : t.bookmarkAdd}>
             {isBookmarked ? (
-              <svg width="13" height="15" viewBox="0 0 13 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M1 1.5C1 1.224 1.224 1 1.5 1h10c.276 0 .5.224.5.5v13l-5-3-5 3V1.5z"/>
-              </svg>
+              <svg width="18" height="20" viewBox="0 0 18 22" fill="currentColor"><path d="M1 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v19l-8-5-8 5V2z"/></svg>
             ) : (
-              <svg width="13" height="15" viewBox="0 0 13 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M1 1.5C1 1.224 1.224 1 1.5 1h10c.276 0 .5.224.5.5v13l-5-3-5 3V1.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-              </svg>
+              <svg width="18" height="20" viewBox="0 0 18 22" fill="none"><path d="M1 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v19l-8-5-8 5V2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
             )}
           </button>
+          {/* 수정/삭제 — 본인만 */}
           {isOwner && (<>
-            <button className="card-edit" onClick={e => { e.stopPropagation(); onEdit(recipe); }}
-              style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center" }}>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11.5 2.5l2 2-8 8H3.5v-2l8-8z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
-              </svg>
+            <button className="card-action-btn edit"
+              onClick={e => { e.stopPropagation(); onEdit(recipe); }}
+              title={lang === "en" ? "Edit" : "수정"}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4-11 11H5.5v-4l11-11z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M14 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
             </button>
-            <button className="card-delete" onClick={e => { e.stopPropagation(); onDelete(recipe.id); }}
-              style={{ background: "none", border: "none", color: "#c0392b55", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center" }}>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 4h10M5 4V2.5C5 2.224 5.224 2 5.5 2h5c.276 0 .5.224.5.5V4M6 7v5M10 7v5M4 4l.8 9.2c.02.44.38.8.82.8h6.76c.44 0 .8-.36.82-.8L14 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+            <button className="card-action-btn delete"
+              onClick={e => { e.stopPropagation(); onDelete(recipe.id); }}
+              title={lang === "en" ? "Delete" : "삭제"}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M9 6V4h6v2M10 11v6M14 11v6M5 6l1 14h12L19 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           </>)}
         </div>
