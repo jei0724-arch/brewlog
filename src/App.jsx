@@ -4636,15 +4636,39 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                   const hasRadar = flavors.length > 0;
 
                   const radarSVG = hasRadar ? (() => {
-                    const cx=120, cy=120, R=88, n=flavorKeys.length;
-                    const pt = (i,r) => { const a=-Math.PI/2+(2*Math.PI*i/n); return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; };
-                    const grid = [1,2,3,4,5].map(l => { const r=R*l/5; return `<polygon points="${flavorKeys.map((_,i)=>pt(i,r).join(",")).join(" ")}" fill="${l===5?"#FAFAF9":"none"}" stroke="#E8E6E3" stroke-width="${l===5?1.2:0.7}"/>`; }).join("");
-                    const axes = flavorKeys.map((_,i) => { const [x,y]=pt(i,R); return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#E8E6E3" stroke-width="0.8"/>`; }).join("");
+                    const SIZE = 260, cx = 130, cy = 130, R = 95, n = flavorKeys.length;
+                    const pt = (i, r) => {
+                      const a = -Math.PI/2 + (2*Math.PI*i/n);
+                      return [cx + r*Math.cos(a), cy + r*Math.sin(a)];
+                    };
+                    const grid = [1,2,3,4,5].map(l => {
+                      const r = R*l/5;
+                      const pts = flavorKeys.map((_,i) => pt(i,r).join(",")).join(" ");
+                      const isOuter = l === 5;
+                      return `<polygon points="${pts}" fill="${l%2===0?"#F5F3F0":"none"}" stroke="${isOuter?"#D5CFC8":"#E8E4DF"}" stroke-width="${isOuter?1.2:0.7}"/>`;
+                    }).join("");
+                    const axes = flavorKeys.map((_,i) => {
+                      const [x,y] = pt(i, R);
+                      return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#DDD9D3" stroke-width="0.8"/>`;
+                    }).join("");
                     const vals = flavorKeys.map(k => (parseInt(recipe[`flavor${k}`])||0)/5);
-                    const data = `<polygon points="${flavorKeys.map((_,i)=>pt(i,Math.max(vals[i],0.05)*R).join(",")).join(" ")}" fill="#B07D54" fill-opacity="0.18" stroke="#B07D54" stroke-width="1.8" stroke-linejoin="round"/>`;
-                    const dots = flavorKeys.map((_,i) => { if(!vals[i]) return ""; const [x,y]=pt(i,vals[i]*R); return `<circle cx="${x}" cy="${y}" r="3.5" fill="#B07D54" stroke="white" stroke-width="1"/>`; }).join("");
-                    const lbls = flavorKeys.map((k,i) => { const [x,y]=pt(i,R+20); const anchor=x<cx-8?"end":x>cx+8?"start":"middle"; const v=parseInt(recipe[`flavor${k}`])||0; return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="9.5" fill="${v>0?"#1A1614":"#C0BBBA"}" font-family="DM Sans,sans-serif" font-weight="${v>0?600:400}">${flavorLabels[k]}</text>`; }).join("");
-                    return `<svg width="240" height="240" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">${grid}${axes}${data}${dots}${lbls}</svg>`;
+                    const dataPts = flavorKeys.map((_,i) => pt(i, Math.max(vals[i],0.05)*R).join(",")).join(" ");
+                    const dots = flavorKeys.map((_,i) => {
+                      if (!vals[i]) return "";
+                      const [x,y] = pt(i, vals[i]*R);
+                      return `<circle cx="${x}" cy="${y}" r="4" fill="#B07D54" stroke="white" stroke-width="1.5"/>`;
+                    }).join("");
+                    const lbls = flavorKeys.map((k,i) => {
+                      const [x,y] = pt(i, R+22);
+                      const anchor = x < cx-8 ? "end" : x > cx+8 ? "start" : "middle";
+                      const v = parseInt(recipe[`flavor${k}`])||0;
+                      return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="10" fill="${v>0?"#5C4033":"#C0BBBA"}" font-family="DM Sans,sans-serif" font-weight="${v>0?600:400}" letter-spacing="-0.3">${flavorLabels[k]}</text>`;
+                    }).join("");
+                    return `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
+                      ${grid}${axes}
+                      <polygon points="${dataPts}" fill="#B07D54" fill-opacity="0.15" stroke="#B07D54" stroke-width="2" stroke-linejoin="round"/>
+                      ${dots}${lbls}
+                    </svg>`;
                   })() : "";
 
                   const el = document.createElement("div");
@@ -4700,18 +4724,19 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
 
                       <!-- 플레이버 -->
                       ${hasRadar ? `
-                      <div style="background:#FAFAF9;border:1px solid #F0EFEF;border-radius:8px;padding:14px;margin-bottom:0;">
-                        <div style="font-size:9px;color:#8C8480;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">${lang==="en"?"Flavor Profile":"플레이버 프로파일"}</div>
-                        <div style="display:flex;justify-content:center;margin-bottom:10px;">${radarSVG}</div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 16px;">
-                          ${flavors.map(f => `<div>
-                            <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">
-                              <span style="color:#1A1614;font-weight:500;">${f.lbl}</span>
-                              <span style="color:#B07D54;font-weight:700;">${f.val}/5</span>
+                      <div style="background:#FAFAF9;border:1px solid #F0EFEF;border-radius:12px;padding:18px;margin-bottom:0;">
+                        <div style="font-size:8px;color:#B07D54;text-transform:uppercase;letter-spacing:0.12em;font-weight:700;margin-bottom:14px;">${lang==="en"?"Flavor Profile":"Flavor Profile"}</div>
+                        <!-- 레이더 차트 중앙 -->
+                        <div style="display:flex;justify-content:center;margin-bottom:16px;">${radarSVG}</div>
+                        <!-- 바 차트 — 1열 전체 너비 (글자 잘림 방지) -->
+                        <div style="display:flex;flex-direction:column;gap:7px;">
+                          ${flavors.map(f => `
+                          <div style="display:flex;align-items:center;gap:10px;">
+                            <span style="font-size:10px;color:#8C8480;width:52px;flex-shrink:0;font-family:'DM Sans',sans-serif;">${f.lbl}</span>
+                            <div style="flex:1;height:5px;background:#EEEBE7;border-radius:3px;overflow:hidden;">
+                              <div style="height:100%;width:${f.val/5*100}%;background:linear-gradient(90deg,#C49A6C,#B07D54);border-radius:3px;"></div>
                             </div>
-                            <div style="height:4px;background:#F0EFEF;border-radius:2px;">
-                              <div style="height:100%;width:${f.val/5*100}%;background:#B07D54;border-radius:2px;"></div>
-                            </div>
+                            <span style="font-size:10px;color:#B07D54;font-weight:700;width:20px;text-align:right;flex-shrink:0;">${f.val}</span>
                           </div>`).join("")}
                         </div>
                       </div>` : ""}
