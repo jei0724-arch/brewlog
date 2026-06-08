@@ -3647,10 +3647,11 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
               <button type="button"
                 onClick={() => set("isPublic", true)}
                 style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-                  borderColor: form.isPublic !== false ? "var(--latte)" : "var(--steam)",
-                  background: form.isPublic !== false ? "var(--latte)" : "var(--foam)",
-                  color: form.isPublic !== false ? "var(--espresso)" : "var(--muted)", fontWeight: form.isPublic !== false ? 600 : 400 }}>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3"/><path d="M8 2C8 2 10 5 10 8s-2 6-2 6M8 2C8 2 6 5 6 8s2 6 2 6M2 8h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                  borderColor: form.isPublic !== false ? "var(--espresso)" : "var(--steam)",
+                  background: form.isPublic !== false ? "var(--espresso)" : "var(--foam)",
+                  color: form.isPublic !== false ? "var(--cream)" : "var(--muted)",
+                  fontWeight: form.isPublic !== false ? 600 : 400 }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3"/><path d="M8 2C8 2 10 5 10 8s-2 6-2 6M8 2C8 2 6 5 6 8s2 6 2 6M2 8h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                 {lang === "en" ? "Public" : "공개"}
               </button>
               <button type="button"
@@ -3658,8 +3659,9 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
                 style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
                   borderColor: form.isPublic === false ? "var(--espresso)" : "var(--steam)",
                   background: form.isPublic === false ? "var(--espresso)" : "var(--foam)",
-                  color: form.isPublic === false ? "var(--cream)" : "var(--muted)", fontWeight: form.isPublic === false ? 600 : 400 }}>
-                <svg width="13" height="14" viewBox="0 0 14 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                  color: form.isPublic === false ? "var(--cream)" : "var(--muted)",
+                  fontWeight: form.isPublic === false ? 600 : 400 }}>
+                <svg width="13" height="14" viewBox="0 0 14 16" fill="none"><rect x="2" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                 {lang === "en" ? "Private" : "비공개"}
               </button>
             </div>
@@ -5118,7 +5120,7 @@ function EquipmentModal({ lang, user, editTarget, onClose, onSaved }) {
   );
 }
 
-function EquipmentVault({ user, lang }) {
+function EquipmentVault({ user, lang, showModal, setShowModal }) {
   const t = I18N[lang];
   const CATEGORIES = [
     { id: "machine",  labelKo: "커피 머신",  labelEn: "Coffee Machine", color: "#e67e22" },
@@ -5128,7 +5130,6 @@ function EquipmentVault({ user, lang }) {
   ];
   const [equips, setEquips] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
 
   const loadEquips = async () => {
@@ -5174,12 +5175,6 @@ function EquipmentVault({ user, lang }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
-        <button className="btn-new" onClick={() => { setEditTarget(null); setShowModal(true); }}>
-          <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-          {t.equipAdd}
-        </button>
-      </div>
 
       {loading && (
         <div style={{ display: "flex", justifyContent: "center", padding: "48px 0", color: "var(--muted)", gap: "8px", fontSize: "0.85rem" }}>
@@ -6271,6 +6266,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [beanFilterStatus, setBeanFilterStatus] = useState("all");
   const [beanShowModal, setBeanShowModal] = useState(false);
   const [beanEditTarget, setBeanEditTarget] = useState(null);
+  const [equipShowModal, setEquipShowModal] = useState(false);
 
   const loadRecipes = useCallback(async () => {
     try {
@@ -6524,8 +6520,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             )}
           </div>
         </div>
-        {/* 두 번째 행: beans 탭 → 필터+추가하기 / 나머지 → 검색+기록하기 */}
-        {(feedTab === "beans" || feedTab !== "equip") && (
+        {/* 두 번째 행: beans → 필터+추가 / equip → 추가 / 나머지 → 검색+기록하기 */}
+        {true && (
           <div style={{ borderTop: "1px solid var(--divider)", marginTop: "10px", paddingTop: "10px", maxWidth: "900px", margin: "10px auto 0" }}>
             {feedTab === "beans" ? (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
@@ -6546,7 +6542,14 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                   {lang === "en" ? "Add Bean" : "추가하기"}
                 </button>
               </div>
-            ) : feedTab !== "equip" ? (
+            ) : feedTab === "equip" ? (
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button className="btn-new" onClick={() => setEquipShowModal(true)}>
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                  {lang === "en" ? "Add Gear" : "추가하기"}
+                </button>
+              </div>
+            ) : (
               <div className="search-row" style={{ display: "flex", gap: "0.5rem", width: "100%", boxSizing: "border-box", overflow: "hidden" }}>
                 <div className="search-box" style={{ flex: 1, minWidth: 0 }}>
                   <span className="search-icon">
@@ -6565,7 +6568,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                   <span className="btn-new-text">{I18N[lang].newRecipe}</span>
                 </button>
               </div>
-            ) : null}
+            )}
           </div>
         )}
       </>)}
@@ -6604,7 +6607,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           currency={loadCurrency()} />
       )}
       {feedTab === "equip" && user && (
-        <EquipmentVault user={user} lang={lang} />
+        <EquipmentVault user={user} lang={lang} showModal={equipShowModal} setShowModal={setEquipShowModal} />
       )}
       {feedTab !== "beans" && feedTab !== "equip" && feedTab === "all" && !myRecipesOnly && !showRanking && (() => {
         const now = new Date();
@@ -7075,6 +7078,13 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // 회원관리 필터 state
+  const [userSearch, setUserSearch] = useState("");
+  const [userStatusFilter, setUserStatusFilter] = useState("all");
+  const [userJoinFrom, setUserJoinFrom] = useState("");
+  const [userJoinTo, setUserJoinTo] = useState("");
+  const [userSortBy, setUserSortBy] = useState("joinDesc");
+
   const loadReports = async () => {
     try {
       const snap = await getDocs(query(collection(db, "reports"), orderBy("createdAt", "desc")));
@@ -7362,41 +7372,185 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
       </>)}
 
       {/* ── 회원 관리 ── */}
-      {tab === "users" && !loading && (
-        <div className="admin-card" style={{ overflowX: "auto" }}>
-          <div className="admin-card-title">회원 목록 ({users.length}명)</div>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>닉네임</th>
-                <th>보안질문</th>
-                <th>UID</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u.id}>
-                  <td style={{ fontWeight: 600 }}>@{u.nickname}</td>
-                  <td style={{ color: "var(--muted)", fontSize: "0.8rem", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.securityQuestion}</td>
-                  <td style={{ color: "var(--muted)", fontSize: "0.72rem", fontFamily: "monospace" }}>{u.id.slice(0, 12)}…</td>
-                  <td>
-                    {u.id !== user?.uid && (
-                      <button className="btn-danger" onClick={() => deleteUser(u.id, u.nickname)}>
-                        <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M2.5 3.5h9M4.5 3.5V2.5c0-.28.22-.5.5-.5h4c.28 0 .5.22.5.5v1M5.5 6v4M8.5 6v4M3 3.5l.7 8c.02.4.35.7.76.7h6.08c.4 0 .73-.3.76-.7l.7-8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        삭제
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {users.length === 0 && <p style={{ color: "var(--muted)", textAlign: "center", padding: "24px 0", fontSize: "0.85rem" }}>회원이 없어요.</p>}
-        </div>
-      )}
+      {tab === "users" && !loading && (() => {
+        // ── 필터 state (IIFE 내부 — hooks 불가, 부모 컴포넌트에서 관리)
+        // AdminApp 최상단에 선언된 userSearch, userStatusFilter, userJoinFrom, userJoinTo, userSortBy 사용
+        const fmt = (ts) => {
+          if (!ts) return "—";
+          const d = ts.toDate ? ts.toDate() : new Date(ts);
+          return d.toLocaleDateString("ko-KR", { year:"2-digit", month:"2-digit", day:"2-digit" });
+        };
+        const daysSince = (ts) => {
+          if (!ts) return 9999;
+          const d = ts.toDate ? ts.toDate() : new Date(ts);
+          return Math.floor((Date.now() - d.getTime()) / 86400000);
+        };
+
+        // 필터 적용
+        let filtered = [...users];
+        if (userSearch.trim()) {
+          const q = userSearch.trim().toLowerCase();
+          filtered = filtered.filter(u =>
+            (u.nickname||"").toLowerCase().includes(q) ||
+            (u.id||"").toLowerCase().includes(q) ||
+            (u.email||"").toLowerCase().includes(q)
+          );
+        }
+        if (userStatusFilter !== "all") {
+          filtered = filtered.filter(u => (u.status || "active") === userStatusFilter);
+        }
+        if (userJoinFrom) {
+          const from = new Date(userJoinFrom);
+          filtered = filtered.filter(u => {
+            if (!u.createdAt) return false;
+            const d = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
+            return d >= from;
+          });
+        }
+        if (userJoinTo) {
+          const to = new Date(userJoinTo); to.setHours(23,59,59);
+          filtered = filtered.filter(u => {
+            if (!u.createdAt) return false;
+            const d = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
+            return d <= to;
+          });
+        }
+        // 정렬
+        filtered.sort((a, b) => {
+          if (userSortBy === "joinDesc") return (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0);
+          if (userSortBy === "joinAsc")  return (a.createdAt?.seconds||0) - (b.createdAt?.seconds||0);
+          if (userSortBy === "loginDesc") return (b.lastLogin?.seconds||0) - (a.lastLogin?.seconds||0);
+          if (userSortBy === "loginAsc")  return (a.lastLogin?.seconds||0) - (b.lastLogin?.seconds||0);
+          return 0;
+        });
+
+        const statusColor = { active:"#27ae60", suspended:"#e67e22", deleted:"#e74c3c" };
+        const statusLabel = { active:"활성", suspended:"정지", deleted:"탈퇴" };
+
+        return (
+          <div className="admin-card">
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"16px", flexWrap:"wrap", gap:"8px" }}>
+              <div className="admin-card-title" style={{ margin:0 }}>회원 관리 ({filtered.length}/{users.length}명)</div>
+              <button className="btn-save-sm" onClick={loadAll}>새로고침</button>
+            </div>
+
+            {/* ── 필터 영역 ── */}
+            <div style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"14px 16px", marginBottom:"16px", display:"flex", flexDirection:"column", gap:"10px" }}>
+              {/* 검색 */}
+              <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink:0, color:"var(--muted)" }}>
+                  <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <input value={userSearch} onChange={e => setUserSearch(e.target.value)}
+                  placeholder="닉네임, UID, 이메일 검색…"
+                  style={{ flex:1, border:"1px solid var(--steam)", borderRadius:"6px", padding:"6px 10px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", background:"white" }}
+                />
+              </div>
+              {/* 필터 행 1: 상태 + 정렬 */}
+              <div style={{ display:"flex", gap:"8px", flexWrap:"wrap" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                  <span style={{ fontSize:"0.72rem", color:"var(--muted)", whiteSpace:"nowrap" }}>상태</span>
+                  <select value={userStatusFilter} onChange={e => setUserStatusFilter(e.target.value)}
+                    style={{ border:"1px solid var(--steam)", borderRadius:"6px", padding:"5px 8px", fontSize:"0.78rem", fontFamily:"'DM Sans',sans-serif", background:"white" }}>
+                    <option value="all">전체</option>
+                    <option value="active">활성</option>
+                    <option value="suspended">정지</option>
+                    <option value="deleted">탈퇴</option>
+                  </select>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                  <span style={{ fontSize:"0.72rem", color:"var(--muted)", whiteSpace:"nowrap" }}>정렬</span>
+                  <select value={userSortBy} onChange={e => setUserSortBy(e.target.value)}
+                    style={{ border:"1px solid var(--steam)", borderRadius:"6px", padding:"5px 8px", fontSize:"0.78rem", fontFamily:"'DM Sans',sans-serif", background:"white" }}>
+                    <option value="joinDesc">가입일 최신순</option>
+                    <option value="joinAsc">가입일 오래된순</option>
+                    <option value="loginDesc">최근 접속순</option>
+                    <option value="loginAsc">오래된 접속순</option>
+                  </select>
+                </div>
+              </div>
+              {/* 필터 행 2: 가입일 기간 */}
+              <div style={{ display:"flex", gap:"8px", alignItems:"center", flexWrap:"wrap" }}>
+                <span style={{ fontSize:"0.72rem", color:"var(--muted)", whiteSpace:"nowrap" }}>가입일</span>
+                <input type="date" value={userJoinFrom} onChange={e => setUserJoinFrom(e.target.value)}
+                  style={{ border:"1px solid var(--steam)", borderRadius:"6px", padding:"5px 8px", fontSize:"0.78rem", fontFamily:"'DM Sans',sans-serif", background:"white" }}/>
+                <span style={{ fontSize:"0.72rem", color:"var(--muted)" }}>~</span>
+                <input type="date" value={userJoinTo} onChange={e => setUserJoinTo(e.target.value)}
+                  style={{ border:"1px solid var(--steam)", borderRadius:"6px", padding:"5px 8px", fontSize:"0.78rem", fontFamily:"'DM Sans',sans-serif", background:"white" }}/>
+                {(userJoinFrom || userJoinTo) && (
+                  <button onClick={() => { setUserJoinFrom(""); setUserJoinTo(""); }}
+                    style={{ fontSize:"0.72rem", color:"var(--muted)", background:"none", border:"none", cursor:"pointer", textDecoration:"underline" }}>초기화</button>
+                )}
+              </div>
+            </div>
+
+            {/* ── 회원 목록 ── */}
+            {filtered.length === 0 ? (
+              <p style={{ color:"var(--muted)", textAlign:"center", padding:"24px 0", fontSize:"0.85rem" }}>
+                {users.length === 0 ? "회원이 없어요." : "검색 결과가 없어요."}
+              </p>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+                {filtered.map(u => {
+                  const status = u.status || "active";
+                  const recipeCount = recipes.filter(r => r.uid === u.id).length;
+                  const joinDays = daysSince(u.createdAt);
+                  const loginDays = daysSince(u.lastLogin);
+                  const isGhost = loginDays > 30; // 유령 회원 기준
+                  return (
+                    <div key={u.id} style={{ background:"var(--foam)", border:`1px solid ${status==="suspended"?"#e67e2230":status==="deleted"?"#e74c3c20":"var(--divider)"}`, borderRadius:"10px", padding:"12px 14px", borderLeft:`3px solid ${statusColor[status]||"#27ae60"}` }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"8px" }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          {/* 상단: 닉네임 + 상태 */}
+                          <div style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"4px", flexWrap:"wrap" }}>
+                            <span style={{ fontWeight:700, fontSize:"0.92rem", color:"var(--espresso)" }}>@{u.nickname}</span>
+                            <span style={{ fontSize:"0.62rem", fontWeight:700, color:statusColor[status], background:statusColor[status]+"18", border:`1px solid ${statusColor[status]}40`, borderRadius:"4px", padding:"1px 6px" }}>
+                              {statusLabel[status]||status}
+                            </span>
+                            {isGhost && status === "active" && (
+                              <span style={{ fontSize:"0.62rem", color:"#8C8480", background:"#F0EFEF", borderRadius:"4px", padding:"1px 6px" }}>👻 유령</span>
+                            )}
+                          </div>
+                          {/* 정보 행 */}
+                          <div style={{ display:"flex", flexWrap:"wrap", gap:"10px", fontSize:"0.72rem", color:"var(--muted)" }}>
+                            <span>가입 {fmt(u.createdAt)}</span>
+                            <span>최근접속 {loginDays === 9999 ? "—" : `${loginDays}일 전`}</span>
+                            <span>레시피 {recipeCount}개</span>
+                            <span style={{ fontFamily:"monospace", fontSize:"0.65rem" }}>{u.id.slice(0,10)}…</span>
+                          </div>
+                        </div>
+                        {/* 액션 버튼 */}
+                        {u.id !== user?.uid && (
+                          <div style={{ display:"flex", gap:"5px", flexShrink:0 }}>
+                            {status === "active" ? (
+                              <button onClick={async () => {
+                                if (!confirm(`@${u.nickname} 계정을 정지할까요?`)) return;
+                                await updateDoc(doc(db, "users", u.id), { status:"suspended", suspendedAt:serverTimestamp() });
+                                loadAll();
+                              }} style={{ padding:"4px 8px", border:"1px solid #e67e2260", borderRadius:"6px", background:"none", cursor:"pointer", fontSize:"0.68rem", color:"#e67e22", fontFamily:"'DM Sans',sans-serif" }}>
+                                정지
+                              </button>
+                            ) : status === "suspended" ? (
+                              <button onClick={async () => {
+                                await updateDoc(doc(db, "users", u.id), { status:"active", suspendedAt:null });
+                                loadAll();
+                              }} style={{ padding:"4px 8px", border:"1px solid #27ae6060", borderRadius:"6px", background:"none", cursor:"pointer", fontSize:"0.68rem", color:"#27ae60", fontFamily:"'DM Sans',sans-serif" }}>
+                                복구
+                              </button>
+                            ) : null}
+                            <button className="btn-danger" onClick={() => deleteUser(u.id, u.nickname)}>삭제</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── 신고 관리 ── */}
       {tab === "reports" && (
