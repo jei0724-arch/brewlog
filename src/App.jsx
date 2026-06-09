@@ -541,6 +541,7 @@ const CSS = `
     position: fixed; inset: 0; background: #1A1A1ACC; z-index: 200;
     display: flex; align-items: center; justify-content: center; padding: 16px;
     backdrop-filter: blur(4px); animation: fadeIn 0.15s ease;
+    touch-action: none; overscroll-behavior: none;
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .modal {
@@ -548,6 +549,7 @@ const CSS = `
     padding: 32px 28px; width: 100%; max-width: 500px; max-height: 90vh;
     overflow-y: auto; position: relative; animation: slideUp 0.2s ease;
     text-align: left; box-shadow: 0 24px 48px #1A1A1A10;
+    touch-action: pan-y; overscroll-behavior: contain;
   }
   @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .modal::before { content: ''; position: absolute; top: 0; left: 2rem; right: 2rem; height: 2px; background: linear-gradient(90deg, transparent, var(--latte), transparent); }
@@ -982,7 +984,7 @@ This consent is required to use the service.`;
 
 function PrivacyModal({ onClose, lang }) {
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
       <div className="modal" style={{ maxWidth: "480px" }}>
         <h2 style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>
           {lang === "en" ? "Privacy Policy" : "개인정보 처리방침"}
@@ -2930,7 +2932,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
       <div className="modal" ref={modalRef}>
         <h2>{isEdit ? t.editTitle : editTarget?._isCopy ? "레시피 복사하기" : t.recordTitle}</h2>
         {/* 복사 모드 안내 */}
@@ -3972,7 +3974,7 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
   });
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
       <div className="modal">
         <h2>{lang === "en" ? "My Settings" : "MY 설정"}</h2>
 
@@ -4342,7 +4344,7 @@ function ReportModal({ type, targetId, currentUser, onClose, lang = "ko" }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
       <div className="modal" style={{ maxWidth: "340px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
           <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--espresso)" }}>🚨 {t.report}</span>
@@ -4506,7 +4508,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
 
   return (
     <>
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
       <div className="modal" style={{ maxWidth: "460px" }}>
         {/* 닫기 버튼 */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.8rem" }}>
@@ -5170,7 +5172,7 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target===e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onClick={e => e.target===e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
       <div className="modal" style={{ maxWidth:"700px", maxHeight:"90vh", overflowY:"auto", padding:"24px" }}>
         {/* 헤더 */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
@@ -5600,7 +5602,7 @@ function EquipmentModal({ lang, user, editTarget, onClose, onSaved }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
       <div className="modal" style={{ maxWidth: "420px" }}>
         <h2>{editTarget ? t.equipEdit : t.equipAdd}</h2>
         <div className="modal-grid">
@@ -5878,7 +5880,7 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
       <div className="modal" style={{ maxWidth: "560px" }}>
         <h2>{editTarget ? t.beanEdit : t.beanAdd}</h2>
         <div className="modal-grid">
@@ -6649,30 +6651,46 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
   // iOS 핀치 줌 / 제스처 확대 완전 차단
   useEffect(() => {
-    // 두 손가락 터치(핀치)만 차단, 한 손가락 스크롤은 허용
-    const preventZoom = (e) => {
+    // 핀치(두 손가락) → 항상 차단
+    const preventPinch = (e) => {
       if (e.touches && e.touches.length > 1) e.preventDefault();
     };
-    // Safari gesturestart 차단
+    // Safari gesture 이벤트 차단
     const preventGesture = (e) => e.preventDefault();
-    document.addEventListener("touchmove", preventZoom, { passive: false });
-    document.addEventListener("gesturestart", preventGesture, { passive: false });
-    document.addEventListener("gesturechange", preventGesture, { passive: false });
-    document.addEventListener("gestureend", preventGesture, { passive: false });
-    // 더블탭 확대 방지 (300ms 이내 두 번 탭)
+    // 더블탭 확대 방지
     let lastTap = 0;
     const preventDoubleTap = (e) => {
+      // 입력 요소에서는 더블탭 허용 (텍스트 선택 등)
+      const tag = e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       const now = Date.now();
       if (now - lastTap < 300) e.preventDefault();
       lastTap = now;
     };
-    document.addEventListener("touchend", preventDoubleTap, { passive: false });
+
+    document.addEventListener("touchmove",     preventPinch,     { passive: false });
+    document.addEventListener("gesturestart",  preventGesture,   { passive: false });
+    document.addEventListener("gesturechange", preventGesture,   { passive: false });
+    document.addEventListener("gestureend",    preventGesture,   { passive: false });
+    document.addEventListener("touchend",      preventDoubleTap, { passive: false });
+
+    // viewport meta — user-scalable=no 동적 주입 (index.html 수정 불가 시)
+    const meta = document.querySelector("meta[name=viewport]");
+    if (meta) {
+      meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+    } else {
+      const m = document.createElement("meta");
+      m.name = "viewport";
+      m.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+      document.head.appendChild(m);
+    }
+
     return () => {
-      document.removeEventListener("touchmove", preventZoom);
-      document.removeEventListener("gesturestart", preventGesture);
+      document.removeEventListener("touchmove",     preventPinch);
+      document.removeEventListener("gesturestart",  preventGesture);
       document.removeEventListener("gesturechange", preventGesture);
-      document.removeEventListener("gestureend", preventGesture);
-      document.removeEventListener("touchend", preventDoubleTap);
+      document.removeEventListener("gestureend",    preventGesture);
+      document.removeEventListener("touchend",      preventDoubleTap);
     };
   }, []);
   const scrollTimer = useRef(null);
@@ -6881,6 +6899,31 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const setEquipShowModal = (v) => { equipShowModalRef.current = v; if(v) window.history.pushState({modal:true},""); setEquipShowModalState(v); };
   const [compareTarget, setCompareTargetState] = useState(null);
   const setCompareTarget = (v) => { compareTargetRef.current = v; if(v) window.history.pushState({modal:true},""); setCompareTargetState(v); };
+
+  // 모달 열림 시 body 스크롤 잠금 (iOS 핀치줌/스크롤 이탈 방지)
+  useEffect(() => {
+    const anyOpen = showModal || showMyModal || !!detailRecipe || beanShowModal || equipShowModal || !!compareTarget;
+    if (anyOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+    } else {
+      const scrollY = document.body.style.top;
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      if (scrollY) window.scrollTo(0, parseInt(scrollY || "0") * -1);
+    }
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+    };
+  }, [showModal, showMyModal, detailRecipe, beanShowModal, equipShowModal, compareTarget]);
 
   const loadRecipes = useCallback(async () => {
     try {
