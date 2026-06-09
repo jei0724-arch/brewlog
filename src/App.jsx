@@ -4711,11 +4711,12 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
           </div>
         </div>
       )}
-        <div className="card-footer" style={{ marginTop: "1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+        <div style={{ marginTop: "1rem", borderTop: "1px solid var(--steam)", paddingTop: "0.75rem" }}>
+          {/* 1행: 닉네임 + 팔로우 + 날짜 */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "4px" }}>
             <span
               className="card-author"
-              style={{ cursor: onAuthorClick ? "pointer" : "default" }}
+              style={{ cursor: onAuthorClick ? "pointer" : "default", whiteSpace: "nowrap" }}
               onClick={() => { if (onAuthorClick) { onClose(); onAuthorClick({ uid: recipe.uid, name: recipe.author }); } }}
             >@{recipe.author}</span>
             {recipe.author && recipe.uid !== currentUid && onFollow && (
@@ -4726,9 +4727,10 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                 {isFollowing ? t.following : t.follow}
               </button>
             )}
-            <span style={{ color: "var(--muted)" }}> · {date}</span>
+            <span style={{ color: "var(--muted)", fontSize: "0.75rem", whiteSpace: "nowrap" }}>· {date}</span>
           </div>
-          <div className="card-actions">
+          {/* 2행: 액션 버튼 */}
+          <div className="card-actions" style={{ marginLeft: "-6px" }}>
             {/* 하트 */}
             <button className={`card-action-btn heart ${liked ? "liked" : ""}`}
               onClick={() => !isOwner && onLike(recipe)}
