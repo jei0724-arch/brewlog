@@ -5423,87 +5423,94 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
                     </svg>`;
                   })();
 
-                  // 수치 비교 행 HTML
+                  // 수치 비교 행 HTML — table 구조로 html2canvas 안정성 확보
                   const rowsHtml = FIELDS_SHARE.map(f => {
                     const av=recipeA[f.key], bv=recipeB[f.key];
                     const d=diffVal(av,bv);
-                    const aColor = d?.dir==="up" ? "#B07D54" : d ? "#8C8480" : "#8C8480";
-                    const bColor = d?.dir==="down" ? "#2980b9" : d ? "#8C8480" : "#8C8480";
+                    const aColor = d?.dir==="up" ? "#B07D54" : "#8C8480";
+                    const bColor = d?.dir==="down" ? "#2980b9" : "#8C8480";
                     const aWeight = d?.dir==="up" ? "700" : "400";
                     const bWeight = d?.dir==="down" ? "700" : "400";
                     const midHtml = d
                       ? `<div style="font-size:9px;font-weight:700;color:${d.dir==="up"?"#27ae60":"#e67e22"};">${d.dir==="up"?"▲":"▼"} ${d.delta}${f.unit}</div>`
-                      : `<div style="font-size:11px;color:#ccc;">＝</div>`;
+                      : `<div style="font-size:11px;color:#DDD;">＝</div>`;
                     return `
-                      <div style="display:grid;grid-template-columns:1fr 72px 1fr;align-items:center;border-top:1px solid #F0EFEF;padding:0 14px;">
-                        <div style="padding:9px 0;font-size:13px;font-weight:${aWeight};color:${aColor};text-align:right;">${av?`${av}${f.unit}`:"—"}</div>
-                        <div style="text-align:center;">
-                          <div style="font-size:9px;color:#AAA;margin-bottom:2px;">${f.label}</div>
+                      <tr style="border-top:1px solid #F0EFEF;">
+                        <td style="width:160px;padding:10px 14px 10px 20px;font-size:13px;font-weight:${aWeight};color:${aColor};text-align:right;">${av?`${av}${f.unit}`:"—"}</td>
+                        <td style="width:90px;padding:10px 0;text-align:center;">
+                          <div style="font-size:9px;color:#BBB;margin-bottom:3px;">${f.label}</div>
                           ${midHtml}
-                        </div>
-                        <div style="padding:9px 0;font-size:13px;font-weight:${bWeight};color:${bColor};">${bv?`${bv}${f.unit}`:"—"}</div>
-                      </div>`;
+                        </td>
+                        <td style="width:160px;padding:10px 20px 10px 14px;font-size:13px;font-weight:${bWeight};color:${bColor};text-align:left;">${bv?`${bv}${f.unit}`:"—"}</td>
+                      </tr>`;
                   }).join("");
 
                   const el = document.createElement("div");
-                  el.style.cssText = "position:fixed;left:-9999px;top:-9999px;font-family:'DM Sans',Arial,sans-serif;width:460px;background:#FBFBFA;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.12);";
+                  el.style.cssText = "position:absolute;left:-9999px;top:0;font-family:'DM Sans',Arial,sans-serif;width:460px;background:#FBFBFA;border-radius:16px;";
                   el.innerHTML = `
                     <!-- 헤더 -->
-                    <div style="background:#1A1614;padding:18px 20px 14px;">
-                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                    <div style="background:#1A1614;padding:18px 20px 16px;border-radius:16px 16px 0 0;">
+                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
                         <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8" stroke="#FBFBFA" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
-                        <span style="font-size:11px;color:#FBFBFA99;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;">Brewlog Note — Recipe Compare</span>
+                        <span style="font-size:11px;color:#FBFBFA80;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;">Brewlog Note — Recipe Compare</span>
                       </div>
-                      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:12px;">
-                        <!-- A -->
-                        <div>
-                          <div style="font-size:9px;font-weight:700;color:#B07D54;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">A</div>
-                          <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.2;margin-bottom:3px;">${recipeA.bean||"—"}</div>
-                          <div style="font-size:10px;color:#FBFBFA80;">${[recipeA.company,recipeA.menuLabel,`@${recipeA.author}`].filter(Boolean).join(" · ")}</div>
-                        </div>
-                        <!-- vs -->
-                        <div style="font-size:11px;font-weight:900;color:#444;align-self:center;padding:0 4px;">vs</div>
-                        <!-- B -->
-                        <div>
-                          <div style="font-size:9px;font-weight:700;color:#2980b9;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">B</div>
-                          <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.2;margin-bottom:3px;">${recipeB.bean||"—"}</div>
-                          <div style="font-size:10px;color:#FBFBFA80;">${[recipeB.company,recipeB.menuLabel,`@${recipeB.author}`].filter(Boolean).join(" · ")}</div>
-                        </div>
-                      </div>
+                      <table style="width:100%;border-collapse:collapse;">
+                        <tr>
+                          <td style="width:45%;vertical-align:top;">
+                            <div style="font-size:9px;font-weight:700;color:#B07D54;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">A</div>
+                            <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.3;margin-bottom:4px;">${recipeA.bean||"—"}</div>
+                            <div style="font-size:10px;color:#FBFBFA70;line-height:1.5;">${[recipeA.company,recipeA.menuLabel,`@${recipeA.author}`].filter(Boolean).join(" · ")}</div>
+                          </td>
+                          <td style="width:10%;text-align:center;vertical-align:middle;">
+                            <div style="font-size:12px;font-weight:900;color:#555;">vs</div>
+                          </td>
+                          <td style="width:45%;vertical-align:top;">
+                            <div style="font-size:9px;font-weight:700;color:#2980b9;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">B</div>
+                            <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.3;margin-bottom:4px;">${recipeB.bean||"—"}</div>
+                            <div style="font-size:10px;color:#FBFBFA70;line-height:1.5;">${[recipeB.company,recipeB.menuLabel,`@${recipeB.author}`].filter(Boolean).join(" · ")}</div>
+                          </td>
+                        </tr>
+                      </table>
                     </div>
 
                     <!-- 컬럼 레이블 -->
-                    <div style="display:grid;grid-template-columns:1fr 72px 1fr;background:#F0EFEF;padding:7px 14px;">
-                      <div style="font-size:9px;font-weight:700;color:#B07D54;text-align:right;">레시피 A</div>
-                      <div/>
-                      <div style="font-size:9px;font-weight:700;color:#2980b9;">레시피 B</div>
-                    </div>
+                    <table style="width:100%;border-collapse:collapse;background:#ECEAE7;">
+                      <tr>
+                        <td style="width:160px;padding:7px 14px 7px 20px;font-size:9px;font-weight:700;color:#B07D54;text-align:right;">레시피 A</td>
+                        <td style="width:90px;"></td>
+                        <td style="width:160px;padding:7px 20px 7px 14px;font-size:9px;font-weight:700;color:#2980b9;text-align:left;">레시피 B</td>
+                      </tr>
+                    </table>
 
                     <!-- 수치 비교 -->
-                    <div style="background:#FAFAF9;">
+                    <table style="width:100%;border-collapse:collapse;background:#FAFAF9;">
                       ${rowsHtml}
-                    </div>
+                    </table>
 
                     <!-- 플레이버 레이더 -->
                     ${hasRadar ? `
-                    <div style="background:#FAFAF9;padding:16px 20px;border-top:1px solid #F0EFEF;">
-                      <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
-                        <span style="font-size:9px;font-weight:700;color:#AAA;text-transform:uppercase;letter-spacing:0.1em;">Flavor</span>
+                    <div style="background:#FAFAF9;padding:16px 20px 8px;border-top:1px solid #ECEAE7;">
+                      <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;">
+                        <span style="font-size:9px;font-weight:700;color:#BBB;text-transform:uppercase;letter-spacing:0.1em;">Flavor</span>
                         <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#B07D54;display:inline-block;border-radius:2px;"></span><span style="font-size:9px;color:#AAA;">A</span></span>
                         <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#2980b9;display:inline-block;border-radius:2px;"></span><span style="font-size:9px;color:#AAA;">B</span></span>
                       </div>
-                      <div style="display:flex;justify-content:center;">${radarSVG}</div>
+                      <div style="text-align:center;">${radarSVG}</div>
                     </div>` : ""}
 
                     <!-- 푸터 -->
-                    <div style="background:#F0EFEF;padding:8px 20px;display:flex;align-items:center;justify-content:space-between;">
+                    <div style="background:#ECEAE7;padding:8px 20px;border-radius:0 0 16px 16px;display:flex;align-items:center;justify-content:space-between;">
                       <span style="font-size:10px;color:#8C8480;">brewlog-jade.vercel.app</span>
                       <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8" stroke="#1A1614" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
                     </div>
                   `;
 
                   document.body.appendChild(el);
-                  const canvas = await html2canvas(el, { scale:3, useCORS:true, backgroundColor:null, logging:false });
+                  await new Promise(r => requestAnimationFrame(r));
+                  const canvas = await html2canvas(el, {
+                    scale: 3, useCORS: true, backgroundColor: "#FBFBFA",
+                    logging: false, width: 460, windowWidth: 460,
+                  });
                   document.body.removeChild(el);
 
                   canvas.toBlob(async (blob) => {
