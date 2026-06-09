@@ -2441,10 +2441,11 @@ function FlavorRadar({ values, size = 200, lang = "ko" }) {
 function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const t = I18N[lang];
   const isEdit = !!editTarget && !editTarget._isCopy;
+  const isCopy = !!editTarget?._isCopy;
 
   // ── 내 원두 목록 로드 ──────────────────────────────
   const [myBeans, setMyBeans] = useState([]);
-  const [linkedBeanId, setLinkedBeanId] = useState(editTarget?.linkedBeanId || null);
+  const [linkedBeanId, setLinkedBeanId] = useState(null); // 복사 시 원두 연결 초기화 (다른 유저 원두일 수 있음)
   const [myEquips, setMyEquips] = useState([]);
   const [selectedEquipIds, setSelectedEquipIds] = useState({}); // { category: equipId }
 
@@ -2456,8 +2457,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         list.sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
         setMyEquips(list);
-        // 대표 장비 자동 적용 (신규 작성 시, 카테고리별로 각각)
-        if (!isEdit) {
+        // 대표 장비 자동 적용 (신규 작성 시만 — 편집/복사는 원본값 유지)
+        if (!isEdit && !isCopy) {
           const primaryMachine  = list.find(e => e.category === "machine"  && e.isPrimary);
           const primaryGrinder  = list.find(e => e.category === "grinder"  && e.isPrimary);
           const primaryHanddrip = list.find(e => e.category === "handdrip" && e.isPrimary);
@@ -2483,44 +2484,51 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 
   // 저장된 내 머신 불러오기
   const savedMachine = loadMyMachine();
-  const isHandDrip = !isEdit && savedMachine?.equipType === "handdrip";
-  const [machineLocked, setMachineLocked] = useState(!!savedMachine && !isEdit);
+  const isHandDrip = !isEdit && !isCopy && savedMachine?.equipType === "handdrip";
+  const [machineLocked, setMachineLocked] = useState(
+    isCopy ? !!(editTarget.machineBrand || editTarget.machineType === "handdrip") : (!!savedMachine && !isEdit)
+  );
   const [machineBrand, setMachineBrand] = useState(
-    isEdit ? (editTarget.machineBrand || "") : (isHandDrip ? "" : (savedMachine?.brand || ""))
+    (isEdit || isCopy) ? (editTarget.machineBrand || "") : (isHandDrip ? "" : (savedMachine?.brand || ""))
   );
   const [machineModel, setMachineModel] = useState(
-    isEdit ? (editTarget.machineModel || "") : (isHandDrip ? "" : (savedMachine?.model || ""))
+    (isEdit || isCopy) ? (editTarget.machineModel || "") : (isHandDrip ? "" : (savedMachine?.model || ""))
   );
   const isCustomBrand = machineBrand === "기타 (직접 입력)";
   const [machineType, setMachineType] = useState(
-    isEdit ? (editTarget.machineType || "auto") : (isHandDrip ? "handdrip" : "auto")
+    (isEdit || isCopy) ? (editTarget.machineType || "auto") : (isHandDrip ? "handdrip" : "auto")
   );
   const [handDripName, setHandDripName] = useState(
-    isEdit ? (editTarget.machine && editTarget.machineType === "handdrip" ? editTarget.machine : "") : (savedMachine?.handDripName || "")
+    (isEdit || isCopy) ? (editTarget.machine && editTarget.machineType === "handdrip" ? editTarget.machine : "") : (savedMachine?.handDripName || "")
   );
   // 전자동 전용 브랜드거나, 선택 가능 브랜드에서 전자동 선택 시
   const isAutoMode = isAutoMachine(machineBrand) && machineType === "auto";
 
   // 저장된 내 그라인더 불러오기
   const savedGrinder = loadMyGrinder();
-  const [grinderLocked, setGrinderLocked] = useState(!!savedGrinder && !isEdit);
+  const [grinderLocked, setGrinderLocked] = useState(
+    isCopy ? !!editTarget.grinderBrand : (!!savedGrinder && !isEdit)
+  );
   const [grinderBrand, setGrinderBrand] = useState(
-    isEdit ? (editTarget.grinderBrand || "") : (savedGrinder?.brand || "")
+    (isEdit || isCopy) ? (editTarget.grinderBrand || "") : (savedGrinder?.brand || "")
   );
   const [grinderModel, setGrinderModel] = useState(
-    isEdit ? (editTarget.grinderModel || "") : (savedGrinder?.model || "")
+    (isEdit || isCopy) ? (editTarget.grinderModel || "") : (savedGrinder?.model || "")
   );
   const isCustomGrinderBrand = grinderBrand === "기타 (직접 입력)";
 
   const savedBean = loadMyBean();
   const savedDefaults = loadRecipeDefaults();
-  const [form, setForm] = useState(isEdit ? {
+  const [form, setForm] = useState((isEdit || isCopy) ? {
     ...editTarget,
     waterTemp: editTarget.waterTemp || "93",
     waterType: editTarget.waterType || "",
     waterBrand: editTarget.waterBrand || "",
     diluteCustom: editTarget.diluteCustom || "",
-    recordDate: editTarget.recordDate || new Date().toISOString().split("T")[0],
+    // 복사 시 기록 날짜는 오늘로 초기화
+    recordDate: isCopy ? new Date().toISOString().split("T")[0] : (editTarget.recordDate || new Date().toISOString().split("T")[0]),
+    // 복사 시 공개 여부는 기본 공개로
+    isPublic: isCopy ? true : (editTarget.isPublic !== false),
   } : {
     company: savedBean?.company || "",
     bean: savedBean?.bean || "",
@@ -2540,18 +2548,19 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     waterBrand: savedDefaults?.waterBrand || "",
     diluteCustom: "",
     grindSize: savedDefaults?.grindSize || "",
-    isPublic: isEdit ? (editTarget.isPublic !== false) : true,
-    isIced: isEdit ? (editTarget.isIced || false) : false,
-    syrup: isEdit ? (editTarget.syrup || "") : "", note: isEdit ? (editTarget.note || "") : ""
+    isPublic: true,
+    isIced: false,
+    syrup: "", note: ""
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  // 편집 시 원본 날씨 유지, 복사/신규는 새로 가져오기
   const [weather, setWeather] = useState(isEdit ? (editTarget.weather || null) : null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState(null);
 
-  // 신규 작성 시 모달 열리면 자동으로 날씨 가져오기
+  // 신규/복사 시 모달 열리면 자동으로 날씨 가져오기
   useEffect(() => {
     if (!isEdit && !weather) {
       setWeatherLoading(true);
@@ -2561,7 +2570,9 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         .finally(() => setWeatherLoading(false));
     }
   }, []);
-  const [selectedMenu, setSelectedMenu] = useState(isEdit ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : ""));
+  const [selectedMenu, setSelectedMenu] = useState(
+    (isEdit || isCopy) ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : "")
+  );
 
   // 핸드드립 메뉴 선택 시 머신 자동 해제
   useEffect(() => {
@@ -2737,7 +2748,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 
   // 머신 브랜드/모델 바뀔 때 내장 그라인더 자동 입력
   useEffect(() => {
-    if (!isEdit) {
+    if (!isEdit && !isCopy) {
       const builtin = getBuiltinGrinder(machineBrand, machineModel);
       if (builtin) {
         setGrinderBrand(builtin.brand);
@@ -4655,41 +4666,61 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             <span style={{ color: "var(--muted)" }}> · {date}</span>
           </div>
           <div className="card-actions">
-            {/* 이 레시피로 기록하기 (복사) */}
+            {/* 하트 */}
+            <button className={`card-action-btn heart ${liked ? "liked" : ""}`}
+              onClick={() => !isOwner && onLike(recipe)}
+              style={{ cursor: isOwner ? "default" : "pointer", opacity: isOwner ? 0.4 : 1 }}
+              title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}>
+              {liked ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#C0625A"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z"/></svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
+              )}
+              {likeCount > 0 && <span style={{ fontSize: "0.75rem", marginLeft: "1px", fontFamily: "'DM Sans',sans-serif" }}>{likeCount}</span>}
+            </button>
+            {/* 즐겨찾기 */}
+            {onBookmark && (
+              <button className={`card-action-btn bookmark ${isBookmarked ? "saved" : ""}`}
+                onClick={() => onBookmark(recipe.id)}
+                title={isBookmarked ? t.bookmarkRemove : t.bookmarkAdd}>
+                {isBookmarked ? (
+                  <svg width="18" height="20" viewBox="0 0 18 22" fill="currentColor"><path d="M1 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v19l-8-5-8 5V2z"/></svg>
+                ) : (
+                  <svg width="18" height="20" viewBox="0 0 18 22" fill="none"><path d="M1 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v19l-8-5-8 5V2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
+                )}
+              </button>
+            )}
+            {/* 복사해서 기록하기 */}
             {currentUser && onCopyRecipe && (
               <button className="card-action-btn"
                 onClick={() => { onClose(); onCopyRecipe(recipe); }}
-                title={lang === "en" ? "Copy to my record" : "이 레시피로 기록하기"}>
+                title={lang === "en" ? "Copy & record" : "복사해서 기록하기"}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <rect x="8" y="8" width="12" height="14" rx="2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
-                  <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M14 13h4M14 16h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                  <path d="M18 11v6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  <rect x="9" y="9" width="11" height="13" rx="2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M14.5 13.5v5M12 16h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                 </svg>
               </button>
             )}
-            {/* 비교 버튼 */}
+            {/* 비교 */}
             {currentUser && onCompare && (
               <button className="card-action-btn"
                 onClick={() => { onClose(); onCompare(recipe); }}
                 title={lang === "en" ? "Compare recipes" : "레시피 비교"}>
                 <svg width="20" height="20" viewBox="0 0 22 20" fill="none">
-                  {/* 왼쪽 카드 */}
                   <rect x="1" y="3" width="8" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
                   <line x1="3" y1="7" x2="7" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                   <line x1="3" y1="10" x2="7" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                   <line x1="3" y1="13" x2="5.5" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                  {/* 오른쪽 카드 */}
                   <rect x="13" y="3" width="8" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
                   <line x1="15" y1="7" x2="19" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                   <line x1="15" y1="10" x2="19" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                   <line x1="15" y1="13" x2="17.5" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                  {/* 가운데 vs */}
                   <text x="11" y="11.5" textAnchor="middle" fontSize="5" fontWeight="700" fill="currentColor" fontFamily="DM Sans,sans-serif">vs</text>
                 </svg>
               </button>
             )}
-            {/* 공유 버튼 */}
+            {/* 공유 */}
             <button className="card-action-btn"
               onClick={async () => {
                 try {
@@ -4878,18 +4909,6 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                 <circle cx="6" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.6"/>
                 <path d="M8.3 10.8l7.4-4.2M8.3 13.2l7.4 4.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
               </svg>
-            </button>
-            {/* 하트 */}
-            <button className={`card-action-btn heart ${liked ? "liked" : ""}`}
-              onClick={() => !isOwner && onLike(recipe)}
-              style={{ cursor: isOwner ? "default" : "pointer", opacity: isOwner ? 0.4 : 1 }}
-              title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}>
-              {liked ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="#C0625A"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z"/></svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
-              )}
-              {likeCount > 0 && <span style={{ fontSize: "0.75rem", marginLeft: "1px", fontFamily: "'DM Sans',sans-serif" }}>{likeCount}</span>}
             </button>
             {/* 수정/삭제 */}
             {isOwner && (<>
@@ -5344,6 +5363,189 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
             위에서 비교할 레시피 B를 선택해주세요
           </div>
         )}
+
+        {/* 공유 버튼 — 비교 대상 선택됐을 때만 */}
+        {recipeB && (
+          <div style={{ marginTop:"20px", display:"flex", justifyContent:"flex-end" }}>
+            <button
+              onClick={async () => {
+                try {
+                  const html2canvas = (await import("html2canvas")).default;
+
+                  const FIELDS_SHARE = [
+                    { key:"gram",       label:"원두량",   unit:"g" },
+                    { key:"seconds",    label:"추출시간", unit:"s" },
+                    { key:"espressoMl", label:"추출량",   unit:"ml" },
+                    { key:"waterTemp",  label:"물온도",   unit:"°C" },
+                    { key:"grindSize",  label:"분쇄도",   unit:"" },
+                    { key:"diluteMl",   label:"희석량",   unit:"ml" },
+                  ];
+
+                  const diffVal = (a, b) => {
+                    const na = parseFloat(a), nb = parseFloat(b);
+                    if (isNaN(na) || isNaN(nb) || na === nb) return null;
+                    return na > nb ? { dir:"up", delta: Math.abs(na-nb) } : { dir:"down", delta: Math.abs(na-nb) };
+                  };
+
+                  // 플레이버 레이더 SVG (오버레이)
+                  const FKEYS = ["Acidity","Sweet","Bitter","Aroma","Aftertaste","Balance","Body"];
+                  const FLBLS = { Acidity:"산미",Sweet:"단맛",Bitter:"쓴맛",Aroma:"아로마",Aftertaste:"후미",Balance:"밸런스",Body:"바디" };
+                  const hasRadar = FKEYS.some(k => recipeA[`flavor${k}`]>0 || recipeB[`flavor${k}`]>0);
+                  const radarSVG = (() => {
+                    if (!hasRadar) return "";
+                    const SIZE=280, cx=140, cy=140, R=96, n=FKEYS.length;
+                    const pt = (i,r) => { const a=-Math.PI/2+2*Math.PI*i/n; return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; };
+                    const gridLines = [1,2,3,4,5].map(l => {
+                      const r=R*l/5;
+                      const pts=FKEYS.map((_,i)=>pt(i,r).join(",")).join(" ");
+                      return `<polygon points="${pts}" fill="${l%2===0?"#F5F3F0":"none"}" stroke="${l===5?"#D5CFC8":"#E8E4DF"}" stroke-width="${l===5?1.2:0.7}"/>`;
+                    }).join("");
+                    const axes = FKEYS.map((_,i) => { const [x,y]=pt(i,R); return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#DDD9D3" stroke-width="0.8"/>`; }).join("");
+                    const aVals = FKEYS.map(k=>(parseInt(recipeA[`flavor${k}`])||0)/5);
+                    const bVals = FKEYS.map(k=>(parseInt(recipeB[`flavor${k}`])||0)/5);
+                    const aPts = FKEYS.map((_,i)=>pt(i,Math.max(aVals[i],0.04)*R).join(",")).join(" ");
+                    const bPts = FKEYS.map((_,i)=>pt(i,Math.max(bVals[i],0.04)*R).join(",")).join(" ");
+                    const dots = FKEYS.map((k,i) => {
+                      const [ax,ay]=pt(i,aVals[i]*R), [bx,by]=pt(i,bVals[i]*R);
+                      return `${aVals[i]>0?`<circle cx="${ax}" cy="${ay}" r="4" fill="#B07D54" stroke="white" stroke-width="1.2"/>`:""}`
+                           + `${bVals[i]>0?`<circle cx="${bx}" cy="${by}" r="4" fill="#2980b9" stroke="white" stroke-width="1.2"/>`:""}`; 
+                    }).join("");
+                    const labels = FKEYS.map((k,i) => {
+                      const [x,y]=pt(i,R+22);
+                      const anchor=x<cx-8?"end":x>cx+8?"start":"middle";
+                      return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="10" fill="#8C8480" font-family="DM Sans,sans-serif">${FLBLS[k]}</text>`;
+                    }).join("");
+                    return `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
+                      ${gridLines}${axes}
+                      <polygon points="${aPts}" fill="#B07D54" fill-opacity="0.18" stroke="#B07D54" stroke-width="2" stroke-linejoin="round"/>
+                      <polygon points="${bPts}" fill="#2980b9" fill-opacity="0.15" stroke="#2980b9" stroke-width="2" stroke-linejoin="round"/>
+                      ${dots}${labels}
+                    </svg>`;
+                  })();
+
+                  // 수치 비교 행 HTML
+                  const rowsHtml = FIELDS_SHARE.map(f => {
+                    const av=recipeA[f.key], bv=recipeB[f.key];
+                    const d=diffVal(av,bv);
+                    const aColor = d?.dir==="up" ? "#B07D54" : d ? "#8C8480" : "#8C8480";
+                    const bColor = d?.dir==="down" ? "#2980b9" : d ? "#8C8480" : "#8C8480";
+                    const aWeight = d?.dir==="up" ? "700" : "400";
+                    const bWeight = d?.dir==="down" ? "700" : "400";
+                    const midHtml = d
+                      ? `<div style="font-size:9px;font-weight:700;color:${d.dir==="up"?"#27ae60":"#e67e22"};">${d.dir==="up"?"▲":"▼"} ${d.delta}${f.unit}</div>`
+                      : `<div style="font-size:11px;color:#ccc;">＝</div>`;
+                    return `
+                      <div style="display:grid;grid-template-columns:1fr 72px 1fr;align-items:center;border-top:1px solid #F0EFEF;padding:0 14px;">
+                        <div style="padding:9px 0;font-size:13px;font-weight:${aWeight};color:${aColor};text-align:right;">${av?`${av}${f.unit}`:"—"}</div>
+                        <div style="text-align:center;">
+                          <div style="font-size:9px;color:#AAA;margin-bottom:2px;">${f.label}</div>
+                          ${midHtml}
+                        </div>
+                        <div style="padding:9px 0;font-size:13px;font-weight:${bWeight};color:${bColor};">${bv?`${bv}${f.unit}`:"—"}</div>
+                      </div>`;
+                  }).join("");
+
+                  const el = document.createElement("div");
+                  el.style.cssText = "position:fixed;left:-9999px;top:-9999px;font-family:'DM Sans',Arial,sans-serif;width:460px;background:#FBFBFA;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.12);";
+                  el.innerHTML = `
+                    <!-- 헤더 -->
+                    <div style="background:#1A1614;padding:18px 20px 14px;">
+                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8" stroke="#FBFBFA" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        <span style="font-size:11px;color:#FBFBFA99;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;">Brewlog Note — Recipe Compare</span>
+                      </div>
+                      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:12px;">
+                        <!-- A -->
+                        <div>
+                          <div style="font-size:9px;font-weight:700;color:#B07D54;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">A</div>
+                          <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.2;margin-bottom:3px;">${recipeA.bean||"—"}</div>
+                          <div style="font-size:10px;color:#FBFBFA80;">${[recipeA.company,recipeA.menuLabel,`@${recipeA.author}`].filter(Boolean).join(" · ")}</div>
+                        </div>
+                        <!-- vs -->
+                        <div style="font-size:11px;font-weight:900;color:#444;align-self:center;padding:0 4px;">vs</div>
+                        <!-- B -->
+                        <div>
+                          <div style="font-size:9px;font-weight:700;color:#2980b9;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">B</div>
+                          <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.2;margin-bottom:3px;">${recipeB.bean||"—"}</div>
+                          <div style="font-size:10px;color:#FBFBFA80;">${[recipeB.company,recipeB.menuLabel,`@${recipeB.author}`].filter(Boolean).join(" · ")}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 컬럼 레이블 -->
+                    <div style="display:grid;grid-template-columns:1fr 72px 1fr;background:#F0EFEF;padding:7px 14px;">
+                      <div style="font-size:9px;font-weight:700;color:#B07D54;text-align:right;">레시피 A</div>
+                      <div/>
+                      <div style="font-size:9px;font-weight:700;color:#2980b9;">레시피 B</div>
+                    </div>
+
+                    <!-- 수치 비교 -->
+                    <div style="background:#FAFAF9;">
+                      ${rowsHtml}
+                    </div>
+
+                    <!-- 플레이버 레이더 -->
+                    ${hasRadar ? `
+                    <div style="background:#FAFAF9;padding:16px 20px;border-top:1px solid #F0EFEF;">
+                      <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
+                        <span style="font-size:9px;font-weight:700;color:#AAA;text-transform:uppercase;letter-spacing:0.1em;">Flavor</span>
+                        <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#B07D54;display:inline-block;border-radius:2px;"></span><span style="font-size:9px;color:#AAA;">A</span></span>
+                        <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#2980b9;display:inline-block;border-radius:2px;"></span><span style="font-size:9px;color:#AAA;">B</span></span>
+                      </div>
+                      <div style="display:flex;justify-content:center;">${radarSVG}</div>
+                    </div>` : ""}
+
+                    <!-- 푸터 -->
+                    <div style="background:#F0EFEF;padding:8px 20px;display:flex;align-items:center;justify-content:space-between;">
+                      <span style="font-size:10px;color:#8C8480;">brewlog-jade.vercel.app</span>
+                      <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8" stroke="#1A1614" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    </div>
+                  `;
+
+                  document.body.appendChild(el);
+                  const canvas = await html2canvas(el, { scale:3, useCORS:true, backgroundColor:null, logging:false });
+                  document.body.removeChild(el);
+
+                  canvas.toBlob(async (blob) => {
+                    const fileName = `${recipeA.bean||"A"}_vs_${recipeB.bean||"B"}_brewlog.png`;
+                    const file = new File([blob], fileName, { type:"image/png" });
+                    if (navigator.share && navigator.canShare && navigator.canShare({ files:[file] })) {
+                      await navigator.share({ files:[file], title:"레시피 비교", text:"Brewlog Note 레시피 비교 결과예요." })
+                        .catch(e => { if (e.name !== "AbortError") console.warn(e); });
+                    } else {
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(blob);
+                      a.download = fileName;
+                      a.click();
+                      URL.revokeObjectURL(a.href);
+                    }
+                  }, "image/png");
+                } catch(e) {
+                  console.error("[compare-share]", e);
+                  alert("공유에 실패했어요.");
+                }
+              }}
+              style={{
+                display:"inline-flex", alignItems:"center", gap:"7px",
+                padding:"9px 18px", background:"var(--espresso)", color:"var(--cream)",
+                border:"none", borderRadius:"8px", cursor:"pointer",
+                fontFamily:"'DM Sans',sans-serif", fontSize:"0.83rem", fontWeight:600,
+                transition:"opacity 0.15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity="0.85"}
+              onMouseLeave={e => e.currentTarget.style.opacity="1"}
+              title="비교 결과 공유하기"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="18" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.6"/>
+                <circle cx="18" cy="19" r="2.5" stroke="currentColor" strokeWidth="1.6"/>
+                <circle cx="6" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.6"/>
+                <path d="M8.3 10.8l7.4-4.2M8.3 13.2l7.4 4.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+              비교 결과 공유
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -5516,20 +5718,19 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
               <svg width="18" height="20" viewBox="0 0 18 22" fill="none"><path d="M1 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v19l-8-5-8 5V2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
             )}
           </button>
-          {/* 수정/삭제 — 본인만 */}
-          {isOwner && (<>
-            <button className="card-action-btn edit"
-              onClick={e => { e.stopPropagation(); onEdit(recipe); }}
-              title={lang === "en" ? "Edit" : "수정"}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4-11 11H5.5v-4l11-11z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M14 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+          {/* 복사해서 기록하기 */}
+          {currentUid && onCopy && (
+            <button className="card-action-btn"
+              onClick={e => { e.stopPropagation(); onCopy(recipe); }}
+              title={lang === "en" ? "Copy & record" : "복사해서 기록하기"}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="9" width="11" height="13" rx="2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M14.5 13.5v5M12 16h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
             </button>
-            <button className="card-action-btn delete"
-              onClick={e => { e.stopPropagation(); onDelete(recipe.id); }}
-              title={lang === "en" ? "Delete" : "삭제"}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M9 6V4h6v2M10 11v6M14 11v6M5 6l1 14h12L19 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-          </>)}
-          {/* 비교 버튼 — 로그인 시 모든 카드에 표시 */}
+          )}
+          {/* 비교 */}
           {currentUid && onCompare && (
             <button className="card-action-btn"
               onClick={e => { e.stopPropagation(); onCompare(recipe); }}
@@ -5547,18 +5748,19 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
               </svg>
             </button>
           )}
-          {/* 복사해서 기록하기 */}
-          {currentUid && onCopy && (
-            <button className="card-action-btn"
-              onClick={e => { e.stopPropagation(); onCopy(recipe); }}
-              title={lang === "en" ? "Copy & record" : "복사해서 기록하기"}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <rect x="9" y="9" width="11" height="13" rx="2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M14.5 13.5v5M12 16h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-              </svg>
+          {/* 수정/삭제 — 본인만 */}
+          {isOwner && (<>
+            <button className="card-action-btn edit"
+              onClick={e => { e.stopPropagation(); onEdit(recipe); }}
+              title={lang === "en" ? "Edit" : "수정"}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4-11 11H5.5v-4l11-11z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M14 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
             </button>
-          )}
+            <button className="card-action-btn delete"
+              onClick={e => { e.stopPropagation(); onDelete(recipe.id); }}
+              title={lang === "en" ? "Delete" : "삭제"}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M9 6V4h6v2M10 11v6M14 11v6M5 6l1 14h12L19 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+          </>)}
         </div>
       </div>
     </div>
