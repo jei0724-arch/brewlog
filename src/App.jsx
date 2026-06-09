@@ -4751,7 +4751,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             {/* 복사해서 기록하기 */}
             {currentUser && onCopyRecipe && (
               <button className="card-action-btn"
-                onClick={() => { onClose(); onCopyRecipe(recipe); }}
+                onClick={() => { onCopyRecipe(recipe); }}
                 title={lang === "en" ? "Copy & record" : "복사해서 기록하기"}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <rect x="9" y="9" width="11" height="13" rx="2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
@@ -4763,7 +4763,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             {/* 비교 */}
             {currentUser && onCompare && (
               <button className="card-action-btn"
-                onClick={() => { onClose(); onCompare(recipe); }}
+                onClick={() => { onCompare(recipe); }}
                 title={lang === "en" ? "Compare recipes" : "레시피 비교"}>
                 <svg width="20" height="20" viewBox="0 0 22 20" fill="none">
                   <rect x="1" y="3" width="8" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
@@ -5249,7 +5249,7 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target===e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" style={{ zIndex: 210 }} onClick={e => e.target===e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
       <div className="modal" style={{ maxWidth:"700px", maxHeight:"90vh", overflowY:"auto", padding:"24px" }}>
         {/* 헤더 */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
@@ -7051,15 +7051,30 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const openMyModal = ()  => { window.history.pushState({ modal: true }, ""); setShowMyModalWrapped(true); };
   const openDetail  = (r) => { window.history.pushState({ modal: true }, ""); setDetailRecipeWrapped(r); };
 
+  // 복사 완료 후 상세 카드 복원을 위한 ref
+  const pendingDetailRef = React.useRef(null);
+
   const beanShowModalRef = React.useRef(false);
   const equipShowModalRef = React.useRef(false);
   const compareTargetRef = React.useRef(null);
 
   useEffect(() => {
     const onPop = () => {
+      // 비교 모달 닫기 — 상세 카드는 이미 열려 있으므로 그대로 유지
       if (compareTargetRef.current) { setCompareTarget(null); return; }
+      // 상세 카드 닫기
       if (detailRecipeRef.current)  { setDetailRecipeWrapped(null); return; }
-      if (showModalRef.current)     { setShowModalWrapped(false); setEditTarget(null); return; }
+      // 복사/기록 모달 닫기 → 상세 카드 복원
+      if (showModalRef.current) {
+        setShowModalWrapped(false);
+        setEditTarget(null);
+        if (pendingDetailRef.current) {
+          // history entry를 상세 카드 용으로 재사용 (추가 pushState 없이 복원)
+          setDetailRecipeWrapped(pendingDetailRef.current);
+          pendingDetailRef.current = null;
+        }
+        return;
+      }
       if (showMyModalRef.current)   { setShowMyModalWrapped(false); return; }
       if (beanShowModalRef.current) { setBeanShowModal(false); return; }
       if (equipShowModalRef.current){ setEquipShowModal(false); return; }
@@ -8000,8 +8015,17 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         isFollowing={detailRecipe && (following.includes(detailRecipe.uid) || following.includes(detailRecipe.author))}
         onBookmark={toggleBookmark}
         isBookmarked={detailRecipe && bookmarks.includes(detailRecipe.id)}
-        onCompare={user?.uid ? (r) => { setDetailRecipeWrapped(null); setCompareTarget(r); } : null}
-        onCopyRecipe={user?.uid ? (r) => { setDetailRecipeWrapped(null); handleCopyRecipe(r); } : null}
+        onCompare={user?.uid ? (r) => {
+          // 상세 카드를 닫지 않고 비교 모달을 위에 쌓기
+          // → 뒤로가기: 비교 닫힘 → 상세 카드 그대로 보임
+          setCompareTarget(r);
+        } : null}
+        onCopyRecipe={user?.uid ? (r) => {
+          // 복사 모달 열기 전 상세 카드 recipe 보관 → 복사 모달 닫힐 때 복원
+          pendingDetailRef.current = detailRecipeRef.current;
+          setDetailRecipeWrapped(null);
+          handleCopyRecipe(r);
+        } : null}
       />
     )}
     {showModal && (
