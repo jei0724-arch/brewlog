@@ -3750,42 +3750,90 @@ function RecipeImporter({ lang, user }) {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
 
-  const MENU_MAP = { "에스프레소":"espresso","리스트레토":"ristretto","룽고":"lungo","아메리카노":"americano","롱블랙":"long_black","카페라떼":"latte","카푸치노":"cappuccino","플랫화이트":"flatwhite","마끼아또":"macchiato","핸드드립":"hand_drip","콜드브루":"cold_brew","기타":"other" };
+  const MENU_MAP_FULL = {
+    "에스프레소":"espresso","리스트레토":"ristretto","룽고":"lungo",
+    "아메리카노":"americano","롱블랙":"long_black","카페라떼":"latte",
+    "카푸치노":"cappuccino","플랫화이트":"flatwhite","마끼아또":"macchiato",
+    "핸드드립":"hand_drip","콜드브루":"cold_brew","기타":"other",
+    "espresso":"espresso","ristretto":"ristretto","lungo":"lungo",
+    "americano":"americano","long black":"long_black","latte":"latte",
+    "cappuccino":"cappuccino","flat white":"flatwhite","flatwhite":"flatwhite",
+    "macchiato":"macchiato","hand drip":"hand_drip","cold brew":"cold_brew","other":"other",
+    "cortado":"cortado","코르타도":"cortado",
+  };
 
-  const parseCSV = (text) => {
-    const lines = text.split(/\r?\n/).filter(l => l.trim());
-    if (lines.length < 2) return [];
-    return lines.slice(1).map(line => {
-      // 쉼표로 split (따옴표 내부 쉼표 처리)
-      const cols = [];
-      let cur = "", inQ = false;
-      for (const ch of line) {
-        if (ch === '"') inQ = !inQ;
-        else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ""; }
-        else cur += ch;
+  // 헤더명 → 필드키 매핑 (한/영 모두 허용)
+  const HEADER_MAP = {
+    "메뉴": "menuLabel", "menu": "menuLabel",
+    "원두명": "bean", "bean": "bean", "원두": "bean",
+    "원두회사": "company", "company": "company", "로스터리": "company", "roastery": "company",
+    "로스팅일자": "roastDate", "roastdate": "roastDate", "로스팅날짜": "roastDate",
+    "기록날짜": "recordDate", "recorddate": "recordDate", "기록일": "recordDate",
+    "커피머신": "machine", "machine": "machine", "머신": "machine",
+    "그라인더": "grinder", "grinder": "grinder",
+    "분쇄도": "grindSize", "grindsize": "grindSize", "grind": "grindSize",
+    "원두량(g)": "gram", "원두량": "gram", "gram": "gram", "g": "gram",
+    "추출시간(s)": "seconds", "추출시간": "seconds", "seconds": "seconds", "s": "seconds",
+    "추출량(ml)": "espressoMl", "추출량": "espressoMl", "espressoml": "espressoMl", "ml": "espressoMl",
+    "물온도(°c)": "waterTemp", "물온도": "waterTemp", "watertemp": "waterTemp", "temp": "waterTemp",
+    "물종류": "waterType", "watertype": "waterType",
+    "희석종류": "diluteType", "dilutetype": "diluteType", "희석": "diluteType",
+    "희석량(ml)": "diluteMl", "희석량": "diluteMl", "diluteml": "diluteMl",
+    "별점(1-5)": "rating", "별점": "rating", "rating": "rating",
+    "메모": "note", "note": "note",
+    "공개(true/false)": "isPublic", "공개": "isPublic", "ispublic": "isPublic", "public": "isPublic",
+  };
+
+  // SheetJS로 xlsx/csv 파일 → row 배열로 파싱
+  const parseFile = async (file) => {
+    // SheetJS CDN 로드 (패키지 설치 불필요)
+    if (!window.XLSX) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    const XLSX = window.XLSX;
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    // header: 1 → 2차원 배열로 읽기
+    const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+    if (raw.length < 2) return [];
+
+    // 1행: 헤더, 2행: 예시, 3행: 힌트 → 모두 건너뛰고 4행~부터 실제 데이터
+    const headers = raw[0].map(h => String(h).trim());
+    // 헤더행 바로 다음이 예시/힌트인지 판별해서 스킵
+    // — 2행의 첫 번째 값이 알려진 메뉴명 또는 "※"로 시작하면 예시/힌트로 간주
+    const KNOWN_MENUS = new Set(["에스프레소","리스트레토","룽고","아메리카노","롱블랙","카페라떼","카푸치노","플랫화이트","마끼아또","핸드드립","콜드브루","기타","espresso","ristretto","lungo","americano","latte","cappuccino","flatwhite","macchiato","hand_drip","cold_brew","other"]);
+    let dataStartIdx = 1;
+    for (let i = 1; i < Math.min(raw.length, 4); i++) {
+      const firstCell = String(raw[i][0] || "").trim();
+      if (!firstCell || firstCell.startsWith("※") || KNOWN_MENUS.has(firstCell)) {
+        dataStartIdx = i + 1; // 이 행은 예시/힌트 → 다음 행부터 시작
+      } else {
+        break; // 실제 데이터 행 만나면 중단
       }
-      cols.push(cur.trim());
-      return {
-        menuLabel:  cols[0]  || "",
-        bean:       cols[1]  || "",
-        company:    cols[2]  || "",
-        roastDate:  cols[3]  || "",
-        recordDate: cols[4]  || "",
-        machine:    cols[5]  || "",
-        grinder:    cols[6]  || "",
-        grindSize:  cols[7]  || "",
-        gram:       cols[8]  || "",
-        seconds:    cols[9]  || "",
-        espressoMl: cols[10] || "",
-        waterTemp:  cols[11] || "",
-        waterType:  cols[12] || "",
-        diluteType: cols[13] || "",
-        diluteMl:   cols[14] || "",
-        rating:     parseInt(cols[15]) || 0,
-        note:       cols[16] || "",
-        isPublic:   (cols[17] || "TRUE").toUpperCase() !== "FALSE",
-      };
-    }).filter(r => r.bean || r.menuLabel);
+    }
+    const dataRows = raw.slice(dataStartIdx);
+
+    return dataRows.map(row => {
+      const obj = {};
+      headers.forEach((h, i) => {
+        const key = HEADER_MAP[h] || HEADER_MAP[h.toLowerCase()];
+        if (key) obj[key] = row[i] !== undefined && row[i] !== null ? String(row[i]).trim() : "";
+      });
+      return obj;
+    }).filter(r => {
+      // 힌트 행 제거: ※로 시작하거나 bean/menuLabel 모두 비어있으면 스킵
+      if ((r.menuLabel || "").startsWith("※")) return false;
+      if ((r.bean || "").startsWith("※")) return false;
+      return r.bean || r.menuLabel;
+    });
   };
 
   const handleImport = async () => {
@@ -3793,61 +3841,63 @@ function RecipeImporter({ lang, user }) {
     setImporting(true);
     setImportResult(null);
     try {
-      const text = await importFile.text();
-      const rows = parseCSV(text);
+      const rows = await parseFile(importFile);
       if (rows.length === 0) {
         setImportResult({ ok: false, msg: "유효한 데이터가 없어요. 템플릿을 확인해주세요." });
         setImporting(false);
         return;
       }
       let success = 0, fail = 0;
-      // 한글+영문 메뉴명 → menuId 매핑
-      const MENU_MAP_FULL = {
-        "에스프레소":"espresso","리스트레토":"ristretto","룽고":"lungo",
-        "아메리카노":"americano","롱블랙":"long_black","카페라떼":"latte",
-        "카푸치노":"cappuccino","플랫화이트":"flatwhite","마끼아또":"macchiato",
-        "핸드드립":"hand_drip","콜드브루":"cold_brew","기타":"other",
-        "espresso":"espresso","ristretto":"ristretto","lungo":"lungo",
-        "americano":"americano","long black":"long_black","latte":"latte",
-        "cappuccino":"cappuccino","flat white":"flatwhite","flatwhite":"flatwhite",
-        "macchiato":"macchiato","hand drip":"hand_drip","cold brew":"cold_brew","other":"other",
-      };
       for (const row of rows) {
         try {
           const menuId = MENU_MAP_FULL[row.menuLabel?.trim()] || MENU_MAP_FULL[row.menuLabel?.trim().toLowerCase()] || "other";
           const menuDef = COFFEE_MENUS.find(m => m.id === menuId);
           const menuLabel = menuDef ? menuDef.label : (row.menuLabel || "기타");
-          // 숫자 필드 정리 — 빈 문자열/0 처리
-          const num = (v) => v && v.trim() !== "" ? v.trim() : "";
+          const num = (v) => (v && String(v).trim() !== "") ? String(v).trim() : "";
+          // isPublic: "FALSE"/"false" → false, 나머지 → true
+          const isPublicVal = String(row.isPublic || "TRUE").toUpperCase() !== "FALSE";
+          // rating: 숫자로 변환
+          const ratingVal = Math.min(5, Math.max(0, parseInt(row.rating) || 0));
+          // waterType: 한글 표시명 → 내부 ID 변환
+          const WATER_TYPE_MAP = {
+            "수돗물":"tap", "tap":"tap", "tap water":"tap",
+            "정수기":"filter", "filter":"filter", "filtered":"filter", "filtered water":"filter",
+            "생수":"bottle", "bottle":"bottle", "bottled":"bottle", "bottled water":"bottle",
+            "기타":"other", "other":"other",
+          };
+          const rawWaterType = num(row.waterType).toLowerCase();
+          const waterTypeId = WATER_TYPE_MAP[rawWaterType] || WATER_TYPE_MAP[num(row.waterType)] || (rawWaterType ? "other" : "");
           await addDoc(collection(db, "recipes"), {
             menuId, menuLabel,
-            bean:       row.bean?.trim()       || "",
-            company:    row.company?.trim()    || "",
-            roastDate:  row.roastDate?.trim()  || "",
-            recordDate: row.recordDate?.trim() || "",
-            machine:    row.machine?.trim()    || "",
-            grinder:    row.grinder?.trim()    || "",
+            bean:       num(row.bean),
+            company:    num(row.company),
+            roastDate:  num(row.roastDate),
+            recordDate: num(row.recordDate) || new Date().toISOString().split("T")[0],
+            machine:    num(row.machine),
+            grinder:    num(row.grinder),
             grindSize:  num(row.grindSize),
             gram:       num(row.gram),
             seconds:    num(row.seconds),
             espressoMl: num(row.espressoMl),
             waterTemp:  num(row.waterTemp) || "93",
-            waterType:  row.waterType?.trim()  || "",
-            diluteType: row.diluteType?.trim() || "",
+            waterType:  waterTypeId,
+            diluteType: num(row.diluteType),
             diluteMl:   num(row.diluteMl),
-            rating:     row.rating || 0,
-            note:       row.note?.trim()       || "",
-            isPublic:   row.isPublic !== false,
+            rating:     ratingVal,
+            note:       num(row.note),
+            isPublic:   isPublicVal,
             uid: user.uid, author: user.displayName,
+            likedBy: [],
             createdAt: serverTimestamp(), isImported: true,
           });
           success++;
-        } catch(e) { fail++; console.error(e); }
+        } catch(e) { fail++; console.error("[import row]", e); }
       }
       setImportResult({ ok: true, msg: `${success}개 레시피를 가져왔어요.${fail > 0 ? ` (실패 ${fail}개)` : ""}` });
       setImportFile(null);
     } catch(e) {
-      setImportResult({ ok: false, msg: "파일 읽기 실패. CSV 형식인지 확인해주세요." });
+      console.error("[import]", e);
+      setImportResult({ ok: false, msg: "파일 읽기 실패: " + e.message });
     }
     setImporting(false);
   };
@@ -3860,9 +3910,9 @@ function RecipeImporter({ lang, user }) {
           <path d="M2 12h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
         </svg>
         <span style={{ fontSize: "0.8rem", color: importFile ? "var(--espresso)" : "var(--muted)" }}>
-          {importFile ? importFile.name : (lang === "en" ? "Click to select CSV" : "CSV 파일 선택하기")}
+          {importFile ? importFile.name : (lang === "en" ? "Click to select file (xlsx / csv)" : "파일 선택하기 (xlsx / csv)")}
         </span>
-        <input type="file" accept=".csv,.CSV" style={{ display: "none" }}
+        <input type="file" accept=".xlsx,.xls,.csv,.CSV" style={{ display: "none" }}
           onChange={e => { setImportFile(e.target.files[0] || null); setImportResult(null); }} />
       </label>
       {importFile && (
@@ -4262,10 +4312,9 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
           {/* 단계별 안내 */}
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
             {[
-              { step: "01", title: "템플릿 다운로드", desc: "아래 버튼으로 CSV 템플릿을 받아요" },
-              { step: "02", title: "엑셀에서 작성", desc: "엑셀/구글 시트에서 템플릿을 열고 레시피를 입력해요. 1행(헤더)은 수정하지 마세요" },
-              { step: "03", title: "CSV로 저장", desc: "파일 → 다른 이름으로 저장 → CSV UTF-8 형식으로 저장해요" },
-              { step: "04", title: "업로드", desc: "저장한 CSV 파일을 아래에 선택하면 자동으로 가져와요" },
+              { step: "01", title: "템플릿 다운로드", desc: "아래 버튼으로 xlsx 템플릿을 받아요" },
+              { step: "02", title: "엑셀에서 작성", desc: "1행(헤더)·2행(예시)·3행(설명)은 그대로 두고, 4행부터 레시피를 입력해요. 작성 후 예시 행을 지워도 괜찮아요" },
+              { step: "03", title: "파일 업로드", desc: "저장한 xlsx 파일을 아래에서 선택하면 자동으로 가져와요. 예시·설명 행은 자동으로 건너뛰어요" },
             ].map(({ step, title, desc }) => (
               <div key={step} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
                 <span style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.78rem", fontWeight: 700, color: "var(--latte)", flexShrink: 0, minWidth: "20px" }}>{step}</span>
@@ -4278,23 +4327,32 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
           </div>
 
           {/* 템플릿 다운로드 버튼 */}
-          <button onClick={() => {
+          <button onClick={async () => {
+            if (!window.XLSX) {
+              await new Promise((resolve, reject) => {
+                const s = document.createElement("script");
+                s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+              });
+            }
+            const XLSX = window.XLSX;
             const headers = ["메뉴","원두명","원두회사","로스팅일자","기록날짜","커피머신","그라인더","분쇄도","원두량(g)","추출시간(s)","추출량(ml)","물온도(°C)","물종류","희석종류","희석량(ml)","별점(1-5)","메모","공개(TRUE/FALSE)"];
             const example = ["아메리카노","에티오피아 예가체프","테라로사","2026-05-01","2026-06-01","Breville 870","Baratza Encore","7","18","28","36","93","생수","물","150","4","맛있었음","TRUE"];
-            const hint = ["※메뉴:에스프레소/리스트레토/룽고/아메리카노/롱블랙/카페라떼/카푸치노/플랫화이트/마끼아또/핸드드립/콜드브루/기타","","","","","","","","","","","","수돗물/정수기/생수/기타","물/우유/저지방우유/두유/귀리우유/아몬드우유/코코넛우유","","1~5","","TRUE/FALSE"];
-            const csv = "\uFEFF" + headers.join(",") + "\n" + example.join(",") + "\n" + hint.join(",");
-            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = "brewlog_template.csv";
-            a.click();
-            URL.revokeObjectURL(a.href);
+            const hint   = ["※ 메뉴: 에스프레소/리스트레토/룽고/아메리카노/롱블랙/카페라떼/카푸치노/플랫화이트/마끼아또/핸드드립/콜드브루/기타","","","","","","","","","","","","수돗물/정수기/생수/기타","물/우유/저지방우유/두유/귀리우유/아몬드우유/코코넛우유","","1~5 숫자","","TRUE 또는 FALSE"];
+            const ws = XLSX.utils.aoa_to_sheet([headers, example, hint]);
+            // 열 너비 자동 설정
+            ws["!cols"] = headers.map((h, i) => ({ wch: Math.max(h.length * 2, [12,16,12,12,12,16,14,8,10,10,10,10,12,14,10,8,20,14][i] || 12) }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "레시피");
+            XLSX.writeFile(wb, "brewlog_template.xlsx");
           }} style={{ width: "100%", padding: "10px", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--foam)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "10px" }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M2 12h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
             </svg>
-            템플릿 다운로드 (CSV)
+            템플릿 다운로드 (xlsx)
           </button>
 
           <RecipeImporter lang={lang} user={user} />
