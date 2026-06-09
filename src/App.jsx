@@ -329,6 +329,7 @@ const CSS = `
     border-top: 1px solid var(--steam); padding-top: 0.75rem; margin-top: 0.1rem;
   }
   .card-author { font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--roast); }
+  .card-author:hover { text-decoration: underline; text-underline-offset: 2px; }
   .card-actions { display: flex; gap: 0; align-items: center; }
   .card-action-btn { background: none; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; transition: background 0.15s, color 0.15s; color: var(--muted); padding: 0; }
   .card-action-btn:hover { background: rgba(0,0,0,0.05); }
@@ -4465,7 +4466,7 @@ function ReportModal({ type, targetId, currentUser, onClose, lang = "ko" }) {
 }
 
 // ─── RecipeDetailModal ────────────────────────────────────────────
-function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, onCompare, onCopyRecipe, lang = "ko" }) {
+function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, onCompare, onCopyRecipe, onAuthorClick, lang = "ko" }) {
   const [showReport, setShowReport] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
@@ -4712,7 +4713,11 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
       )}
         <div className="card-footer" style={{ marginTop: "1rem" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-            <span className="card-author" style={{ cursor: "pointer" }}>@{recipe.author}</span>
+            <span
+              className="card-author"
+              style={{ cursor: onAuthorClick ? "pointer" : "default" }}
+              onClick={() => { if (onAuthorClick) { onClose(); onAuthorClick({ uid: recipe.uid, name: recipe.author }); } }}
+            >@{recipe.author}</span>
             {recipe.author && recipe.uid !== currentUid && onFollow && (
               <button
                 className={`follow-btn ${isFollowing ? "following" : ""}`}
@@ -5617,7 +5622,7 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
 }
 
 
-function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, onCardClick, onCompare, onCopy, lang = "ko" }) {
+function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, onCardClick, onCompare, onCopy, onAuthorClick, lang = "ko" }) {
   const t = I18N[lang];
   const date = recipe.createdAt?.toDate?.()?.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR") || "";
   const liked = (recipe.likedBy || []).includes(currentUid);
@@ -5749,7 +5754,11 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
       {recipe.note && <div className="card-note">"{recipe.note}"</div>}
       <div className="card-footer">
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-          <span className="card-author">@{recipe.author}</span>
+          <span
+            className="card-author"
+            onClick={e => { e.stopPropagation(); onAuthorClick && onAuthorClick({ uid: recipe.uid, name: recipe.author }); }}
+            style={{ cursor: onAuthorClick ? "pointer" : "default" }}
+          >@{recipe.author}</span>
           {recipe.author && recipe.uid !== currentUid && onFollow && (
             <button
               className={`follow-btn ${isFollowing ? "following" : ""}`}
@@ -7086,6 +7095,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState("");
   const [myRecipesOnly, setMyRecipesOnly] = useState(false);
+  const [filterAuthor, setFilterAuthor] = useState(null); // { uid, name } | null
   const [isAdmin, setIsAdmin] = useState(false);
   const [feedTab, setFeedTab] = useState("all"); // "all" | "bookmarks" | "following"
 
@@ -7283,6 +7293,10 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     if (r.isPublic === false && r.uid !== user?.uid) return false;
     // 차단된 유저 레시피 숨김
     if (blocked.includes(r.uid)) return false;
+    // 작성자 필터 (닉네임 클릭 시)
+    if (filterAuthor) {
+      if (filterAuthor.uid ? r.uid !== filterAuthor.uid : r.author !== filterAuthor.name) return false;
+    }
     if (myRecipesOnly && r.uid !== user?.uid) return false;
     if (feedTab === "bookmarks" && !bookmarks.includes(r.id)) return false;
     if (feedTab === "following" && !following.includes(r.uid) && !following.includes(r.author)) return false;
@@ -7434,15 +7448,15 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             {/* 왼쪽: 피드 탭 */}
             <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
               <button className={`bookmark-tab-btn ${feedTab === "all" && !showRanking ? "active" : ""}`}
-                onClick={() => { setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                onClick={() => { setFeedTab("all"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                 {I18N[lang].allRecipes}
               </button>
               <button className={`bookmark-tab-btn ${feedTab === "following" && !showRanking ? "active" : ""}`}
-                onClick={() => { setFeedTab("following"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                onClick={() => { setFeedTab("following"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                 {I18N[lang].followingFeed}{following.length > 0 ? ` (${following.length})` : ""}
               </button>
               <button className={`bookmark-tab-btn ${feedTab === "bookmarks" && !showRanking ? "active" : ""}`}
-                onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                 {I18N[lang].myBookmarks}{bookmarks.length > 0 ? ` (${bookmarks.length})` : ""}
               </button>
             </div>
@@ -7452,15 +7466,15 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             {user && (
               <div style={{ display: "flex", gap: "4px", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flexShrink: 1 }}>
                 <button className={`bookmark-tab-btn ${feedTab === "mine" && !showRanking ? "active" : ""}`}
-                  onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                  onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                   {I18N[lang].myRecipes}
                 </button>
                 <button className={`bookmark-tab-btn ${feedTab === "beans" && !showRanking ? "active" : ""}`}
-                  onClick={() => { setFeedTab("beans"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                  onClick={() => { setFeedTab("beans"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                   {I18N[lang].myBeans}
                 </button>
                 <button className={`bookmark-tab-btn ${feedTab === "equip" && !showRanking ? "active" : ""}`}
-                  onClick={() => { setFeedTab("equip"); setMyRecipesOnly(false); setShowRanking(false); }}>
+                  onClick={() => { setFeedTab("equip"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                   {I18N[lang].myEquip}
                 </button>
               </div>
@@ -7526,7 +7540,10 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       {/* 타이틀 */}
       {(() => {
         let title, sub;
-        if (myRecipesOnly || feedTab === "mine") {
+        if (filterAuthor) {
+          title = `@${filterAuthor.name}`;
+          sub = lang === "en" ? `Recipes by @${filterAuthor.name}` : `@${filterAuthor.name}의 레시피`;
+        } else if (myRecipesOnly || feedTab === "mine") {
           title = I18N[lang].myFeedTitle; sub = I18N[lang].myFeedSub;
         } else if (feedTab === "following") {
           title = I18N[lang].followingFeedTitle; sub = I18N[lang].followingFeedSub;
@@ -7544,6 +7561,31 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           <div className="section-sub">{sub}</div>
         </>);
       })()}
+      {/* 작성자 필터 배지 */}
+      {filterAuthor && (
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "8px 0 12px" }}>
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: "6px",
+            padding: "5px 10px 5px 12px", background: "var(--espresso)", color: "var(--cream)",
+            borderRadius: "20px", fontSize: "0.78rem", fontWeight: 600,
+            fontFamily: "'DM Sans', sans-serif",
+          }}>
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="4" r="2.5" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M1.5 10.5c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            @{filterAuthor.name}
+            <button
+              onClick={() => setFilterAuthor(null)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--cream)", opacity: 0.7, padding: "0 0 0 2px", lineHeight: 1, fontSize: "1rem", display: "flex", alignItems: "center" }}
+              title={lang === "en" ? "Clear filter" : "필터 해제"}
+            >×</button>
+          </div>
+          <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontFamily: "'DM Sans', sans-serif" }}>
+            {filtered.length}{lang === "en" ? " recipes" : "개"}
+          </span>
+        </div>
+      )}
       <div className="divider" style={{ marginBottom: "1.5rem" }} />
       {/* 내 원두 탭 */}
       {feedTab === "beans" && user && (
@@ -7988,7 +8030,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             onEdit={() => { setEditTarget(rec); openModal(); }}
             onCardClick={() => openDetail(rec)}
             onCompare={user?.uid ? () => setCompareTarget(rec) : null}
-            onCopy={user?.uid ? () => handleCopyRecipe(rec) : null} />
+            onCopy={user?.uid ? () => handleCopyRecipe(rec) : null}
+            onAuthorClick={a => { setFilterAuthor(a); setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }} />
         ))}
       </div>}
     </div>}
@@ -8026,6 +8069,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           setDetailRecipeWrapped(null);
           handleCopyRecipe(r);
         } : null}
+        onAuthorClick={a => { setDetailRecipeWrapped(null); setFilterAuthor(a); setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }}
       />
     )}
     {showModal && (
