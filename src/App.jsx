@@ -771,6 +771,11 @@ const CSS = `
     }
     .search-box { min-width: 0; flex: 1; overflow: hidden; }
     .search-box input { font-size: 0.82rem; min-width: 0; width: 100%; box-sizing: border-box; }
+    /* iOS 입력 시 확대 방지 — font-size 16px 이상 */
+    input, textarea, select { font-size: 16px !important; }
+    input[type="number"] { font-size: 16px !important; }
+    /* iOS 바운스 스크롤 방지 */
+    body { overscroll-behavior: none; }
 
     /* Record 버튼 — 영어일 때도 잘리지 않게 */
     .btn-new {
@@ -3694,19 +3699,17 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
           </div>
         </div>
         {/* 현재 설정을 프리셋으로 저장 — 저장 버튼 바로 위 */}
-        {!isEdit && (
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px" }}>
-            <button type="button" onClick={() => setShowPresetSave(true)}
-              style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "8px", padding: "7px 14px", cursor: "pointer", fontSize: "0.78rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", gap: "5px", transition: "all 0.2s" }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--latte)"; e.currentTarget.style.color = "var(--latte)"; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--steam)"; e.currentTarget.style.color = "var(--muted)"; }}>
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              {lang === "en" ? "Save as Preset" : "현재 설정 프리셋으로 저장"}
-            </button>
-          </div>
-        )}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px" }}>
+          <button type="button" onClick={() => setShowPresetSave(true)}
+            style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "8px", padding: "7px 14px", cursor: "pointer", fontSize: "0.78rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", gap: "5px", transition: "all 0.2s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--latte)"; e.currentTarget.style.color = "var(--latte)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--steam)"; e.currentTarget.style.color = "var(--muted)"; }}>
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+              <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            {lang === "en" ? "Save as Preset" : "현재 설정 프리셋으로 저장"}
+          </button>
+        </div>
         <div className="modal-actions">
           <button className="btn-cancel" onClick={onClose}>{t.cancel}</button>
           <button className="btn-primary" style={{ width: "auto", marginTop: 0, padding: "0.7rem 2rem" }} onClick={save} disabled={saving}>
@@ -4331,7 +4334,7 @@ function ReportModal({ type, targetId, currentUser, onClose, lang = "ko" }) {
 }
 
 // ─── RecipeDetailModal ────────────────────────────────────────────
-function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, lang = "ko" }) {
+function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, onCompare, lang = "ko" }) {
   const [showReport, setShowReport] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
@@ -4590,6 +4593,27 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             <span style={{ color: "var(--muted)" }}> · {date}</span>
           </div>
           <div className="card-actions">
+            {/* 비교 버튼 */}
+            {currentUser && onCompare && (
+              <button className="card-action-btn"
+                onClick={() => { onClose(); onCompare(recipe); }}
+                title={lang === "en" ? "Compare recipes" : "레시피 비교"}>
+                <svg width="20" height="20" viewBox="0 0 22 20" fill="none">
+                  {/* 왼쪽 카드 */}
+                  <rect x="1" y="3" width="8" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                  <line x1="3" y1="7" x2="7" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  <line x1="3" y1="10" x2="7" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  <line x1="3" y1="13" x2="5.5" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  {/* 오른쪽 카드 */}
+                  <rect x="13" y="3" width="8" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                  <line x1="15" y1="7" x2="19" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  <line x1="15" y1="10" x2="19" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  <line x1="15" y1="13" x2="17.5" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  {/* 가운데 vs */}
+                  <text x="11" y="11.5" textAnchor="middle" fontSize="5" fontWeight="700" fill="currentColor" fontFamily="DM Sans,sans-serif">vs</text>
+                </svg>
+              </button>
+            )}
             {/* 공유 버튼 */}
             <button className="card-action-btn"
               onClick={async () => {
@@ -4976,7 +5000,282 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
 }
 
 // ─── RecipeCard ────────────────────────────────────────────────────
-function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, onCardClick, lang = "ko" }) {
+function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
+  const [selectedId, setSelectedId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("recent");
+  const recipeA = targetRecipe;
+  const recipeB = myRecipes.find(r => r.id === selectedId) || null;
+
+  const SORT_OPTIONS = [
+    { id: "recent",   label: "최신순" },
+    { id: "popular",  label: "인기순" },
+    { id: "sameBean", label: "동일 원두" },
+    { id: "mine",     label: "내 레시피" },
+  ];
+
+  const FIELDS = [
+    { key: "gram",       label: "원두량",   unit: "g" },
+    { key: "seconds",    label: "추출시간", unit: "s" },
+    { key: "espressoMl", label: "추출량",   unit: "ml" },
+    { key: "waterTemp",  label: "물온도",   unit: "°C" },
+    { key: "grindSize",  label: "분쇄도",   unit: "" },
+    { key: "diluteMl",   label: "희석량",   unit: "ml" },
+  ];
+  const FLAVOR_KEYS = ["Acidity","Sweet","Bitter","Aroma","Aftertaste","Balance","Body"];
+  const FLAVOR_LABELS = { Acidity:"산미",Sweet:"단맛",Bitter:"쓴맛",Aroma:"아로마",Aftertaste:"후미",Balance:"밸런스",Body:"바디" };
+
+  const diff = (a, b) => {
+    const na = parseFloat(a), nb = parseFloat(b);
+    if (isNaN(na) || isNaN(nb) || na === nb) return null;
+    return na > nb ? "up" : "down";
+  };
+
+  // 검색 필터
+  const searched = myRecipes.filter(r => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (r.bean||"").toLowerCase().includes(q) ||
+           (r.menuLabel||"").toLowerCase().includes(q) ||
+           (r.company||"").toLowerCase().includes(q) ||
+           (r.author||"").toLowerCase().includes(q);
+  });
+
+  // 정렬 적용
+  const filtered = [...searched].sort((a, b) => {
+    if (sortBy === "recent") return (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0);
+    if (sortBy === "popular") return ((b.likedBy||[]).length) - ((a.likedBy||[]).length);
+    if (sortBy === "sameBean") {
+      const aMatch = (a.bean||"").toLowerCase() === (recipeA.bean||"").toLowerCase() ? 1 : 0;
+      const bMatch = (b.bean||"").toLowerCase() === (recipeA.bean||"").toLowerCase() ? 1 : 0;
+      return bMatch - aMatch;
+    }
+    if (sortBy === "mine") {
+      // 내 레시피 먼저 (targetRecipe.uid 기준으로 본인 레시피)
+      const aM = a.uid === recipeA.uid ? 1 : 0;
+      const bM = b.uid === recipeA.uid ? 1 : 0;
+      if (bM !== aM) return bM - aM;
+      return (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0);
+    }
+    return 0;
+  });
+
+  const RecipeChip = ({ r }) => {
+    const isSelected = selectedId === r.id;
+    const isSameBean = (r.bean||"").toLowerCase() === (recipeA.bean||"").toLowerCase() && r.bean;
+    return (
+      <button type="button" onClick={() => setSelectedId(r.id)}
+        style={{ border:"1px solid", borderRadius:"10px", cursor:"pointer", transition:"all 0.15s", textAlign:"left", padding:"10px 12px", width:"100%",
+          borderColor: isSelected ? "var(--espresso)" : "var(--divider)",
+          background: isSelected ? "var(--espresso)" : "var(--foam)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"6px" }}>
+          <div style={{ minWidth:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:"5px", marginBottom:"2px" }}>
+              <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"0.9rem", fontWeight:700,
+                color: isSelected ? "var(--cream)" : "var(--espresso)",
+                whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                {r.bean || "—"}
+              </span>
+              {isSameBean && !isSelected && (
+                <span style={{ fontSize:"0.6rem", padding:"1px 5px", borderRadius:"4px", background:"var(--latte)20", color:"var(--latte)", fontWeight:700, flexShrink:0 }}>같은원두</span>
+              )}
+            </div>
+            <div style={{ fontSize:"0.7rem", color: isSelected ? "rgba(255,255,255,0.7)" : "var(--muted)", display:"flex", flexWrap:"wrap", gap:"4px" }}>
+              {r.company && <span>{r.company}</span>}
+              {r.menuLabel && <span>· {r.menuLabel}{r.isIced?" · ICE":""}</span>}
+              {r.author && <span>· @{r.author}</span>}
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:"4px", flexShrink:0, flexWrap:"wrap", justifyContent:"flex-end" }}>
+            {r.gram && <span style={{ fontSize:"0.65rem", padding:"2px 5px", borderRadius:"4px", background: isSelected?"rgba(255,255,255,0.2)":"var(--cream)", color: isSelected?"var(--cream)":"var(--muted)" }}>{r.gram}g</span>}
+            {r.seconds && <span style={{ fontSize:"0.65rem", padding:"2px 5px", borderRadius:"4px", background: isSelected?"rgba(255,255,255,0.2)":"var(--cream)", color: isSelected?"var(--cream)":"var(--muted)" }}>{r.seconds}s</span>}
+            {r.espressoMl && <span style={{ fontSize:"0.65rem", padding:"2px 5px", borderRadius:"4px", background: isSelected?"rgba(255,255,255,0.2)":"var(--cream)", color: isSelected?"var(--cream)":"var(--muted)" }}>{r.espressoMl}ml</span>}
+          </div>
+        </div>
+      </button>
+    );
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target===e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth:"700px", maxHeight:"90vh", overflowY:"auto", padding:"24px" }}>
+        {/* 헤더 */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="7" stroke="var(--espresso)" strokeWidth="1.8"/>
+              <path d="M16.5 16.5L21 21" stroke="var(--espresso)" strokeWidth="1.8" strokeLinecap="round"/>
+              <path d="M8 11h6M11 8v6" stroke="var(--latte)" strokeWidth="1.6" strokeLinecap="round"/>
+            </svg>
+            <h2 style={{ margin:0, fontSize:"1.2rem" }}>레시피 비교</h2>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--muted)", fontSize:"1.4rem", lineHeight:1, padding:"4px" }}>×</button>
+        </div>
+
+        {/* 레시피 A (기준) */}
+        <div style={{ marginBottom:"16px" }}>
+          <div style={{ fontSize:"0.62rem", fontWeight:700, color:"var(--latte)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"6px" }}>레시피 A (기준)</div>
+          <div style={{ background:"#FDF6EF", border:"1px solid var(--latte)40", borderLeft:"3px solid var(--latte)", borderRadius:"0 10px 10px 0", padding:"12px 14px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+              <div>
+                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>{recipeA.bean || "—"}</div>
+                <div style={{ fontSize:"0.72rem", color:"var(--muted)", marginTop:"2px" }}>
+                  {recipeA.company && <span>{recipeA.company} · </span>}
+                  {recipeA.menuLabel}{recipeA.isIced?" · ICE":""} · @{recipeA.author}
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:"4px", flexWrap:"wrap", justifyContent:"flex-end" }}>
+                {recipeA.gram && <span style={{ fontSize:"0.68rem", padding:"2px 6px", borderRadius:"5px", background:"var(--cream)", color:"var(--muted)" }}>{recipeA.gram}g</span>}
+                {recipeA.seconds && <span style={{ fontSize:"0.68rem", padding:"2px 6px", borderRadius:"5px", background:"var(--cream)", color:"var(--muted)" }}>{recipeA.seconds}s</span>}
+                {recipeA.espressoMl && <span style={{ fontSize:"0.68rem", padding:"2px 6px", borderRadius:"5px", background:"var(--cream)", color:"var(--muted)" }}>{recipeA.espressoMl}ml</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 레시피 B 선택 */}
+        <div style={{ marginBottom:"20px" }}>
+          <div style={{ fontSize:"0.62rem", fontWeight:700, color:"#2980b9", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"6px" }}>레시피 B 선택</div>
+          {/* 검색 */}
+          <div style={{ display:"flex", gap:"6px", alignItems:"center", marginBottom:"8px", background:"var(--foam)", border:"1px solid var(--divider)", borderRadius:"8px", padding:"8px 12px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="6.5" cy="6.5" r="5" stroke="var(--muted)" strokeWidth="1.4"/>
+              <path d="M10.5 10.5L14 14" stroke="var(--muted)" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="원두명, 메뉴, 로스터리, 닉네임 검색…"
+              style={{ flex:1, border:"none", background:"transparent", outline:"none", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--espresso)" }}/>
+            {search && <button onClick={() => setSearch("")} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--muted)", fontSize:"1rem", padding:0, lineHeight:1 }}>×</button>}
+          </div>
+          {/* 정렬 칩 */}
+          <div style={{ display:"flex", gap:"5px", flexWrap:"wrap", marginBottom:"8px" }}>
+            {SORT_OPTIONS.map(opt => {
+              const isActive = sortBy === opt.id;
+              // 같은 원두 매칭 개수 표시
+              const count = opt.id === "sameBean"
+                ? myRecipes.filter(r => (r.bean||"").toLowerCase() === (recipeA.bean||"").toLowerCase()).length
+                : opt.id === "mine"
+                ? myRecipes.filter(r => r.uid === recipeA.uid).length
+                : null;
+              return (
+                <button key={opt.id} type="button" onClick={() => setSortBy(opt.id)}
+                  style={{ padding:"4px 10px", border:"1px solid", borderRadius:"20px", cursor:"pointer",
+                    fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", lineHeight:1, transition:"all 0.15s",
+                    borderColor: isActive ? "var(--espresso)" : "var(--steam)",
+                    background: isActive ? "var(--espresso)" : "transparent",
+                    color: isActive ? "var(--cream)" : "var(--muted)",
+                    fontWeight: isActive ? 600 : 400 }}>
+                  {opt.label}
+                  {count !== null && count > 0 && (
+                    <span style={{ marginLeft:"4px", fontSize:"0.65rem", opacity:0.8 }}>{count}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {/* 레시피 목록 */}
+          <div style={{ display:"flex", flexDirection:"column", gap:"5px", maxHeight:"200px", overflowY:"auto" }}>
+            {filtered.length === 0 ? (
+              <p style={{ fontSize:"0.8rem", color:"var(--muted)", textAlign:"center", padding:"16px 0" }}>검색 결과가 없어요</p>
+            ) : filtered.map(r => <RecipeChip key={r.id} r={r}/>)}
+          </div>
+        </div>
+
+        {/* 비교 결과 */}
+        {recipeB && (<>
+          <div style={{ height:"1px", background:"var(--divider)", margin:"4px 0 20px" }}/>
+
+          {/* 수치 비교 테이블 */}
+          <div style={{ background:"var(--foam)", border:"1px solid var(--divider)", borderRadius:"12px", overflow:"hidden", marginBottom:"16px" }}>
+            {/* 컬럼 헤더 */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 80px 1fr", background:"var(--cream)", borderBottom:"1px solid var(--divider)", padding:"8px 14px" }}>
+              <div style={{ fontSize:"0.68rem", fontWeight:700, color:"var(--latte)", textAlign:"right" }}>레시피 A</div>
+              <div/>
+              <div style={{ fontSize:"0.68rem", fontWeight:700, color:"#2980b9" }}>레시피 B</div>
+            </div>
+            {FIELDS.map((f, idx) => {
+              const av = recipeA[f.key], bv = recipeB[f.key];
+              const d = diff(av, bv);
+              return (
+                <div key={f.key} style={{ display:"grid", gridTemplateColumns:"1fr 80px 1fr", alignItems:"center",
+                  borderTop: idx===0?"none":"1px solid var(--divider)",
+                  background: d ? "#FFFBF7" : "transparent", padding:"0 14px" }}>
+                  <div style={{ padding:"10px 0", fontSize:"0.88rem", textAlign:"right",
+                    color: d ? "var(--espresso)" : "var(--muted)", fontWeight: d?"700":"400" }}>
+                    {av ? `${av}${f.unit}` : "—"}
+                  </div>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:"0.6rem", color:"var(--muted)", marginBottom:"2px" }}>{f.label}</div>
+                    {d ? (
+                      <div style={{ fontSize:"0.68rem", fontWeight:700,
+                        color: d==="up" ? "#27ae60" : "#e67e22" }}>
+                        {d==="up" ? "▲" : "▼"} {Math.abs(parseFloat(av||0)-parseFloat(bv||0))}{f.unit}
+                      </div>
+                    ) : <div style={{ fontSize:"0.68rem", color:"var(--muted)" }}>＝</div>}
+                  </div>
+                  <div style={{ padding:"10px 0", fontSize:"0.88rem",
+                    color: d ? "#2980b9" : "var(--muted)", fontWeight: d?"700":"400" }}>
+                    {bv ? `${bv}${f.unit}` : "—"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 플레이버 오버레이 레이더 */}
+          {FLAVOR_KEYS.some(k => recipeA[`flavor${k}`]>0 || recipeB[`flavor${k}`]>0) && (() => {
+            const SIZE=260, cx=130, cy=130, R=90, n=FLAVOR_KEYS.length;
+            const pt = (i,r) => { const a=-Math.PI/2+2*Math.PI*i/n; return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; };
+            const grid = [1,2,3,4,5].map(l => { const r=R*l/5; const pts=FLAVOR_KEYS.map((_,i)=>pt(i,r).join(",")).join(" "); return <polygon key={l} points={pts} fill={l%2===0?"#F5F3F0":"none"} stroke={l===5?"#D5CFC8":"#E8E4DF"} strokeWidth={l===5?1.2:0.7}/>; });
+            const axes = FLAVOR_KEYS.map((_,i) => { const [x,y]=pt(i,R); return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="#DDD9D3" strokeWidth="0.8"/>; });
+            const aVals=FLAVOR_KEYS.map(k=>(parseInt(recipeA[`flavor${k}`])||0)/5);
+            const bVals=FLAVOR_KEYS.map(k=>(parseInt(recipeB[`flavor${k}`])||0)/5);
+            const aPts=FLAVOR_KEYS.map((_,i)=>pt(i,Math.max(aVals[i],0.04)*R).join(",")).join(" ");
+            const bPts=FLAVOR_KEYS.map((_,i)=>pt(i,Math.max(bVals[i],0.04)*R).join(",")).join(" ");
+            const lbls=FLAVOR_KEYS.map((k,i)=>{ const [x,y]=pt(i,R+20); const anchor=x<cx-8?"end":x>cx+8?"start":"middle"; return <text key={k} x={x} y={y} textAnchor={anchor} dominantBaseline="middle" fontSize="9.5" fill="#8C8480" fontFamily="DM Sans,sans-serif">{FLAVOR_LABELS[k]}</text>; });
+            return (
+              <div style={{ background:"var(--foam)", border:"1px solid var(--divider)", borderRadius:"12px", padding:"16px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"16px", marginBottom:"12px" }}>
+                  <span style={{ fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.07em" }}>Flavor</span>
+                  <span style={{ display:"flex", alignItems:"center", gap:"5px" }}>
+                    <span style={{ width:"16px", height:"3px", background:"var(--latte)", display:"inline-block", borderRadius:"2px" }}/>
+                    <span style={{ fontSize:"0.65rem", color:"var(--muted)" }}>A</span>
+                  </span>
+                  <span style={{ display:"flex", alignItems:"center", gap:"5px" }}>
+                    <span style={{ width:"16px", height:"3px", background:"#2980b9", display:"inline-block", borderRadius:"2px" }}/>
+                    <span style={{ fontSize:"0.65rem", color:"var(--muted)" }}>B</span>
+                  </span>
+                </div>
+                <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ display:"block", margin:"0 auto" }}>
+                  {grid}{axes}
+                  <polygon points={aPts} fill="var(--latte)" fillOpacity="0.18" stroke="var(--latte)" strokeWidth="2" strokeLinejoin="round"/>
+                  <polygon points={bPts} fill="#2980b9" fillOpacity="0.15" stroke="#2980b9" strokeWidth="2" strokeLinejoin="round"/>
+                  {FLAVOR_KEYS.map((k,i)=>{
+                    const [ax,ay]=pt(i,aVals[i]*R), [bx,by]=pt(i,bVals[i]*R);
+                    return <g key={k}>
+                      {aVals[i]>0&&<circle cx={ax} cy={ay} r="3.5" fill="var(--latte)" stroke="white" strokeWidth="1.2"/>}
+                      {bVals[i]>0&&<circle cx={bx} cy={by} r="3.5" fill="#2980b9" stroke="white" strokeWidth="1.2"/>}
+                    </g>;
+                  })}
+                  {lbls}
+                </svg>
+              </div>
+            );
+          })()}
+        </>)}
+
+        {!recipeB && (
+          <div style={{ textAlign:"center", padding:"24px 0", color:"var(--muted)", fontSize:"0.85rem" }}>
+            위에서 비교할 레시피 B를 선택해주세요
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, onCardClick, onCompare, lang = "ko" }) {
   const t = I18N[lang];
   const date = recipe.createdAt?.toDate?.()?.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR") || "";
   const liked = (recipe.likedBy || []).includes(currentUid);
@@ -5155,6 +5454,24 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M9 6V4h6v2M10 11v6M14 11v6M5 6l1 14h12L19 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           </>)}
+          {/* 비교 버튼 — 로그인 시 모든 카드에 표시 */}
+          {currentUid && onCompare && (
+            <button className="card-action-btn"
+              onClick={e => { e.stopPropagation(); onCompare(recipe); }}
+              title={lang === "en" ? "Compare recipes" : "레시피 비교"}>
+              <svg width="20" height="20" viewBox="0 0 22 20" fill="none">
+                <rect x="1" y="3" width="8" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                <line x1="3" y1="7" x2="7" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                <line x1="3" y1="10" x2="7" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                <line x1="3" y1="13" x2="5.5" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                <rect x="13" y="3" width="8" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                <line x1="15" y1="7" x2="19" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                <line x1="15" y1="10" x2="19" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                <line x1="15" y1="13" x2="17.5" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                <text x="11" y="11.5" textAnchor="middle" fontSize="5" fontWeight="700" fill="currentColor" fontFamily="DM Sans,sans-serif">vs</text>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -6335,15 +6652,22 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const openMyModal = ()  => { window.history.pushState({ modal: true }, ""); setShowMyModalWrapped(true); };
   const openDetail  = (r) => { window.history.pushState({ modal: true }, ""); setDetailRecipeWrapped(r); };
 
+  const beanShowModalRef = React.useRef(false);
+  const equipShowModalRef = React.useRef(false);
+  const compareTargetRef = React.useRef(null);
+
   useEffect(() => {
     const onPop = () => {
+      if (compareTargetRef.current) { setCompareTarget(null); return; }
       if (detailRecipeRef.current)  { setDetailRecipeWrapped(null); return; }
       if (showModalRef.current)     { setShowModalWrapped(false); setEditTarget(null); return; }
       if (showMyModalRef.current)   { setShowMyModalWrapped(false); return; }
+      if (beanShowModalRef.current) { setBeanShowModal(false); return; }
+      if (equipShowModalRef.current){ setEquipShowModal(false); return; }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, []); // 의존성 없이 한 번만 등록, ref로 최신 상태 접근
+  }, []);
 
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState("");
@@ -6436,9 +6760,13 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [noticeDismissed, setNoticeDismissed] = useState(false);
   // Bean Vault 상태 (MainApp에서 관리해 탭 구조 통일)
   const [beanFilterStatus, setBeanFilterStatus] = useState("all");
-  const [beanShowModal, setBeanShowModal] = useState(false);
+  const [beanShowModal, setBeanShowModalState] = useState(false);
+  const setBeanShowModal = (v) => { beanShowModalRef.current = v; if(v) window.history.pushState({modal:true},""); setBeanShowModalState(v); };
   const [beanEditTarget, setBeanEditTarget] = useState(null);
-  const [equipShowModal, setEquipShowModal] = useState(false);
+  const [equipShowModal, setEquipShowModalState] = useState(false);
+  const setEquipShowModal = (v) => { equipShowModalRef.current = v; if(v) window.history.pushState({modal:true},""); setEquipShowModalState(v); };
+  const [compareTarget, setCompareTargetState] = useState(null);
+  const setCompareTarget = (v) => { compareTargetRef.current = v; if(v) window.history.pushState({modal:true},""); setCompareTargetState(v); };
 
   const loadRecipes = useCallback(async () => {
     try {
@@ -7202,20 +7530,28 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
               </>);
             })()}
           </div>
-        ) : filtered.map(r => (
-          <RecipeCard key={r.id} recipe={r} currentUid={user?.uid} lang={lang}
+        ) : filtered.map(rec => (
+          <RecipeCard key={rec.id} recipe={rec} currentUid={user?.uid} lang={lang}
             onDelete={handleDelete}
             onLike={handleLike}
             onBookmark={toggleBookmark}
-            isBookmarked={bookmarks.includes(r.id)}
+            isBookmarked={bookmarks.includes(rec.id)}
             onFollow={toggleFollow}
-            isFollowing={following.includes(r.uid) || following.includes(r.author)}
-            onEdit={r => { setEditTarget(r); openModal(); }}
-            onCardClick={() => openDetail(r)} />
+            isFollowing={following.includes(rec.uid) || following.includes(rec.author)}
+            onEdit={() => { setEditTarget(rec); openModal(); }}
+            onCardClick={() => openDetail(rec)}
+            onCompare={user?.uid ? () => setCompareTarget(rec) : null} />
         ))}
       </div>}
     </div>}
     {showMyModal && <MyModal user={user} lang={lang} onClose={() => setShowMyModalWrapped(false)} onLogout={() => { setShowMyModalWrapped(false); signOut(auth); }} />}
+    {compareTarget && (
+      <CompareModal
+        targetRecipe={compareTarget}
+        myRecipes={recipes.filter(r => r.id !== compareTarget.id)}
+        onClose={() => setCompareTarget(null)}
+        lang={lang} />
+    )}
     {detailRecipe && (
       <RecipeDetailModal
         recipe={detailRecipe}
@@ -7231,6 +7567,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         isFollowing={detailRecipe && (following.includes(detailRecipe.uid) || following.includes(detailRecipe.author))}
         onBookmark={toggleBookmark}
         isBookmarked={detailRecipe && bookmarks.includes(detailRecipe.id)}
+        onCompare={user?.uid ? (r) => { setDetailRecipeWrapped(null); setCompareTarget(r); } : null}
       />
     )}
     {showModal && (
