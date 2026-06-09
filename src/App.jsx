@@ -776,6 +776,9 @@ const CSS = `
     input[type="number"] { font-size: 16px !important; }
     /* iOS 바운스 스크롤 방지 */
     body { overscroll-behavior: none; }
+    /* iOS 핀치줌/더블탭 확대 방지 */
+    * { touch-action: pan-x pan-y; }
+    input, textarea, select { touch-action: manipulation; }
 
     /* Record 버튼 — 영어일 때도 잘리지 않게 */
     .btn-new {
@@ -2435,7 +2438,7 @@ function FlavorRadar({ values, size = 200, lang = "ko" }) {
 
 function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const t = I18N[lang];
-  const isEdit = !!editTarget;
+  const isEdit = !!editTarget && !editTarget._isCopy;
 
   // ── 내 원두 목록 로드 ──────────────────────────────
   const [myBeans, setMyBeans] = useState([]);
@@ -2929,7 +2932,14 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   return (
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" ref={modalRef}>
-        <h2>{isEdit ? t.editTitle : t.recordTitle}</h2>
+        <h2>{isEdit ? t.editTitle : editTarget?._isCopy ? "레시피 복사하기" : t.recordTitle}</h2>
+        {/* 복사 모드 안내 */}
+        {editTarget?._isCopy && (
+          <div style={{ background:"#EBF5FB", border:"1px solid #AED6F1", borderRadius:"8px", padding:"10px 14px", marginBottom:"16px", fontSize:"0.8rem", color:"#2980b9", display:"flex", alignItems:"center", gap:"8px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+            다른 레시피를 복사했어요. 내용을 수정하고 저장하면 내 새 레시피로 등록됩니다.
+          </div>
+        )}
 
         {/* ── 프리셋 (모달 최상단) ── */}
         {(
@@ -3747,19 +3757,20 @@ function RecipeImporter({ lang, user }) {
         bean:       cols[1]  || "",
         company:    cols[2]  || "",
         roastDate:  cols[3]  || "",
-        machine:    cols[4]  || "",
-        grinder:    cols[5]  || "",
-        grindSize:  cols[6]  || "",
-        gram:       cols[7]  || "",
-        seconds:    cols[8]  || "",
-        espressoMl: cols[9]  || "",
-        waterTemp:  cols[10] || "",
-        waterType:  cols[11] || "",
-        diluteType: cols[12] || "",
-        diluteMl:   cols[13] || "",
-        rating:     parseInt(cols[14]) || 0,
-        note:       cols[15] || "",
-        isPublic:   (cols[16] || "TRUE").toUpperCase() !== "FALSE",
+        recordDate: cols[4]  || "",
+        machine:    cols[5]  || "",
+        grinder:    cols[6]  || "",
+        grindSize:  cols[7]  || "",
+        gram:       cols[8]  || "",
+        seconds:    cols[9]  || "",
+        espressoMl: cols[10] || "",
+        waterTemp:  cols[11] || "",
+        waterType:  cols[12] || "",
+        diluteType: cols[13] || "",
+        diluteMl:   cols[14] || "",
+        rating:     parseInt(cols[15]) || 0,
+        note:       cols[16] || "",
+        isPublic:   (cols[17] || "TRUE").toUpperCase() !== "FALSE",
       };
     }).filter(r => r.bean || r.menuLabel);
   };
@@ -3777,11 +3788,43 @@ function RecipeImporter({ lang, user }) {
         return;
       }
       let success = 0, fail = 0;
+      // 한글+영문 메뉴명 → menuId 매핑
+      const MENU_MAP_FULL = {
+        "에스프레소":"espresso","리스트레토":"ristretto","룽고":"lungo",
+        "아메리카노":"americano","롱블랙":"long_black","카페라떼":"latte",
+        "카푸치노":"cappuccino","플랫화이트":"flatwhite","마끼아또":"macchiato",
+        "핸드드립":"hand_drip","콜드브루":"cold_brew","기타":"other",
+        "espresso":"espresso","ristretto":"ristretto","lungo":"lungo",
+        "americano":"americano","long black":"long_black","latte":"latte",
+        "cappuccino":"cappuccino","flat white":"flatwhite","flatwhite":"flatwhite",
+        "macchiato":"macchiato","hand drip":"hand_drip","cold brew":"cold_brew","other":"other",
+      };
       for (const row of rows) {
         try {
-          const menuId = MENU_MAP[row.menuLabel] || "other";
+          const menuId = MENU_MAP_FULL[row.menuLabel?.trim()] || MENU_MAP_FULL[row.menuLabel?.trim().toLowerCase()] || "other";
+          const menuDef = COFFEE_MENUS.find(m => m.id === menuId);
+          const menuLabel = menuDef ? menuDef.label : (row.menuLabel || "기타");
+          // 숫자 필드 정리 — 빈 문자열/0 처리
+          const num = (v) => v && v.trim() !== "" ? v.trim() : "";
           await addDoc(collection(db, "recipes"), {
-            ...row, menuId,
+            menuId, menuLabel,
+            bean:       row.bean?.trim()       || "",
+            company:    row.company?.trim()    || "",
+            roastDate:  row.roastDate?.trim()  || "",
+            recordDate: row.recordDate?.trim() || "",
+            machine:    row.machine?.trim()    || "",
+            grinder:    row.grinder?.trim()    || "",
+            grindSize:  num(row.grindSize),
+            gram:       num(row.gram),
+            seconds:    num(row.seconds),
+            espressoMl: num(row.espressoMl),
+            waterTemp:  num(row.waterTemp) || "93",
+            waterType:  row.waterType?.trim()  || "",
+            diluteType: row.diluteType?.trim() || "",
+            diluteMl:   num(row.diluteMl),
+            rating:     row.rating || 0,
+            note:       row.note?.trim()       || "",
+            isPublic:   row.isPublic !== false,
             uid: user.uid, author: user.displayName,
             createdAt: serverTimestamp(), isImported: true,
           });
@@ -3820,6 +3863,23 @@ function RecipeImporter({ lang, user }) {
           {importResult.ok ? "✓" : "✗"} {importResult.msg}
         </p>
       )}
+      {/* 잘못 임포트된 레시피 정리 */}
+      <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--divider)" }}>
+        <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: "6px", lineHeight: 1.5 }}>
+          임포트 오류로 깨진 레시피가 있다면 아래 버튼으로 일괄 삭제할 수 있어요.
+        </p>
+        <button onClick={async () => {
+          if (!window.confirm("임포트된 레시피를 모두 삭제할까요?\n되돌릴 수 없어요.")) return;
+          try {
+            const q = query(collection(db, "recipes"), where("uid", "==", user.uid), where("isImported", "==", true));
+            const snap = await getDocs(q);
+            await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "recipes", d.id))));
+            alert(`${snap.docs.length}개 레시피가 삭제됐어요.`);
+          } catch(e) { alert("삭제 실패: " + e.message); }
+        }} style={{ padding: "6px 14px", border: "1px solid #c0392b40", borderRadius: "8px", background: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.75rem", color: "#c0392b" }}>
+          임포트 레시피 전체 삭제
+        </button>
+      </div>
     </div>
   );
 }
@@ -4334,7 +4394,7 @@ function ReportModal({ type, targetId, currentUser, onClose, lang = "ko" }) {
 }
 
 // ─── RecipeDetailModal ────────────────────────────────────────────
-function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, onCompare, lang = "ko" }) {
+function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, onCompare, onCopyRecipe, lang = "ko" }) {
   const [showReport, setShowReport] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
@@ -4522,9 +4582,9 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
           <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.25rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1.25 }}>{recipe.bean}</div>
         </div>
         <div className="card-stats" style={{ marginBottom: "1rem", gridTemplateColumns: "repeat(4, 1fr)" }}>
-          <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
+          <div className="stat"><span className="stat-val">{recipe.gram ? `${recipe.gram}g` : "—"}</span><span className="stat-label">{t.statGram}</span></div>
           <div className="stat">
-            <span className="stat-val">{recipe.seconds}s</span>
+            <span className="stat-val">{recipe.seconds ? `${recipe.seconds}s` : "—"}</span>
             <span className="stat-label">{t.statSeconds}</span>
             {recipe.infusionSeconds && parseInt(recipe.infusionSeconds) > 0 && (
               <span style={{ fontSize: "0.55rem", color: "var(--muted)", display: "block", lineHeight: 1.2, marginTop: "1px", whiteSpace: "nowrap" }}>
@@ -4534,7 +4594,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
               </span>
             )}
           </div>
-          <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
+          <div className="stat"><span className="stat-val">{recipe.espressoMl ? `${recipe.espressoMl}ml` : "—"}</span><span className="stat-label">{t.statMl}</span></div>
           {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang === "en" ? "Temp" : "물온도"}</span></div>}
         </div>
         {recipe.diluteMl && (
@@ -4593,6 +4653,19 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
             <span style={{ color: "var(--muted)" }}> · {date}</span>
           </div>
           <div className="card-actions">
+            {/* 이 레시피로 기록하기 (복사) */}
+            {currentUser && onCopyRecipe && (
+              <button className="card-action-btn"
+                onClick={() => { onClose(); onCopyRecipe(recipe); }}
+                title={lang === "en" ? "Copy to my record" : "이 레시피로 기록하기"}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <rect x="8" y="8" width="12" height="14" rx="2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                  <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M14 13h4M14 16h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  <path d="M18 11v6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+              </button>
+            )}
             {/* 비교 버튼 */}
             {currentUser && onCompare && (
               <button className="card-action-btn"
@@ -5275,7 +5348,7 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
 }
 
 
-function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, onCardClick, onCompare, lang = "ko" }) {
+function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, onCardClick, onCompare, onCopy, lang = "ko" }) {
   const t = I18N[lang];
   const date = recipe.createdAt?.toDate?.()?.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR") || "";
   const liked = (recipe.likedBy || []).includes(currentUid);
@@ -5469,6 +5542,18 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
                 <line x1="15" y1="10" x2="19" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                 <line x1="15" y1="13" x2="17.5" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                 <text x="11" y="11.5" textAnchor="middle" fontSize="5" fontWeight="700" fill="currentColor" fontFamily="DM Sans,sans-serif">vs</text>
+              </svg>
+            </button>
+          )}
+          {/* 복사해서 기록하기 */}
+          {currentUid && onCopy && (
+            <button className="card-action-btn"
+              onClick={e => { e.stopPropagation(); onCopy(recipe); }}
+              title={lang === "en" ? "Copy & record" : "복사해서 기록하기"}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="9" width="11" height="13" rx="2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M14.5 13.5v5M12 16h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
               </svg>
             </button>
           )}
@@ -6559,8 +6644,37 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
   // 스크롤 방향 감지 — 내리면 헤더 숨김, 올리면 표시
   const [headerVisible, setHeaderVisible] = useState(true);
-  const [topBarHeight, setTopBarHeight] = useState(56); // 헤더 높이만 기본값
+  const [topBarHeight, setTopBarHeight] = useState(56);
   const lastScrollY = useRef(0);
+
+  // iOS 핀치 줌 / 제스처 확대 완전 차단
+  useEffect(() => {
+    // 두 손가락 터치(핀치)만 차단, 한 손가락 스크롤은 허용
+    const preventZoom = (e) => {
+      if (e.touches && e.touches.length > 1) e.preventDefault();
+    };
+    // Safari gesturestart 차단
+    const preventGesture = (e) => e.preventDefault();
+    document.addEventListener("touchmove", preventZoom, { passive: false });
+    document.addEventListener("gesturestart", preventGesture, { passive: false });
+    document.addEventListener("gesturechange", preventGesture, { passive: false });
+    document.addEventListener("gestureend", preventGesture, { passive: false });
+    // 더블탭 확대 방지 (300ms 이내 두 번 탭)
+    let lastTap = 0;
+    const preventDoubleTap = (e) => {
+      const now = Date.now();
+      if (now - lastTap < 300) e.preventDefault();
+      lastTap = now;
+    };
+    document.addEventListener("touchend", preventDoubleTap, { passive: false });
+    return () => {
+      document.removeEventListener("touchmove", preventZoom);
+      document.removeEventListener("gesturestart", preventGesture);
+      document.removeEventListener("gesturechange", preventGesture);
+      document.removeEventListener("gestureend", preventGesture);
+      document.removeEventListener("touchend", preventDoubleTap);
+    };
+  }, []);
   const scrollTimer = useRef(null);
 
   useEffect(() => {
@@ -6814,6 +6928,14 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     if (!confirm("이 레시피를 삭제할까요?")) return;
     await deleteDoc(doc(db, "recipes", id));
     loadRecipes();
+  };
+
+  // 레시피 복사해서 기록하기
+  const handleCopyRecipe = (recipe) => {
+    // id, uid, author, createdAt, likedBy 제거 → 새 레시피로
+    const { id, uid, author, createdAt, updatedAt, likedBy, isImported, ...rest } = recipe;
+    setEditTarget({ ...rest, _isCopy: true });
+    openModal();
   };
 
   const handleLike = async (recipe) => {
@@ -7540,7 +7662,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             isFollowing={following.includes(rec.uid) || following.includes(rec.author)}
             onEdit={() => { setEditTarget(rec); openModal(); }}
             onCardClick={() => openDetail(rec)}
-            onCompare={user?.uid ? () => setCompareTarget(rec) : null} />
+            onCompare={user?.uid ? () => setCompareTarget(rec) : null}
+            onCopy={user?.uid ? () => handleCopyRecipe(rec) : null} />
         ))}
       </div>}
     </div>}
@@ -7568,6 +7691,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         onBookmark={toggleBookmark}
         isBookmarked={detailRecipe && bookmarks.includes(detailRecipe.id)}
         onCompare={user?.uid ? (r) => { setDetailRecipeWrapped(null); setCompareTarget(r); } : null}
+        onCopyRecipe={user?.uid ? (r) => { setDetailRecipeWrapped(null); handleCopyRecipe(r); } : null}
       />
     )}
     {showModal && (
