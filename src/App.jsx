@@ -6973,19 +6973,22 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       // 멀티터치 (핀치) 항상 차단
       if (e.touches.length > 1) { e.preventDefault(); return; }
 
-      // 모달이 열린 상태에서만 수평 차단 적용
+      // 모달이 닫혀있으면 → 피드 스크롤 완전 허용
       if (!modalOpenRef.current) return;
 
       const dx = Math.abs(e.touches[0].clientX - startX);
       const dy = Math.abs(e.touches[0].clientY - startY);
 
-      // 수평 이동 성분이 있으면 차단 (수직 > 수평이어야 스크롤 허용)
-      if (dx >= 1 && dx >= dy * 0.3) {
+      // 수직 이동이 명확히 우세하면 → 스크롤 허용 (dx < dy * 0.4)
+      if (dy > dx * 2.5) return;
+
+      // 수평 이동이 수직보다 우세하면 → 차단
+      if (dx > dy) {
         e.preventDefault();
         return;
       }
 
-      // 순수 수직 스크롤 — 모달 내부에서만 허용
+      // 모달 내부 바깥(backdrop 등)에서의 터치 → 차단
       const scrollable = e.target.closest(".modal");
       if (!scrollable) { e.preventDefault(); return; }
 
