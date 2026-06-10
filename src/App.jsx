@@ -548,14 +548,16 @@ const CSS = `
     display: flex; align-items: center; justify-content: center; padding: 16px;
     backdrop-filter: blur(4px); animation: fadeIn 0.15s ease;
     touch-action: none; overscroll-behavior: none; overflow: hidden;
+    -webkit-overflow-scrolling: none;
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .modal {
     background: var(--foam); border: 1px solid var(--steam); border-radius: 8px;
     padding: 32px 28px; width: 100%; max-width: 500px; max-height: 90vh;
-    overflow-y: auto; position: relative; animation: slideUp 0.2s ease;
+    overflow-y: auto; overflow-x: hidden; position: relative; animation: slideUp 0.2s ease;
     text-align: left; box-shadow: 0 24px 48px #1A1A1A10;
     touch-action: pan-y; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
   @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .modal::before { content: ''; position: absolute; top: 0; left: 2rem; right: 2rem; height: 2px; background: linear-gradient(90deg, transparent, var(--latte), transparent); }
@@ -6958,51 +6960,12 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   // iOS 핀치 줌 / 제스처 확대 / 수평 바운스 통합 차단
   const modalOpenRef = useRef(false);
   useEffect(() => {
-    let startX = 0, startY = 0;
-
-    // touchstart: 시작 좌표 기록
-    const onTouchStart = (e) => {
-      if (e.touches.length === 1) {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-      }
-    };
-
-    // touchmove: 핀치 + 수평 이동 통합 차단
+    // 멀티터치(핀치) 차단
     const onTouchMove = (e) => {
-      // 멀티터치 (핀치) 항상 차단
-      if (e.touches.length > 1) { e.preventDefault(); return; }
-
-      // 모달이 닫혀있으면 → 피드 스크롤 완전 허용
-      if (!modalOpenRef.current) return;
-
-      const dx = Math.abs(e.touches[0].clientX - startX);
-      const dy = Math.abs(e.touches[0].clientY - startY);
-
-      // 수직 이동이 명확히 우세하면 → 스크롤 허용 (dx < dy * 0.4)
-      if (dy > dx * 2.5) return;
-
-      // 수평 이동이 수직보다 우세하면 → 차단
-      if (dx > dy) {
-        e.preventDefault();
-        return;
-      }
-
-      // 모달 내부 바깥(backdrop 등)에서의 터치 → 차단
-      const scrollable = e.target.closest(".modal");
-      if (!scrollable) { e.preventDefault(); return; }
-
-      // 모달 상단·하단 경계 바운스 차단
-      const atTop    = scrollable.scrollTop <= 0;
-      const atBottom = scrollable.scrollTop + scrollable.clientHeight >= scrollable.scrollHeight - 1;
-      const goingUp  = e.touches[0].clientY > startY;
-      const goingDown = e.touches[0].clientY < startY;
-      if ((atTop && goingUp) || (atBottom && goingDown)) e.preventDefault();
+      if (e.touches.length > 1) e.preventDefault();
     };
-
     // Safari gesture 이벤트 차단
     const preventGesture = (e) => e.preventDefault();
-
     // 더블탭 확대 방지
     let lastTap = 0;
     const preventDoubleTap = (e) => {
@@ -7013,7 +6976,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       lastTap = now;
     };
 
-    document.addEventListener("touchstart",   onTouchStart,     { passive: true  });
     document.addEventListener("touchmove",     onTouchMove,      { passive: false });
     document.addEventListener("gesturestart",  preventGesture,   { passive: false });
     document.addEventListener("gesturechange", preventGesture,   { passive: false });
@@ -7032,7 +6994,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     }
 
     return () => {
-      document.removeEventListener("touchstart",   onTouchStart);
       document.removeEventListener("touchmove",     onTouchMove);
       document.removeEventListener("gesturestart",  preventGesture);
       document.removeEventListener("gesturechange", preventGesture);
@@ -7300,7 +7261,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     };
   }, [showModal, showMyModal, detailRecipe, beanShowModal, equipShowModal, compareTarget]);
 
-  // 모달 열림 상태를 ref로 동기화 → 통합 touchmove 리스너가 참조
+  // 모달 열림 상태 추적
   useEffect(() => {
     const anyOpen = showModal || showMyModal || !!detailRecipe || beanShowModal || equipShowModal || !!compareTarget;
     modalOpenRef.current = anyOpen;
