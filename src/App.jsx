@@ -6955,18 +6955,54 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [topBarHeight, setTopBarHeight] = useState(56);
   const lastScrollY = useRef(0);
 
-  // iOS 핀치 줌 / 제스처 확대 완전 차단
+  // iOS 핀치 줌 / 제스처 확대 / 수평 바운스 통합 차단
+  const modalOpenRef = useRef(false);
   useEffect(() => {
-    // 핀치(두 손가락) → 항상 차단
-    const preventPinch = (e) => {
-      if (e.touches && e.touches.length > 1) e.preventDefault();
+    let startX = 0, startY = 0;
+
+    // touchstart: 시작 좌표 기록
+    const onTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
     };
+
+    // touchmove: 핀치 + 수평 이동 통합 차단
+    const onTouchMove = (e) => {
+      // 멀티터치 (핀치) 항상 차단
+      if (e.touches.length > 1) { e.preventDefault(); return; }
+
+      // 모달이 열린 상태에서만 수평 차단 적용
+      if (!modalOpenRef.current) return;
+
+      const dx = Math.abs(e.touches[0].clientX - startX);
+      const dy = Math.abs(e.touches[0].clientY - startY);
+
+      // 수평 이동 성분이 있으면 차단 (수직 > 수평이어야 스크롤 허용)
+      if (dx >= 1 && dx >= dy * 0.3) {
+        e.preventDefault();
+        return;
+      }
+
+      // 순수 수직 스크롤 — 모달 내부에서만 허용
+      const scrollable = e.target.closest(".modal");
+      if (!scrollable) { e.preventDefault(); return; }
+
+      // 모달 상단·하단 경계 바운스 차단
+      const atTop    = scrollable.scrollTop <= 0;
+      const atBottom = scrollable.scrollTop + scrollable.clientHeight >= scrollable.scrollHeight - 1;
+      const goingUp  = e.touches[0].clientY > startY;
+      const goingDown = e.touches[0].clientY < startY;
+      if ((atTop && goingUp) || (atBottom && goingDown)) e.preventDefault();
+    };
+
     // Safari gesture 이벤트 차단
     const preventGesture = (e) => e.preventDefault();
+
     // 더블탭 확대 방지
     let lastTap = 0;
     const preventDoubleTap = (e) => {
-      // 입력 요소에서는 더블탭 허용 (텍스트 선택 등)
       const tag = e.target.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       const now = Date.now();
@@ -6974,13 +7010,14 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       lastTap = now;
     };
 
-    document.addEventListener("touchmove",     preventPinch,     { passive: false });
+    document.addEventListener("touchstart",   onTouchStart,     { passive: true  });
+    document.addEventListener("touchmove",     onTouchMove,      { passive: false });
     document.addEventListener("gesturestart",  preventGesture,   { passive: false });
     document.addEventListener("gesturechange", preventGesture,   { passive: false });
     document.addEventListener("gestureend",    preventGesture,   { passive: false });
     document.addEventListener("touchend",      preventDoubleTap, { passive: false });
 
-    // viewport meta — user-scalable=no 동적 주입 (index.html 수정 불가 시)
+    // viewport meta — user-scalable=no 동적 주입
     const meta = document.querySelector("meta[name=viewport]");
     if (meta) {
       meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
@@ -6992,7 +7029,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     }
 
     return () => {
-      document.removeEventListener("touchmove",     preventPinch);
+      document.removeEventListener("touchstart",   onTouchStart);
+      document.removeEventListener("touchmove",     onTouchMove);
       document.removeEventListener("gesturestart",  preventGesture);
       document.removeEventListener("gesturechange", preventGesture);
       document.removeEventListener("gestureend",    preventGesture);
@@ -7259,54 +7297,10 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     };
   }, [showModal, showMyModal, detailRecipe, beanShowModal, equipShowModal, compareTarget]);
 
-  // iOS 모달 내 수평 바운스 차단 — non-passive touchmove 리스너
-  // React onTouchMove는 passive라 preventDefault 불가, 네이티브 리스너로 직접 처리
+  // 모달 열림 상태를 ref로 동기화 → 통합 touchmove 리스너가 참조
   useEffect(() => {
     const anyOpen = showModal || showMyModal || !!detailRecipe || beanShowModal || equipShowModal || !!compareTarget;
-    if (!anyOpen) return;
-
-    let startX = 0;
-    let startY = 0;
-
-    const onTouchStart = (e) => {
-      if (e.touches.length === 1) {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-      }
-    };
-
-    const onTouchMove = (e) => {
-      if (e.touches.length !== 1) { e.preventDefault(); return; }
-      const dx = Math.abs(e.touches[0].clientX - startX);
-      const dy = Math.abs(e.touches[0].clientY - startY);
-
-      // 수평 이동이 수직보다 크거나 비슷하면 차단
-      if (dx > dy * 0.5) {
-        e.preventDefault();
-        return;
-      }
-
-      // 수직 스크롤이지만 스크롤 가능한 모달 내부가 아니면 차단
-      const scrollable = e.target.closest(".modal");
-      if (!scrollable) { e.preventDefault(); return; }
-
-      // 모달 내부 스크롤 경계 도달 시 바운스 차단
-      const atTop    = scrollable.scrollTop <= 0;
-      const atBottom = scrollable.scrollTop + scrollable.clientHeight >= scrollable.scrollHeight - 1;
-      const goingUp  = e.touches[0].clientY > startY;
-      const goingDown = e.touches[0].clientY < startY;
-      if ((atTop && goingUp) || (atBottom && goingDown)) {
-        e.preventDefault();
-      }
-    };
-
-    document.addEventListener("touchstart", onTouchStart, { passive: true });
-    document.addEventListener("touchmove",  onTouchMove,  { passive: false });
-
-    return () => {
-      document.removeEventListener("touchstart", onTouchStart);
-      document.removeEventListener("touchmove",  onTouchMove);
-    };
+    modalOpenRef.current = anyOpen;
   }, [showModal, showMyModal, detailRecipe, beanShowModal, equipShowModal, compareTarget]);
 
   const loadRecipes = useCallback(async () => {
