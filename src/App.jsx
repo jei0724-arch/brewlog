@@ -990,7 +990,7 @@ This consent is required to use the service.`;
 
 function PrivacyModal({ onClose, lang }) {
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "480px" }}>
         <h2 style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>
           {lang === "en" ? "Privacy Policy" : "개인정보 처리방침"}
@@ -2972,7 +2972,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" ref={modalRef}>
         <h2>{isEdit ? t.editTitle : editTarget?._isCopy ? "레시피 복사하기" : t.recordTitle}</h2>
         {/* 복사 모드 안내 */}
@@ -4064,7 +4064,7 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
   });
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <h2>{lang === "en" ? "My Settings" : "MY 설정"}</h2>
 
@@ -4442,7 +4442,7 @@ function ReportModal({ type, targetId, currentUser, onClose, lang = "ko" }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "340px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
           <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--espresso)" }}>🚨 {t.report}</span>
@@ -4606,7 +4606,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
 
   return (
     <>
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "460px" }}>
         {/* 닫기 버튼 */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.8rem" }}>
@@ -5284,7 +5284,7 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
   };
 
   return (
-    <div className="modal-backdrop" style={{ zIndex: 210 }} onClick={e => e.target===e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" style={{ zIndex: 210 }} onClick={e => e.target===e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth:"700px", maxHeight:"90vh", overflowY:"auto", padding:"24px" }}>
         {/* 헤더 */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
@@ -5908,7 +5908,7 @@ function EquipmentModal({ lang, user, editTarget, onClose, onSaved }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "420px" }}>
         <h2>{editTarget ? t.equipEdit : t.equipAdd}</h2>
         <div className="modal-grid">
@@ -6186,7 +6186,7 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "560px" }}>
         <h2>{editTarget ? t.beanEdit : t.beanAdd}</h2>
         <div className="modal-grid">
@@ -7256,6 +7256,56 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       document.body.style.overscrollBehavior = "";
       document.documentElement.style.overflowX = "";
       document.documentElement.style.overscrollBehavior = "";
+    };
+  }, [showModal, showMyModal, detailRecipe, beanShowModal, equipShowModal, compareTarget]);
+
+  // iOS 모달 내 수평 바운스 차단 — non-passive touchmove 리스너
+  // React onTouchMove는 passive라 preventDefault 불가, 네이티브 리스너로 직접 처리
+  useEffect(() => {
+    const anyOpen = showModal || showMyModal || !!detailRecipe || beanShowModal || equipShowModal || !!compareTarget;
+    if (!anyOpen) return;
+
+    let startX = 0;
+    let startY = 0;
+
+    const onTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (e.touches.length !== 1) { e.preventDefault(); return; }
+      const dx = Math.abs(e.touches[0].clientX - startX);
+      const dy = Math.abs(e.touches[0].clientY - startY);
+
+      // 수평 이동이 수직보다 크거나 비슷하면 차단
+      if (dx > dy * 0.5) {
+        e.preventDefault();
+        return;
+      }
+
+      // 수직 스크롤이지만 스크롤 가능한 모달 내부가 아니면 차단
+      const scrollable = e.target.closest(".modal");
+      if (!scrollable) { e.preventDefault(); return; }
+
+      // 모달 내부 스크롤 경계 도달 시 바운스 차단
+      const atTop    = scrollable.scrollTop <= 0;
+      const atBottom = scrollable.scrollTop + scrollable.clientHeight >= scrollable.scrollHeight - 1;
+      const goingUp  = e.touches[0].clientY > startY;
+      const goingDown = e.touches[0].clientY < startY;
+      if ((atTop && goingUp) || (atBottom && goingDown)) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove",  onTouchMove,  { passive: false });
+
+    return () => {
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove",  onTouchMove);
     };
   }, [showModal, showMyModal, detailRecipe, beanShowModal, equipShowModal, compareTarget]);
 
