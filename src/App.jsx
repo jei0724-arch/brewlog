@@ -785,8 +785,8 @@ const CSS = `
     input, textarea, select { font-size: 16px !important; }
     input[type="number"] { font-size: 16px !important; }
     /* iOS 바운스 스크롤 방지 */
-    html, body { overscroll-behavior: none; overscroll-behavior-x: none; overscroll-behavior-y: none; }
-    /* iOS 핀치줌/더블탭 확대 방지 — 좌우 스와이프도 차단 */
+    html, body { overscroll-behavior-x: none; }
+    /* iOS 핀치줌/더블탭 확대 방지 */
     * { touch-action: pan-y; }
     input, textarea, select { touch-action: manipulation; }
 
@@ -7223,43 +7223,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const setEquipShowModal = (v) => { equipShowModalRef.current = v; if(v) window.history.pushState({modal:true},""); setEquipShowModalState(v); };
   const [compareTarget, setCompareTargetState] = useState(null);
   const setCompareTarget = (v) => { compareTargetRef.current = v; if(v) window.history.pushState({modal:true},""); setCompareTargetState(v); };
-
-  // 모달 열림 시 body 스크롤 잠금 (iOS 핀치줌/스크롤 이탈 방지)
-  useEffect(() => {
-    const anyOpen = showModal || showMyModal || !!detailRecipe || beanShowModal || equipShowModal || !!compareTarget;
-    if (anyOpen) {
-      const scrollY = window.scrollY;
-      document.body.style.overflow = "hidden";
-      document.body.style.overflowX = "hidden";
-      document.body.style.position = "fixed";
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = "100%";
-      document.body.style.overscrollBehavior = "none";
-      document.documentElement.style.overflowX = "hidden";
-      document.documentElement.style.overscrollBehavior = "none";
-    } else {
-      const scrollY = document.body.style.top;
-      document.body.style.overflow = "";
-      document.body.style.overflowX = "";
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.width = "";
-      document.body.style.overscrollBehavior = "";
-      document.documentElement.style.overflowX = "";
-      document.documentElement.style.overscrollBehavior = "";
-      if (scrollY) window.scrollTo(0, parseInt(scrollY || "0") * -1);
-    }
-    return () => {
-      document.body.style.overflow = "";
-      document.body.style.overflowX = "";
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.width = "";
-      document.body.style.overscrollBehavior = "";
-      document.documentElement.style.overflowX = "";
-      document.documentElement.style.overscrollBehavior = "";
-    };
-  }, [showModal, showMyModal, detailRecipe, beanShowModal, equipShowModal, compareTarget]);
 
   // 모달 열림 상태 추적
   useEffect(() => {
