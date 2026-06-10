@@ -7952,56 +7952,345 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           </div>
         );
 
+        // ── 새 비주얼 대시보드 ──────────────────────────────────────────
+        const publicCnt = mine.filter(r => r.isPublic !== false).length;
+        const publicPct = mine.length ? Math.round((publicCnt / mine.length) * 100) : 0;
+
+        // 현재 탭 데이터
+        const curStats  = statMode === "handdrip" ? hStats  : mStats;
+        const curGlobal = statMode === "handdrip" ? hGlobal : mGlobal;
+        const curTop    = statMode === "handdrip" ? hTop    : mTop;
+        const curList   = statMode === "handdrip" ? handDripRecipes : machineRecipes;
+
+        // 맛 레이더 — 내 레시피 평균
+        const flavorAvg = (() => {
+          const keys = FLAVOR_AXES.map(a => a.key);
+          const result = {};
+          keys.forEach(k => {
+            const vals = curList.map(r => parseInt(r[k]) || 0).filter(v => v > 0);
+            result[k] = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+          });
+          return result;
+        })();
+        const hasFlavorData = FLAVOR_AXES.some(a => flavorAvg[a.key] > 0);
+
+        // 최근 7회 트렌드
+        const trendRecipes = [...curList]
+          .filter(r => r.rating > 0)
+          .sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0))
+          .slice(0, 7)
+          .reverse();
+
+        // Safe Zone 비교 (전체 5점 레시피 기준)
+        const topRated = recipes.filter(r =>
+          (statMode === "handdrip" ? r.machineType === "handdrip" : r.machineType !== "handdrip")
+          && r.rating >= 5
+        );
+        const safeAvg = (key, list) => {
+          const vals = list.map(r => parseFloat(r[key])).filter(v => !isNaN(v) && v > 0);
+          return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+        };
+        const safeStd = (key, list) => {
+          const vals = list.map(r => parseFloat(r[key])).filter(v => !isNaN(v) && v > 0);
+          if (vals.length < 2) return 0;
+          const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+          return Math.sqrt(vals.reduce((s,v)=>s+Math.pow(v-avg,2),0)/vals.length);
+        };
+
+        // 대시보드 탭
+        const [dashTab, setDashTab] = [statModeVal, setStatModeVal]; // 재사용
+
+        // ── 내부 비주얼 컴포넌트 ──────────────────────────────────────
+        const DCard = ({ children, style }) => (
+          <div style={{ background: "#fff", borderRadius: 14, padding: "16px", boxShadow: "0 2px 12px rgba(26,26,26,0.06)", marginBottom: 10, ...style }}>
+            {children}
+          </div>
+        );
+        const DSectionLabel = ({ children }) => (
+          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--latte)", marginBottom:3 }}>{children}</div>
+        );
+        const DTitle = ({ children }) => (
+          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"0.95rem", fontWeight:700, color:"var(--espresso)", marginBottom:2 }}>{children}</div>
+        );
+
         return (
-          <div style={{ marginBottom: "2rem", background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "12px", padding: "1rem", boxSizing: "border-box", overflow: "hidden" }}>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "1rem", paddingBottom: "0.7rem", borderBottom: "1px solid var(--steam)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span>{lang === "en" ? "My Stats" : "나의 통계"}</span>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 400, color: "var(--muted)" }}>총 {mine.length}개 레시피</span>
-            </div>
-            {/* 탭 버튼 */}
-            <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.8rem" }}>
-              {machineRecipes.length > 0 && (
-                <button onClick={() => setStatModeVal("machine")}
-                  style={{ padding: "0.3rem 0.9rem", borderRadius: "999px", border: "1px solid var(--steam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.2s",
-                    background: statMode === "machine" ? "var(--espresso)" : "var(--foam)",
-                    color: statMode === "machine" ? "var(--cream)" : "var(--muted)", fontWeight: statMode === "machine" ? 600 : 400 }}>
-                  {lang === "en" ? "Coffee Machine" : "커피 머신"} ({machineRecipes.length})
-                </button>
-              )}
-              {handDripRecipes.length > 0 && (
-                <button onClick={() => setStatModeVal("handdrip")}
-                  style={{ padding: "0.3rem 0.9rem", borderRadius: "999px", border: "1px solid var(--steam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.2s",
-                    background: statMode === "handdrip" ? "var(--espresso)" : "var(--foam)",
-                    color: statMode === "handdrip" ? "var(--cream)" : "var(--muted)", fontWeight: statMode === "handdrip" ? 600 : 400 }}>
-                  {lang === "en" ? "Hand Drip" : "핸드드립"} ({handDripRecipes.length})
-                </button>
+          <div style={{ marginBottom: "2rem" }}>
+
+            {/* ── 헤더 배너 ─────────────────────────────────── */}
+            <div style={{ background:"var(--espresso)", borderRadius:14, padding:"18px 16px 16px", marginBottom:10, position:"relative", overflow:"hidden" }}>
+              {/* 장식 원 */}
+              <div style={{ position:"absolute", right:-20, top:-20, width:90, height:90, borderRadius:"50%", background:"rgba(176,125,84,0.18)", pointerEvents:"none" }} />
+              <div style={{ position:"absolute", right:20, bottom:-30, width:60, height:60, borderRadius:"50%", background:"rgba(176,125,84,0.10)", pointerEvents:"none" }} />
+
+              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", color:"var(--latte)", marginBottom:5 }}>
+                {lang === "en" ? "My Brew Report" : "나의 브루 리포트"}
+              </div>
+              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.2rem", fontWeight:700, color:"#fff", marginBottom:4 }}>
+                {lang === "en" ? "Extraction Stats" : "추출 통계 & 분석"}
+              </div>
+              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"rgba(255,255,255,0.45)", marginBottom:14 }}>
+                {lang === "en" ? `${mine.length} recipes recorded` : `총 ${mine.length}개 레시피 기록됨`}
+              </div>
+
+              {/* 머신/핸드드립 탭 */}
+              {machineRecipes.length > 0 && handDripRecipes.length > 0 && (
+                <div style={{ display:"flex", gap:6, background:"rgba(255,255,255,0.08)", borderRadius:10, padding:3 }}>
+                  {machineRecipes.length > 0 && (
+                    <button onClick={() => setStatModeVal("machine")} style={{
+                      flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer",
+                      fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", fontWeight:700,
+                      background: statMode !== "handdrip" ? "var(--latte)" : "transparent",
+                      color: statMode !== "handdrip" ? "#fff" : "rgba(255,255,255,0.5)",
+                      transition:"all 0.18s"
+                    }}>{lang === "en" ? "Machine" : "머신"} ({machineRecipes.length})</button>
+                  )}
+                  {handDripRecipes.length > 0 && (
+                    <button onClick={() => setStatModeVal("handdrip")} style={{
+                      flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer",
+                      fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", fontWeight:700,
+                      background: statMode === "handdrip" ? "var(--latte)" : "transparent",
+                      color: statMode === "handdrip" ? "#fff" : "rgba(255,255,255,0.5)",
+                      transition:"all 0.18s"
+                    }}>{lang === "en" ? "Hand Drip" : "핸드드립"} ({handDripRecipes.length})</button>
+                  )}
+                </div>
               )}
             </div>
 
-            {/* 요약 지표 4개 — 레시피 수·공개율·별점·좋아요 */}
-            {(() => {
-              const publicCnt  = mine.filter(r => r.isPublic !== false).length;
-              const publicPct  = mine.length ? Math.round((publicCnt / mine.length) * 100) : 0;
-              const SummaryCard = ({ label, value, sub, color }) => (
-                <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "10px", padding: "0.75rem 1rem", minWidth: 0 }}>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.63rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.4rem" }}>{label}</div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1.45rem", fontWeight: 700, color: color || "var(--espresso)", lineHeight: 1, marginBottom: "2px" }}>{value}</div>
-                  {sub && <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", color: "var(--muted)" }}>{sub}</div>}
+            {/* ── 요약 지표 4개 ─────────────────────────────── */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:10 }}>
+              {[
+                { label: lang==="en"?"Recipes":"총 레시피", value: curList.length, sub: lang==="en"?"brewed":"회 추출", color:"var(--espresso)" },
+                { label: lang==="en"?"Public":"공개율",     value: `${publicPct}%`, sub: `${publicCnt}${lang==="en"?" shared":"개 공개"}`, color:"var(--latte)" },
+                { label: lang==="en"?"Avg ★":"평균 별점",   value: avgRating ? `${avgRating}★` : "—", sub: avgRating ? `${rated.length}${lang==="en"?" rated":"개 평가"}` : "—", color:"var(--latte)" },
+                { label: lang==="en"?"Likes":"좋아요",      value: totalLikes, sub: lang==="en"?"total":"개 누적", color:"#C0625A" },
+              ].map(({ label, value, sub, color }) => (
+                <div key={label} style={{ background:"#fff", borderRadius:12, padding:"10px 8px", boxShadow:"0 1px 8px rgba(26,26,26,0.05)", textAlign:"center", minWidth:0 }}>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.58rem", color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, lineHeight:1.2 }}>{label}</div>
+                  <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", fontWeight:700, color, lineHeight:1, marginBottom:2 }}>{value}</div>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", color:"var(--muted)" }}>{sub}</div>
                 </div>
-              );
-              return (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                  <SummaryCard label={lang === "en" ? "Recipes" : "총 레시피"} value={mine.length} sub={lang === "en" ? "recorded" : "개 기록됨"} />
-                  <SummaryCard label={lang === "en" ? "Public" : "공개율"} value={`${publicPct}%`} sub={`${publicCnt}${lang === "en" ? " shared" : "개 공개"}`} color="var(--latte)" />
-                  <SummaryCard label={lang === "en" ? "Avg Rating" : "평균 별점"} value={avgRating ? `${avgRating}★` : "—"} sub={avgRating ? `${rated.length}${lang === "en" ? " rated" : "개 평가"}` : (lang === "en" ? "no ratings" : "평가 없음")} color="var(--latte)" />
-                  <SummaryCard label={lang === "en" ? "Likes" : "받은 좋아요"} value={totalLikes} sub={totalLikes ? (lang === "en" ? "total" : "개 누적") : (lang === "en" ? "none yet" : "아직 없음")} color="#C0625A" />
-                </div>
-              );
-            })()}
+              ))}
+            </div>
 
-            {/* 두 탭 콘텐츠 동시 렌더 - display로만 전환하여 크기 고정 */}
-            <TabContent s={mStats} g={mGlobal} top={mTop} isHanddrip={false} visible={statMode !== "handdrip"} />
-            <TabContent s={hStats} g={hGlobal} top={hTop} isHanddrip={true} visible={statMode === "handdrip"} />
+            {/* ── 1. 맛 프로필 레이더 ───────────────────────── */}
+            <DCard>
+              <DSectionLabel>{lang==="en"?"Flavor Profile":"맛 프로필"}</DSectionLabel>
+              <DTitle>{lang==="en"?"My Flavor Signature":"나의 맛 시그니처"}</DTitle>
+              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)", marginBottom:14 }}>
+                {lang==="en"?"Average of all rated recipes":"평가된 레시피 전체 평균"}
+              </div>
+
+              {hasFlavorData ? (
+                <div style={{ display:"flex", alignItems:"center", gap:12, justifyContent:"center", flexWrap:"wrap" }}>
+                  <FlavorRadar values={flavorAvg} size={180} lang={lang} />
+                  {/* 수치 목록 */}
+                  <div style={{ display:"flex", flexDirection:"column", gap:7, minWidth:100 }}>
+                    {FLAVOR_AXES.map(ax => {
+                      const val = flavorAvg[ax.key];
+                      const pct = (val / 5) * 100;
+                      return (
+                        <div key={ax.key}>
+                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--espresso)", fontWeight:600 }}>{lang==="en"?ax.en:ax.ko}</span>
+                            <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"0.75rem", fontWeight:700, color:"var(--latte)" }}>{val.toFixed(1)}</span>
+                          </div>
+                          <div style={{ height:4, background:"var(--steam)", borderRadius:99, overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:`${pct}%`, background:"var(--latte)", borderRadius:99, transition:"width 0.5s ease" }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ textAlign:"center", padding:"24px 0", fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", color:"var(--muted)" }}>
+                  {lang==="en"?"Rate your recipes to see your flavor profile":"레시피에 맛 평가를 입력하면 표시돼요"}
+                </div>
+              )}
+            </DCard>
+
+            {/* ── 2. Safe Zone 비교 바 ──────────────────────── */}
+            <DCard>
+              <DSectionLabel>{lang==="en"?"Barista Benchmark":"바리스타 비교"}</DSectionLabel>
+              <DTitle>{lang==="en"?"vs. Top Brewers":"최고 평점 브루어와 비교"}</DTitle>
+              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)", marginBottom:16 }}>
+                {lang==="en"
+                  ? `Safe zone = avg ± 1σ of ${topRated.length} five-star recipes`
+                  : `Safe Zone = 5점 레시피 ${topRated.length}개 기준 평균 ± 1σ`}
+              </div>
+
+              {topRated.length < 3 ? (
+                <div style={{ textAlign:"center", padding:"16px 0", fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", color:"var(--muted)" }}>
+                  {lang==="en"?"Not enough 5-star data yet":"5점 레시피 데이터가 부족해요"}
+                </div>
+              ) : (
+                [
+                  { label: lang==="en"?"Water Temp":"물 온도", unit:"°C", key:"waterTemp", scaleMin:80, scaleMax:100 },
+                  { label: lang==="en"?"Brew Time":"추출 시간", unit:"s",  key:"seconds",   scaleMin:0,  scaleMax:60  },
+                  { label: lang==="en"?"Yield":"추출량",     unit:"ml", key:"espressoMl", scaleMin:0,  scaleMax:80  },
+                ].map(({ label, unit, key, scaleMin, scaleMax }) => {
+                  const avg = safeAvg(key, topRated);
+                  const std = safeStd(key, topRated);
+                  if (!avg) return null;
+                  const safeMin = Math.max(scaleMin, avg - std);
+                  const safeMax = Math.min(scaleMax, avg + std);
+                  const userVal = safeAvg(key, curList);
+                  const toP = v => Math.max(0, Math.min(100, ((v - scaleMin) / (scaleMax - scaleMin)) * 100));
+                  const safeLeftP  = toP(safeMin);
+                  const safeWidthP = toP(safeMax) - safeLeftP;
+                  const userP = userVal != null ? toP(userVal) : null;
+                  const inZone = userVal != null && userVal >= safeMin && userVal <= safeMax;
+                  return (
+                    <div key={key} style={{ marginBottom:18 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)" }}>{label}</span>
+                        {userVal != null && (
+                          <span style={{
+                            fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700,
+                            padding:"2px 8px", borderRadius:99,
+                            background: inZone ? "rgba(92,138,90,0.12)" : "rgba(192,84,42,0.12)",
+                            color: inZone ? "#4A7A48" : "#C0542A"
+                          }}>
+                            {inZone
+                              ? (lang==="en"?"✓ In zone":"✓ 안전 구간")
+                              : `${userVal > safeMax ? "+" : ""}${(userVal - (userVal > safeMax ? safeMax : safeMin)).toFixed(0)}${unit} ${lang==="en"?"off":"벗어남"}`
+                            }
+                          </span>
+                        )}
+                      </div>
+                      {/* 트랙 */}
+                      <div style={{ position:"relative", height:8, background:"var(--steam)", borderRadius:99 }}>
+                        {/* safe zone */}
+                        <div style={{ position:"absolute", left:`${safeLeftP}%`, width:`${safeWidthP}%`, height:"100%", background:"rgba(176,125,84,0.22)", border:"1.5px solid rgba(176,125,84,0.4)", borderRadius:99 }} />
+                        {/* user dot */}
+                        {userP != null && (
+                          <div style={{ position:"absolute", left:`${userP}%`, top:"50%", transform:"translate(-50%,-50%)", width:14, height:14, borderRadius:"50%", background: inZone ? "var(--latte)" : "#C0542A", border:"2px solid #fff", boxShadow:"0 1px 5px rgba(0,0,0,0.18)", zIndex:2 }} />
+                        )}
+                      </div>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginTop:5 }}>
+                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", color:"var(--muted)" }}>{scaleMin}{unit}</span>
+                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", fontWeight:600, color:"var(--espresso)" }}>
+                          {userVal != null ? `${lang==="en"?"me":"나"}: ${Math.round(userVal)}${unit}` : "—"}
+                          <span style={{ color:"var(--muted)", fontWeight:400 }}> / {lang==="en"?"best":"베스트"}: {Math.round(safeMin)}–{Math.round(safeMax)}{unit}</span>
+                        </span>
+                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", color:"var(--muted)" }}>{scaleMax}{unit}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </DCard>
+
+            {/* ── 3. 추출 트렌드 ────────────────────────────── */}
+            <DCard>
+              <DSectionLabel>{lang==="en"?"Recent Trend":"최근 추출 트렌드"}</DSectionLabel>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+                <DTitle>{lang==="en"?"Last 7 Sessions":"최근 7회 별점 추이"}</DTitle>
+                {trendRecipes.length > 0 && (() => {
+                  const last = trendRecipes[trendRecipes.length-1].rating;
+                  const prev = trendRecipes.length > 1 ? trendRecipes[trendRecipes.length-2].rating : last;
+                  const delta = last - prev;
+                  return (
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.4rem", fontWeight:700, color:"var(--espresso)", lineHeight:1 }}>{last}★</div>
+                      {delta !== 0 && <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color: delta > 0 ? "#4A7A48" : "#C0542A" }}>
+                        {delta > 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}
+                      </div>}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {trendRecipes.length < 2 ? (
+                <div style={{ textAlign:"center", padding:"16px 0", fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", color:"var(--muted)" }}>
+                  {lang==="en"?"Rate more recipes to see your trend":"2개 이상 평가하면 트렌드가 표시돼요"}
+                </div>
+              ) : (() => {
+                const W = 280, H = 110, PAD = { t:10, r:10, b:24, l:24 };
+                const iW = W - PAD.l - PAD.r;
+                const iH = H - PAD.t - PAD.b;
+                const minR = Math.min(...trendRecipes.map(r=>r.rating));
+                const maxR = Math.max(...trendRecipes.map(r=>r.rating));
+                const rangeR = maxR - minR || 1;
+                const pts = trendRecipes.map((r,i) => ({
+                  x: PAD.l + (i / (trendRecipes.length - 1)) * iW,
+                  y: PAD.t + iH - ((r.rating - minR) / rangeR) * iH,
+                  rating: r.rating,
+                  label: `${i+1}회`,
+                }));
+                // 스무스 커브 (cubic bezier)
+                const d = pts.map((p,i) => {
+                  if (i === 0) return `M${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+                  const prev = pts[i-1];
+                  const cpx = (prev.x + p.x) / 2;
+                  return `C${cpx.toFixed(1)},${prev.y.toFixed(1)} ${cpx.toFixed(1)},${p.y.toFixed(1)} ${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+                }).join(" ");
+                // fill path
+                const fillD = d + ` L${pts[pts.length-1].x.toFixed(1)},${(PAD.t+iH).toFixed(1)} L${PAD.l.toFixed(1)},${(PAD.t+iH).toFixed(1)} Z`;
+
+                return (
+                  <div style={{ overflowX:"auto" }}>
+                    <svg width="100%" viewBox={`0 0 ${W} ${H}`} xmlns="http://www.w3.org/2000/svg" style={{ display:"block", minWidth:220 }}>
+                      {/* 격자선 */}
+                      {[1,2,3,4,5].filter(v => v >= minR-0.5 && v <= maxR+0.5).map(v => {
+                        const y = PAD.t + iH - ((v - minR) / rangeR) * iH;
+                        if (y < PAD.t || y > PAD.t + iH) return null;
+                        return <line key={v} x1={PAD.l} y1={y.toFixed(1)} x2={PAD.l+iW} y2={y.toFixed(1)} stroke="#EDEBE8" strokeWidth="1" />;
+                      })}
+                      {/* Y 레이블 */}
+                      {[minR, maxR].map(v => {
+                        const y = PAD.t + iH - ((v - minR) / rangeR) * iH;
+                        return <text key={v} x={PAD.l-4} y={(y+4).toFixed(1)} fontSize="8" fill="#8C8480" textAnchor="end" fontFamily="'DM Sans',sans-serif">{v}★</text>;
+                      })}
+                      {/* X 레이블 */}
+                      {pts.map((p,i) => (
+                        <text key={i} x={p.x.toFixed(1)} y={(PAD.t+iH+12).toFixed(1)} fontSize="8" fill="#8C8480" textAnchor="middle" fontFamily="'DM Sans',sans-serif">{p.label}</text>
+                      ))}
+                      {/* fill */}
+                      <path d={fillD} fill="rgba(176,125,84,0.08)" />
+                      {/* line */}
+                      <path d={d} fill="none" stroke="var(--espresso)" strokeWidth="2" strokeLinejoin="round" />
+                      {/* dots */}
+                      {pts.map((p,i) => (
+                        <g key={i}>
+                          <circle cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="4" fill="var(--latte)" stroke="#fff" strokeWidth="2" />
+                        </g>
+                      ))}
+                    </svg>
+                  </div>
+                );
+              })()}
+            </DCard>
+
+            {/* ── 4. TOP 랭킹 ───────────────────────────────── */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+              {[
+                { label: lang==="en"?"Top Menu":"자주 마신 메뉴", items: curTop.menus },
+                { label: lang==="en"?"Top Bean":"자주 쓴 원두",   items: curTop.beans },
+              ].map(({ label, items }) => {
+                const maxCnt = items[0]?.[1] || 1;
+                return (
+                  <DCard key={label} style={{ marginBottom:0 }}>
+                    <DSectionLabel>{label}</DSectionLabel>
+                    {items.length === 0
+                      ? <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--muted)", paddingTop:8 }}>—</div>
+                      : items.map(([name, cnt], i) => (
+                        <div key={name} style={{ marginTop: i===0 ? 8 : 10 }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", fontWeight: i===0?700:400, color: i===0?"var(--espresso)":"var(--muted)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"75%" }}>{name}</span>
+                            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"var(--muted)", flexShrink:0 }}>{cnt}{lang==="en"?"x":"회"}</span>
+                          </div>
+                          <div style={{ height:3, background:"var(--steam)", borderRadius:99, overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:`${Math.round((cnt/maxCnt)*100)}%`, background: i===0?"var(--latte)":"var(--steam)", borderRadius:99 }} />
+                          </div>
+                        </div>
+                      ))
+                    }
+                  </DCard>
+                );
+              })}
+            </div>
           </div>
         );
       })()}
