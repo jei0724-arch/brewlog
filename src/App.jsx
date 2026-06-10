@@ -67,7 +67,8 @@ const CSS = `
     --muted:   #8C8480;
     --r8: 8px;
   }
-  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; overscroll-behavior-x: none; }
+  html { overflow-x: hidden; overscroll-behavior-x: none; }
 
   .auth-wrap {
     min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -131,8 +132,12 @@ const CSS = `
     background: var(--foam);
     padding: 0 24px;
     height: 56px;
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; justify-content: center;
     border-bottom: 1px solid var(--divider);
+  }
+  .app-header-inner {
+    width: 100%; max-width: 900px;
+    display: flex; align-items: center; justify-content: space-between;
   }
   .app-header .logo {
     font-family: 'Playfair Display', serif;
@@ -542,7 +547,7 @@ const CSS = `
     position: fixed; inset: 0; background: #1A1A1ACC; z-index: 200;
     display: flex; align-items: center; justify-content: center; padding: 16px;
     backdrop-filter: blur(4px); animation: fadeIn 0.15s ease;
-    touch-action: none; overscroll-behavior: none;
+    touch-action: none; overscroll-behavior: none; overflow: hidden;
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .modal {
@@ -778,9 +783,9 @@ const CSS = `
     input, textarea, select { font-size: 16px !important; }
     input[type="number"] { font-size: 16px !important; }
     /* iOS 바운스 스크롤 방지 */
-    body { overscroll-behavior: none; }
-    /* iOS 핀치줌/더블탭 확대 방지 */
-    * { touch-action: pan-x pan-y; }
+    html, body { overscroll-behavior: none; overscroll-behavior-x: none; overscroll-behavior-y: none; }
+    /* iOS 핀치줌/더블탭 확대 방지 — 좌우 스와이프도 차단 */
+    * { touch-action: pan-y; }
     input, textarea, select { touch-action: manipulation; }
 
     /* Record 버튼 — 영어일 때도 잘리지 않게 */
@@ -1672,7 +1677,30 @@ const CURRENCY_KEY = "brewlog_currency";
 const EXRATE_KEY   = "brewlog_exrate";   // { rate, date }
 const EXIM_API_KEY = "VmIDcPiswN7Jg7G0NQ4L6nIcSZzSWR6O";
 
-const loadCurrency = () => { try { return localStorage.getItem(CURRENCY_KEY) || "KRW"; } catch { return "KRW"; } };
+// 로케일 기반 기본 통화 감지 (한국 접속 → KRW, 그 외 → USD)
+const detectDefaultCurrency = () => {
+  try {
+    // Intl.Locale로 지역 감지 (최신 브라우저)
+    const locale = navigator.language || navigator.languages?.[0] || "en";
+    const region = new Intl.Locale(locale).region || "";
+    if (region === "KR") return "KRW";
+    // 구형 브라우저 폴백: 언어 코드 기반
+    if (locale.toLowerCase().startsWith("ko")) return "KRW";
+    return "USD";
+  } catch {
+    return "KRW";
+  }
+};
+
+const loadCurrency = () => {
+  try {
+    const saved = localStorage.getItem(CURRENCY_KEY);
+    if (saved) return saved;                // 사용자가 직접 설정한 값 우선
+    return detectDefaultCurrency();         // 없으면 로케일로 자동 감지
+  } catch {
+    return "KRW";
+  }
+};
 const saveCurrency = (c) => { try { localStorage.setItem(CURRENCY_KEY, c); } catch {} };
 
 // 캐시된 환율 (날짜별 1일 캐싱)
@@ -7200,22 +7228,34 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     if (anyOpen) {
       const scrollY = window.scrollY;
       document.body.style.overflow = "hidden";
+      document.body.style.overflowX = "hidden";
       document.body.style.position = "fixed";
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = "100%";
+      document.body.style.overscrollBehavior = "none";
+      document.documentElement.style.overflowX = "hidden";
+      document.documentElement.style.overscrollBehavior = "none";
     } else {
       const scrollY = document.body.style.top;
       document.body.style.overflow = "";
+      document.body.style.overflowX = "";
       document.body.style.position = "";
       document.body.style.top = "";
       document.body.style.width = "";
+      document.body.style.overscrollBehavior = "";
+      document.documentElement.style.overflowX = "";
+      document.documentElement.style.overscrollBehavior = "";
       if (scrollY) window.scrollTo(0, parseInt(scrollY || "0") * -1);
     }
     return () => {
       document.body.style.overflow = "";
+      document.body.style.overflowX = "";
       document.body.style.position = "";
       document.body.style.top = "";
       document.body.style.width = "";
+      document.body.style.overscrollBehavior = "";
+      document.documentElement.style.overflowX = "";
+      document.documentElement.style.overscrollBehavior = "";
     };
   }, [showModal, showMyModal, detailRecipe, beanShowModal, equipShowModal, compareTarget]);
 
@@ -7334,6 +7374,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       boxShadow: "0 1px 0 var(--divider)",
     }}>
     <header className="app-header" style={{ transform: "none", transition: "none" }}>
+      <div className="app-header-inner">
       <div className="logo">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="9" cy="9" r="8" stroke="var(--espresso)" strokeWidth="1.5"/>
@@ -7437,8 +7478,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           </>
         )}
       </div>
+      </div>
     </header>
-      {/* ── 탭 바 + 검색행 ── */}
       <div style={{
         background: "var(--cream)", borderBottom: "1px solid var(--divider)",
         padding: "14px 24px 14px",
@@ -7825,74 +7866,115 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         const STAT_ROW_H = "2rem";
         const LABEL_W = "3.8rem";
 
+        // 핵심 수치 카드 — 평균 크게, 범위 바로 시각화
         const StatBox = ({ label, min, max, avg, globalAvg, unit }) => {
-          const Row = ({ tag, val, bold }) => (
-            <div style={{ display: "flex", alignItems: "center", height: STAT_ROW_H, width: "100%" }}>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", flexShrink: 0, minWidth: "2.4rem" }}>{tag}</span>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: bold ? "0.95rem" : "0.8rem", fontWeight: bold ? 700 : 500, color: bold ? "var(--espresso)" : "var(--roast)", whiteSpace: "nowrap", flex: 1, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {val ?? "-"}<span style={{ fontSize: "0.58rem", fontWeight: 400, color: "var(--muted)", marginLeft: "1px" }}>{unit}</span>
-              </span>
-            </div>
-          );
+          const hasData = avg != null && avg !== "-";
+          const hasRange = min != null && max != null && min !== "-" && max !== "-" && min !== max;
+          const pct = (v) => {
+            const range = parseFloat(max) - parseFloat(min);
+            if (!range) return 50;
+            return Math.round(((parseFloat(v) - parseFloat(min)) / range) * 100);
+          };
+          const globalPct = globalAvg != null && hasRange
+            ? Math.max(0, Math.min(100, pct(globalAvg))) : null;
+          const avgPct = hasData && hasRange ? Math.max(0, Math.min(100, pct(avg))) : null;
           return (
-            <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 0.8rem", boxSizing: "border-box", minWidth: 0, overflow: "hidden" }}>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)", marginBottom: "0.3rem", letterSpacing: "0.04em", textAlign: "center" }}>{label}</div>
-              <Row tag={lang === "en" ? "avg" : "평균"} val={avg} bold />
-              <Row tag={lang === "en" ? "min" : "최소"} val={min} />
-              <Row tag={lang === "en" ? "max" : "최대"} val={max} />
-              <div style={{ borderTop: "1px solid var(--steam)", marginTop: "0.2rem", paddingTop: "0.2rem", display: "flex", alignItems: "center", height: STAT_ROW_H, visibility: globalAvg ? "visible" : "hidden" }}>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", flexShrink: 0, minWidth: "2.4rem", whiteSpace: "nowrap" }}>{lang === "en" ? "All avg" : "브루어 평균"}</span>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--latte)", whiteSpace: "nowrap", flex: 1, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {globalAvg}<span style={{ fontSize: "0.58rem", fontWeight: 400, marginLeft: "1px" }}>{unit}</span>
-                </span>
+            <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "10px", padding: "0.85rem 1rem", boxSizing: "border-box", minWidth: 0 }}>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+              {/* 핵심 수치 — 평균 크게 */}
+              <div style={{ display: "flex", alignItems: "baseline", gap: "3px", marginBottom: "0.55rem" }}>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1.6rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1 }}>{hasData ? avg : "—"}</span>
+                {hasData && <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", fontWeight: 400 }}>{unit}</span>}
               </div>
+              {/* 범위 바 */}
+              {hasRange ? (
+                <div style={{ marginBottom: "0.45rem" }}>
+                  <div style={{ position: "relative", height: "5px", background: "var(--divider)", borderRadius: "3px", marginBottom: "4px" }}>
+                    {/* 내 평균 마커 */}
+                    {avgPct != null && (
+                      <div style={{ position: "absolute", left: `${avgPct}%`, top: "-3px", width: "2px", height: "11px", background: "var(--espresso)", borderRadius: "1px", transform: "translateX(-50%)" }} />
+                    )}
+                    {/* 브루어 평균 마커 */}
+                    {globalPct != null && (
+                      <div style={{ position: "absolute", left: `${globalPct}%`, top: "0px", width: "2px", height: "5px", background: "var(--latte)", borderRadius: "1px", transform: "translateX(-50%)" }} />
+                    )}
+                    <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: "100%", borderRadius: "3px",
+                      background: `linear-gradient(to right, var(--divider) ${Math.min(avgPct??50,globalPct??50)}%, transparent ${Math.max(avgPct??50,globalPct??50)}%)` }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.62rem", color: "var(--muted)" }}>{min}{unit}</span>
+                    <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.62rem", color: "var(--muted)" }}>{max}{unit}</span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ height: "24px" }} />
+              )}
+              {/* 브루어 평균 비교 */}
+              {globalAvg != null && (
+                <div style={{ display: "flex", alignItems: "center", gap: "4px", paddingTop: "0.3rem", borderTop: "1px solid var(--divider)" }}>
+                  <div style={{ width: "8px", height: "2px", background: "var(--latte)", borderRadius: "1px", flexShrink: 0 }} />
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.62rem", color: "var(--muted)" }}>
+                    {lang === "en" ? "All brewers avg" : "브루어 평균"} <strong style={{ color: "var(--latte)", fontWeight: 600 }}>{globalAvg}{unit}</strong>
+                    {hasData && parseFloat(avg) !== parseFloat(globalAvg) && (
+                      <span style={{ marginLeft: "3px", color: parseFloat(avg) > parseFloat(globalAvg) ? "var(--latte)" : "var(--muted)" }}>
+                        {parseFloat(avg) > parseFloat(globalAvg) ? "▲" : "▼"}{Math.abs((parseFloat(avg) - parseFloat(globalAvg)).toFixed(1))}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
           );
         };
 
-        const TopList = ({ label, items }) => (
-          <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.8rem 1rem", minWidth: 0 }}>
-            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
-            {items.length === 0
-              ? <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)" }}>-</div>
-              : items.map(([name, cnt], i) => (
-              <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: i < items.length - 1 ? "0.3rem" : 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: i === 0 ? "var(--accent)" : "var(--muted)", fontWeight: 700 }}>{i + 1}</span>
-                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "110px" }}>{name}</span>
+        // 랭킹 — 가로 바 차트
+        const TopList = ({ label, items }) => {
+          const maxCnt = items[0]?.[1] || 1;
+          return (
+            <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "10px", padding: "0.85rem 1rem", minWidth: 0 }}>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", marginBottom: "0.7rem", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+              {items.length === 0
+                ? <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)", padding: "0.5rem 0" }}>—</div>
+                : items.map(([name, cnt], i) => (
+                <div key={name} style={{ marginBottom: i < items.length - 1 ? "0.55rem" : 0 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "3px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", color: i === 0 ? "var(--latte)" : "var(--muted)", fontWeight: 700, flexShrink: 0 }}>
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "var(--espresso)", fontWeight: i === 0 ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                    </div>
+                    <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)", flexShrink: 0, marginLeft: "6px" }}>{cnt}{lang === "en" ? "x" : "회"}</span>
+                  </div>
+                  <div style={{ height: "3px", background: "var(--divider)", borderRadius: "2px", overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${Math.round((cnt / maxCnt) * 100)}%`, background: i === 0 ? "var(--latte)" : "var(--steam)", borderRadius: "2px", transition: "width 0.4s ease" }} />
+                  </div>
                 </div>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", flexShrink: 0 }}>{cnt}회</span>
-              </div>
-            ))}
-          </div>
-        );
+              ))}
+            </div>
+          );
+        };
 
         // 탭별 콘텐츠 렌더 함수 - display로만 전환
         const TabContent = ({ s, g, top, isHanddrip, visible }) => (
           <div style={{ display: visible ? "block" : "none" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <StatBox label={lang === "en" ? "Dose (g)" : "원두량"} min={s.gram?.min ?? "-"} avg={s.gram?.avg ?? "-"} max={s.gram?.max ?? "-"} globalAvg={g.gram?.avg} unit="g" />
-              <StatBox label={lang === "en" ? "Time (s)" : "추출시간"} min={s.sec?.min ?? "-"} avg={s.sec?.avg ?? "-"} max={s.sec?.max ?? "-"} globalAvg={g.sec?.avg} unit="s" />
-              <StatBox label={lang === "en" ? "Yield (ml)" : "추출량"} min={s.ml?.min ?? "-"} avg={s.ml?.avg ?? "-"} max={s.ml?.max ?? "-"} globalAvg={g.ml?.avg} unit="ml" />
-              <StatBox label={lang === "en" ? "Water Temp" : "물온도"} min={s.temp?.min ?? "-"} avg={s.temp?.avg ?? "-"} max={s.temp?.max ?? "-"} globalAvg={g.temp?.avg} unit="°C" />
+              <StatBox label={lang === "en" ? "Dose (g)" : "원두량"} min={s.gram?.min ?? null} avg={s.gram?.avg ?? null} max={s.gram?.max ?? null} globalAvg={g.gram?.avg ?? null} unit="g" />
+              <StatBox label={lang === "en" ? "Time (s)" : "추출시간"} min={s.sec?.min ?? null} avg={s.sec?.avg ?? null} max={s.sec?.max ?? null} globalAvg={g.sec?.avg ?? null} unit="s" />
+              <StatBox label={lang === "en" ? "Yield (ml)" : "추출량"} min={s.ml?.min ?? null} avg={s.ml?.avg ?? null} max={s.ml?.max ?? null} globalAvg={g.ml?.avg ?? null} unit="ml" />
+              <StatBox label={lang === "en" ? "Water Temp" : "물온도"} min={s.temp?.min ?? null} avg={s.temp?.avg ?? null} max={s.temp?.max ?? null} globalAvg={g.temp?.avg ?? null} unit="°C" />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <TopList label={lang === "en" ? "Fav Menu" : "자주 마신 메뉴"} items={top.menus} />
-              <TopList label={lang === "en" ? "Fav Bean" : "자주 쓴 원두"} items={top.beans} />
+              <TopList label={lang === "en" ? "Top Menu" : "자주 마신 메뉴"} items={top.menus} />
+              <TopList label={lang === "en" ? "Top Bean" : "자주 쓴 원두"} items={top.beans} />
             </div>
             {(top.machines?.length > 0 || top.grinders?.length > 0) && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                 {top.machines?.length > 0 && (
-                  <TopList
-                    label={lang === "en" ? (isHanddrip ? "Equipment" : "Machine") : (isHanddrip ? "주로 쓰는 기구" : "주로 쓰는 기기")}
-                    items={top.machines}
-                  />
+                  <TopList label={lang === "en" ? (isHanddrip ? "Equipment" : "Machine") : (isHanddrip ? "주로 쓰는 기구" : "주로 쓰는 기기")} items={top.machines} />
                 )}
                 {top.grinders?.length > 0 && (
-                  <TopList
-                    label={lang === "en" ? "Grinder" : "그라인더"}
-                    items={top.grinders}
-                  />
+                  <TopList label={lang === "en" ? "Grinder" : "그라인더"} items={top.grinders} />
                 )}
               </div>
             )}
@@ -7925,22 +8007,26 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
               )}
             </div>
 
-            {/* 별점 + 좋아요 - 항상 표시 */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>{lang === "en" ? "Avg Rating" : "평균 별점"}</span>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1rem", fontWeight: 700, color: "var(--latte)" }}>{avgRating ?? "-"} ★</span>
-              </div>
-              <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>{lang === "en" ? "Total Likes" : "받은 좋아요"}</span>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1rem", fontWeight: 700, color: "#C0625A", display: "flex", alignItems: "center", gap: "5px" }}>
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z"/>
-                  </svg>
-                  {totalLikes}
-                </span>
-              </div>
-            </div>
+            {/* 요약 지표 4개 — 레시피 수·공개율·별점·좋아요 */}
+            {(() => {
+              const publicCnt  = mine.filter(r => r.isPublic !== false).length;
+              const publicPct  = mine.length ? Math.round((publicCnt / mine.length) * 100) : 0;
+              const SummaryCard = ({ label, value, sub, color }) => (
+                <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "10px", padding: "0.75rem 1rem", minWidth: 0 }}>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.63rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.4rem" }}>{label}</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1.45rem", fontWeight: 700, color: color || "var(--espresso)", lineHeight: 1, marginBottom: "2px" }}>{value}</div>
+                  {sub && <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", color: "var(--muted)" }}>{sub}</div>}
+                </div>
+              );
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <SummaryCard label={lang === "en" ? "Recipes" : "총 레시피"} value={mine.length} sub={lang === "en" ? "recorded" : "개 기록됨"} />
+                  <SummaryCard label={lang === "en" ? "Public" : "공개율"} value={`${publicPct}%`} sub={`${publicCnt}${lang === "en" ? " shared" : "개 공개"}`} color="var(--latte)" />
+                  <SummaryCard label={lang === "en" ? "Avg Rating" : "평균 별점"} value={avgRating ? `${avgRating}★` : "—"} sub={avgRating ? `${rated.length}${lang === "en" ? " rated" : "개 평가"}` : (lang === "en" ? "no ratings" : "평가 없음")} color="var(--latte)" />
+                  <SummaryCard label={lang === "en" ? "Likes" : "받은 좋아요"} value={totalLikes} sub={totalLikes ? (lang === "en" ? "total" : "개 누적") : (lang === "en" ? "none yet" : "아직 없음")} color="#C0625A" />
+                </div>
+              );
+            })()}
 
             {/* 두 탭 콘텐츠 동시 렌더 - display로만 전환하여 크기 고정 */}
             <TabContent s={mStats} g={mGlobal} top={mTop} isHanddrip={false} visible={statMode !== "handdrip"} />
