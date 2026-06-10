@@ -129,10 +129,17 @@ const CSS = `
 
   .app-header {
     background: var(--foam);
-    padding: 0 24px;
+    padding: 0;
     height: 56px;
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center;
     border-bottom: 1px solid var(--divider);
+  }
+  .header-inner {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between;
   }
   .app-header .logo {
     font-family: 'Playfair Display', serif;
@@ -146,7 +153,8 @@ const CSS = `
 
   /* EN 모드에서 버튼 텍스트 축약 — 모바일 */
   @media (max-width: 430px) {
-    .app-header { padding: 0 10px; }
+    .app-header { padding: 0; }
+    .header-inner { padding: 0 10px; }
     .app-header .logo { font-size: 0.95rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .btn-lang, .btn-my { padding: 0 8px; font-size: 0.65rem; }
     .nick-badge { max-width: 72px; font-size: 0.65rem; padding: 0 8px; }
@@ -329,7 +337,6 @@ const CSS = `
     border-top: 1px solid var(--steam); padding-top: 0.75rem; margin-top: 0.1rem;
   }
   .card-author { font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--roast); }
-  .card-author:hover { text-decoration: underline; text-underline-offset: 2px; }
   .card-actions { display: flex; gap: 0; align-items: center; }
   .card-action-btn { background: none; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; transition: background 0.15s, color 0.15s; color: var(--muted); padding: 0; }
   .card-action-btn:hover { background: rgba(0,0,0,0.05); }
@@ -542,15 +549,15 @@ const CSS = `
     position: fixed; inset: 0; background: #1A1A1ACC; z-index: 200;
     display: flex; align-items: center; justify-content: center; padding: 16px;
     backdrop-filter: blur(4px); animation: fadeIn 0.15s ease;
-    touch-action: none; overscroll-behavior: none;
+    overscroll-behavior: none; touch-action: none;
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .modal {
     background: var(--foam); border: 1px solid var(--steam); border-radius: 8px;
     padding: 32px 28px; width: 100%; max-width: 500px; max-height: 90vh;
-    overflow-y: auto; position: relative; animation: slideUp 0.2s ease;
+    overflow-x: hidden; overflow-y: auto; position: relative; animation: slideUp 0.2s ease;
     text-align: left; box-shadow: 0 24px 48px #1A1A1A10;
-    touch-action: pan-y; overscroll-behavior: contain;
+    overscroll-behavior: contain; touch-action: pan-y;
   }
   @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .modal::before { content: ''; position: absolute; top: 0; left: 2rem; right: 2rem; height: 2px; background: linear-gradient(90deg, transparent, var(--latte), transparent); }
@@ -723,7 +730,8 @@ const CSS = `
     .modal-grid { grid-template-columns: 1fr; }
 
     /* 헤더 */
-    .app-header { padding: 0 12px; height: 48px; }
+    .app-header { padding: 0; height: 48px; }
+    .header-inner { padding: 0 12px; }
     .app-header .logo { font-size: 1rem; flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .header-right { gap: 5px; }
     .btn-lang, .btn-my, .btn-logout { padding: 0 10px; height: 28px; font-size: 0.68rem; }
@@ -985,7 +993,7 @@ This consent is required to use the service.`;
 
 function PrivacyModal({ onClose, lang }) {
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "480px" }}>
         <h2 style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>
           {lang === "en" ? "Privacy Policy" : "개인정보 처리방침"}
@@ -2442,11 +2450,10 @@ function FlavorRadar({ values, size = 200, lang = "ko" }) {
 function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const t = I18N[lang];
   const isEdit = !!editTarget && !editTarget._isCopy;
-  const isCopy = !!editTarget?._isCopy;
 
   // ── 내 원두 목록 로드 ──────────────────────────────
   const [myBeans, setMyBeans] = useState([]);
-  const [linkedBeanId, setLinkedBeanId] = useState(null); // 복사 시 원두 연결 초기화 (다른 유저 원두일 수 있음)
+  const [linkedBeanId, setLinkedBeanId] = useState(editTarget?.linkedBeanId || null);
   const [myEquips, setMyEquips] = useState([]);
   const [selectedEquipIds, setSelectedEquipIds] = useState({}); // { category: equipId }
 
@@ -2458,8 +2465,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         list.sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
         setMyEquips(list);
-        // 대표 장비 자동 적용 (신규 작성 시만 — 편집/복사는 원본값 유지)
-        if (!isEdit && !isCopy) {
+        // 대표 장비 자동 적용 (신규 작성 시, 카테고리별로 각각)
+        if (!isEdit) {
           const primaryMachine  = list.find(e => e.category === "machine"  && e.isPrimary);
           const primaryGrinder  = list.find(e => e.category === "grinder"  && e.isPrimary);
           const primaryHanddrip = list.find(e => e.category === "handdrip" && e.isPrimary);
@@ -2485,51 +2492,44 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 
   // 저장된 내 머신 불러오기
   const savedMachine = loadMyMachine();
-  const isHandDrip = !isEdit && !isCopy && savedMachine?.equipType === "handdrip";
-  const [machineLocked, setMachineLocked] = useState(
-    isCopy ? !!(editTarget.machineBrand || editTarget.machineType === "handdrip") : (!!savedMachine && !isEdit)
-  );
+  const isHandDrip = !isEdit && savedMachine?.equipType === "handdrip";
+  const [machineLocked, setMachineLocked] = useState(!!savedMachine && !isEdit);
   const [machineBrand, setMachineBrand] = useState(
-    (isEdit || isCopy) ? (editTarget.machineBrand || "") : (isHandDrip ? "" : (savedMachine?.brand || ""))
+    isEdit ? (editTarget.machineBrand || "") : (isHandDrip ? "" : (savedMachine?.brand || ""))
   );
   const [machineModel, setMachineModel] = useState(
-    (isEdit || isCopy) ? (editTarget.machineModel || "") : (isHandDrip ? "" : (savedMachine?.model || ""))
+    isEdit ? (editTarget.machineModel || "") : (isHandDrip ? "" : (savedMachine?.model || ""))
   );
   const isCustomBrand = machineBrand === "기타 (직접 입력)";
   const [machineType, setMachineType] = useState(
-    (isEdit || isCopy) ? (editTarget.machineType || "auto") : (isHandDrip ? "handdrip" : "auto")
+    isEdit ? (editTarget.machineType || "auto") : (isHandDrip ? "handdrip" : "auto")
   );
   const [handDripName, setHandDripName] = useState(
-    (isEdit || isCopy) ? (editTarget.machine && editTarget.machineType === "handdrip" ? editTarget.machine : "") : (savedMachine?.handDripName || "")
+    isEdit ? (editTarget.machine && editTarget.machineType === "handdrip" ? editTarget.machine : "") : (savedMachine?.handDripName || "")
   );
   // 전자동 전용 브랜드거나, 선택 가능 브랜드에서 전자동 선택 시
   const isAutoMode = isAutoMachine(machineBrand) && machineType === "auto";
 
   // 저장된 내 그라인더 불러오기
   const savedGrinder = loadMyGrinder();
-  const [grinderLocked, setGrinderLocked] = useState(
-    isCopy ? !!editTarget.grinderBrand : (!!savedGrinder && !isEdit)
-  );
+  const [grinderLocked, setGrinderLocked] = useState(!!savedGrinder && !isEdit);
   const [grinderBrand, setGrinderBrand] = useState(
-    (isEdit || isCopy) ? (editTarget.grinderBrand || "") : (savedGrinder?.brand || "")
+    isEdit ? (editTarget.grinderBrand || "") : (savedGrinder?.brand || "")
   );
   const [grinderModel, setGrinderModel] = useState(
-    (isEdit || isCopy) ? (editTarget.grinderModel || "") : (savedGrinder?.model || "")
+    isEdit ? (editTarget.grinderModel || "") : (savedGrinder?.model || "")
   );
   const isCustomGrinderBrand = grinderBrand === "기타 (직접 입력)";
 
   const savedBean = loadMyBean();
   const savedDefaults = loadRecipeDefaults();
-  const [form, setForm] = useState((isEdit || isCopy) ? {
+  const [form, setForm] = useState(isEdit ? {
     ...editTarget,
     waterTemp: editTarget.waterTemp || "93",
     waterType: editTarget.waterType || "",
     waterBrand: editTarget.waterBrand || "",
     diluteCustom: editTarget.diluteCustom || "",
-    // 복사 시 기록 날짜는 오늘로 초기화
-    recordDate: isCopy ? new Date().toISOString().split("T")[0] : (editTarget.recordDate || new Date().toISOString().split("T")[0]),
-    // 복사 시 공개 여부는 기본 공개로
-    isPublic: isCopy ? true : (editTarget.isPublic !== false),
+    recordDate: editTarget.recordDate || new Date().toISOString().split("T")[0],
   } : {
     company: savedBean?.company || "",
     bean: savedBean?.bean || "",
@@ -2549,19 +2549,18 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     waterBrand: savedDefaults?.waterBrand || "",
     diluteCustom: "",
     grindSize: savedDefaults?.grindSize || "",
-    isPublic: true,
-    isIced: false,
-    syrup: "", note: ""
+    isPublic: isEdit ? (editTarget.isPublic !== false) : true,
+    isIced: isEdit ? (editTarget.isIced || false) : false,
+    syrup: isEdit ? (editTarget.syrup || "") : "", note: isEdit ? (editTarget.note || "") : ""
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
-  // 편집 시 원본 날씨 유지, 복사/신규는 새로 가져오기
   const [weather, setWeather] = useState(isEdit ? (editTarget.weather || null) : null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState(null);
 
-  // 신규/복사 시 모달 열리면 자동으로 날씨 가져오기
+  // 신규 작성 시 모달 열리면 자동으로 날씨 가져오기
   useEffect(() => {
     if (!isEdit && !weather) {
       setWeatherLoading(true);
@@ -2571,9 +2570,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         .finally(() => setWeatherLoading(false));
     }
   }, []);
-  const [selectedMenu, setSelectedMenu] = useState(
-    (isEdit || isCopy) ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : "")
-  );
+  const [selectedMenu, setSelectedMenu] = useState(isEdit ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : ""));
 
   // 핸드드립 메뉴 선택 시 머신 자동 해제
   useEffect(() => {
@@ -2749,7 +2746,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 
   // 머신 브랜드/모델 바뀔 때 내장 그라인더 자동 입력
   useEffect(() => {
-    if (!isEdit && !isCopy) {
+    if (!isEdit) {
       const builtin = getBuiltinGrinder(machineBrand, machineModel);
       if (builtin) {
         setGrinderBrand(builtin.brand);
@@ -2944,7 +2941,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" ref={modalRef}>
         <h2>{isEdit ? t.editTitle : editTarget?._isCopy ? "레시피 복사하기" : t.recordTitle}</h2>
         {/* 복사 모드 안내 */}
@@ -3751,90 +3748,42 @@ function RecipeImporter({ lang, user }) {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
 
-  const MENU_MAP_FULL = {
-    "에스프레소":"espresso","리스트레토":"ristretto","룽고":"lungo",
-    "아메리카노":"americano","롱블랙":"long_black","카페라떼":"latte",
-    "카푸치노":"cappuccino","플랫화이트":"flatwhite","마끼아또":"macchiato",
-    "핸드드립":"hand_drip","콜드브루":"cold_brew","기타":"other",
-    "espresso":"espresso","ristretto":"ristretto","lungo":"lungo",
-    "americano":"americano","long black":"long_black","latte":"latte",
-    "cappuccino":"cappuccino","flat white":"flatwhite","flatwhite":"flatwhite",
-    "macchiato":"macchiato","hand drip":"hand_drip","cold brew":"cold_brew","other":"other",
-    "cortado":"cortado","코르타도":"cortado",
-  };
+  const MENU_MAP = { "에스프레소":"espresso","리스트레토":"ristretto","룽고":"lungo","아메리카노":"americano","롱블랙":"long_black","카페라떼":"latte","카푸치노":"cappuccino","플랫화이트":"flatwhite","마끼아또":"macchiato","핸드드립":"hand_drip","콜드브루":"cold_brew","기타":"other" };
 
-  // 헤더명 → 필드키 매핑 (한/영 모두 허용)
-  const HEADER_MAP = {
-    "메뉴": "menuLabel", "menu": "menuLabel",
-    "원두명": "bean", "bean": "bean", "원두": "bean",
-    "원두회사": "company", "company": "company", "로스터리": "company", "roastery": "company",
-    "로스팅일자": "roastDate", "roastdate": "roastDate", "로스팅날짜": "roastDate",
-    "기록날짜": "recordDate", "recorddate": "recordDate", "기록일": "recordDate",
-    "커피머신": "machine", "machine": "machine", "머신": "machine",
-    "그라인더": "grinder", "grinder": "grinder",
-    "분쇄도": "grindSize", "grindsize": "grindSize", "grind": "grindSize",
-    "원두량(g)": "gram", "원두량": "gram", "gram": "gram", "g": "gram",
-    "추출시간(s)": "seconds", "추출시간": "seconds", "seconds": "seconds", "s": "seconds",
-    "추출량(ml)": "espressoMl", "추출량": "espressoMl", "espressoml": "espressoMl", "ml": "espressoMl",
-    "물온도(°c)": "waterTemp", "물온도": "waterTemp", "watertemp": "waterTemp", "temp": "waterTemp",
-    "물종류": "waterType", "watertype": "waterType",
-    "희석종류": "diluteType", "dilutetype": "diluteType", "희석": "diluteType",
-    "희석량(ml)": "diluteMl", "희석량": "diluteMl", "diluteml": "diluteMl",
-    "별점(1-5)": "rating", "별점": "rating", "rating": "rating",
-    "메모": "note", "note": "note",
-    "공개(true/false)": "isPublic", "공개": "isPublic", "ispublic": "isPublic", "public": "isPublic",
-  };
-
-  // SheetJS로 xlsx/csv 파일 → row 배열로 파싱
-  const parseFile = async (file) => {
-    // SheetJS CDN 로드 (패키지 설치 불필요)
-    if (!window.XLSX) {
-      await new Promise((resolve, reject) => {
-        const s = document.createElement("script");
-        s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
-    }
-    const XLSX = window.XLSX;
-    const arrayBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    // header: 1 → 2차원 배열로 읽기
-    const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-    if (raw.length < 2) return [];
-
-    // 1행: 헤더, 2행: 예시, 3행: 힌트 → 모두 건너뛰고 4행~부터 실제 데이터
-    const headers = raw[0].map(h => String(h).trim());
-    // 헤더행 바로 다음이 예시/힌트인지 판별해서 스킵
-    // — 2행의 첫 번째 값이 알려진 메뉴명 또는 "※"로 시작하면 예시/힌트로 간주
-    const KNOWN_MENUS = new Set(["에스프레소","리스트레토","룽고","아메리카노","롱블랙","카페라떼","카푸치노","플랫화이트","마끼아또","핸드드립","콜드브루","기타","espresso","ristretto","lungo","americano","latte","cappuccino","flatwhite","macchiato","hand_drip","cold_brew","other"]);
-    let dataStartIdx = 1;
-    for (let i = 1; i < Math.min(raw.length, 4); i++) {
-      const firstCell = String(raw[i][0] || "").trim();
-      if (!firstCell || firstCell.startsWith("※") || KNOWN_MENUS.has(firstCell)) {
-        dataStartIdx = i + 1; // 이 행은 예시/힌트 → 다음 행부터 시작
-      } else {
-        break; // 실제 데이터 행 만나면 중단
+  const parseCSV = (text) => {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+    return lines.slice(1).map(line => {
+      // 쉼표로 split (따옴표 내부 쉼표 처리)
+      const cols = [];
+      let cur = "", inQ = false;
+      for (const ch of line) {
+        if (ch === '"') inQ = !inQ;
+        else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ""; }
+        else cur += ch;
       }
-    }
-    const dataRows = raw.slice(dataStartIdx);
-
-    return dataRows.map(row => {
-      const obj = {};
-      headers.forEach((h, i) => {
-        const key = HEADER_MAP[h] || HEADER_MAP[h.toLowerCase()];
-        if (key) obj[key] = row[i] !== undefined && row[i] !== null ? String(row[i]).trim() : "";
-      });
-      return obj;
-    }).filter(r => {
-      // 힌트 행 제거: ※로 시작하거나 bean/menuLabel 모두 비어있으면 스킵
-      if ((r.menuLabel || "").startsWith("※")) return false;
-      if ((r.bean || "").startsWith("※")) return false;
-      return r.bean || r.menuLabel;
-    });
+      cols.push(cur.trim());
+      return {
+        menuLabel:  cols[0]  || "",
+        bean:       cols[1]  || "",
+        company:    cols[2]  || "",
+        roastDate:  cols[3]  || "",
+        recordDate: cols[4]  || "",
+        machine:    cols[5]  || "",
+        grinder:    cols[6]  || "",
+        grindSize:  cols[7]  || "",
+        gram:       cols[8]  || "",
+        seconds:    cols[9]  || "",
+        espressoMl: cols[10] || "",
+        waterTemp:  cols[11] || "",
+        waterType:  cols[12] || "",
+        diluteType: cols[13] || "",
+        diluteMl:   cols[14] || "",
+        rating:     parseInt(cols[15]) || 0,
+        note:       cols[16] || "",
+        isPublic:   (cols[17] || "TRUE").toUpperCase() !== "FALSE",
+      };
+    }).filter(r => r.bean || r.menuLabel);
   };
 
   const handleImport = async () => {
@@ -3842,63 +3791,61 @@ function RecipeImporter({ lang, user }) {
     setImporting(true);
     setImportResult(null);
     try {
-      const rows = await parseFile(importFile);
+      const text = await importFile.text();
+      const rows = parseCSV(text);
       if (rows.length === 0) {
         setImportResult({ ok: false, msg: "유효한 데이터가 없어요. 템플릿을 확인해주세요." });
         setImporting(false);
         return;
       }
       let success = 0, fail = 0;
+      // 한글+영문 메뉴명 → menuId 매핑
+      const MENU_MAP_FULL = {
+        "에스프레소":"espresso","리스트레토":"ristretto","룽고":"lungo",
+        "아메리카노":"americano","롱블랙":"long_black","카페라떼":"latte",
+        "카푸치노":"cappuccino","플랫화이트":"flatwhite","마끼아또":"macchiato",
+        "핸드드립":"hand_drip","콜드브루":"cold_brew","기타":"other",
+        "espresso":"espresso","ristretto":"ristretto","lungo":"lungo",
+        "americano":"americano","long black":"long_black","latte":"latte",
+        "cappuccino":"cappuccino","flat white":"flatwhite","flatwhite":"flatwhite",
+        "macchiato":"macchiato","hand drip":"hand_drip","cold brew":"cold_brew","other":"other",
+      };
       for (const row of rows) {
         try {
           const menuId = MENU_MAP_FULL[row.menuLabel?.trim()] || MENU_MAP_FULL[row.menuLabel?.trim().toLowerCase()] || "other";
           const menuDef = COFFEE_MENUS.find(m => m.id === menuId);
           const menuLabel = menuDef ? menuDef.label : (row.menuLabel || "기타");
-          const num = (v) => (v && String(v).trim() !== "") ? String(v).trim() : "";
-          // isPublic: "FALSE"/"false" → false, 나머지 → true
-          const isPublicVal = String(row.isPublic || "TRUE").toUpperCase() !== "FALSE";
-          // rating: 숫자로 변환
-          const ratingVal = Math.min(5, Math.max(0, parseInt(row.rating) || 0));
-          // waterType: 한글 표시명 → 내부 ID 변환
-          const WATER_TYPE_MAP = {
-            "수돗물":"tap", "tap":"tap", "tap water":"tap",
-            "정수기":"filter", "filter":"filter", "filtered":"filter", "filtered water":"filter",
-            "생수":"bottle", "bottle":"bottle", "bottled":"bottle", "bottled water":"bottle",
-            "기타":"other", "other":"other",
-          };
-          const rawWaterType = num(row.waterType).toLowerCase();
-          const waterTypeId = WATER_TYPE_MAP[rawWaterType] || WATER_TYPE_MAP[num(row.waterType)] || (rawWaterType ? "other" : "");
+          // 숫자 필드 정리 — 빈 문자열/0 처리
+          const num = (v) => v && v.trim() !== "" ? v.trim() : "";
           await addDoc(collection(db, "recipes"), {
             menuId, menuLabel,
-            bean:       num(row.bean),
-            company:    num(row.company),
-            roastDate:  num(row.roastDate),
-            recordDate: num(row.recordDate) || new Date().toISOString().split("T")[0],
-            machine:    num(row.machine),
-            grinder:    num(row.grinder),
+            bean:       row.bean?.trim()       || "",
+            company:    row.company?.trim()    || "",
+            roastDate:  row.roastDate?.trim()  || "",
+            recordDate: row.recordDate?.trim() || "",
+            machine:    row.machine?.trim()    || "",
+            grinder:    row.grinder?.trim()    || "",
             grindSize:  num(row.grindSize),
             gram:       num(row.gram),
             seconds:    num(row.seconds),
             espressoMl: num(row.espressoMl),
             waterTemp:  num(row.waterTemp) || "93",
-            waterType:  waterTypeId,
-            diluteType: num(row.diluteType),
+            waterType:  row.waterType?.trim()  || "",
+            diluteType: row.diluteType?.trim() || "",
             diluteMl:   num(row.diluteMl),
-            rating:     ratingVal,
-            note:       num(row.note),
-            isPublic:   isPublicVal,
+            rating:     row.rating || 0,
+            note:       row.note?.trim()       || "",
+            isPublic:   row.isPublic !== false,
             uid: user.uid, author: user.displayName,
-            likedBy: [],
             createdAt: serverTimestamp(), isImported: true,
           });
           success++;
-        } catch(e) { fail++; console.error("[import row]", e); }
+        } catch(e) { fail++; console.error(e); }
       }
       setImportResult({ ok: true, msg: `${success}개 레시피를 가져왔어요.${fail > 0 ? ` (실패 ${fail}개)` : ""}` });
       setImportFile(null);
     } catch(e) {
-      console.error("[import]", e);
-      setImportResult({ ok: false, msg: "파일 읽기 실패: " + e.message });
+      setImportResult({ ok: false, msg: "파일 읽기 실패. CSV 형식인지 확인해주세요." });
     }
     setImporting(false);
   };
@@ -3911,9 +3858,9 @@ function RecipeImporter({ lang, user }) {
           <path d="M2 12h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
         </svg>
         <span style={{ fontSize: "0.8rem", color: importFile ? "var(--espresso)" : "var(--muted)" }}>
-          {importFile ? importFile.name : (lang === "en" ? "Click to select file (xlsx / csv)" : "파일 선택하기 (xlsx / csv)")}
+          {importFile ? importFile.name : (lang === "en" ? "Click to select CSV" : "CSV 파일 선택하기")}
         </span>
-        <input type="file" accept=".xlsx,.xls,.csv,.CSV" style={{ display: "none" }}
+        <input type="file" accept=".csv,.CSV" style={{ display: "none" }}
           onChange={e => { setImportFile(e.target.files[0] || null); setImportResult(null); }} />
       </label>
       {importFile && (
@@ -4036,7 +3983,7 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
   });
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <h2>{lang === "en" ? "My Settings" : "MY 설정"}</h2>
 
@@ -4313,9 +4260,10 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
           {/* 단계별 안내 */}
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
             {[
-              { step: "01", title: "템플릿 다운로드", desc: "아래 버튼으로 xlsx 템플릿을 받아요" },
-              { step: "02", title: "엑셀에서 작성", desc: "1행(헤더)·2행(예시)·3행(설명)은 그대로 두고, 4행부터 레시피를 입력해요. 작성 후 예시 행을 지워도 괜찮아요" },
-              { step: "03", title: "파일 업로드", desc: "저장한 xlsx 파일을 아래에서 선택하면 자동으로 가져와요. 예시·설명 행은 자동으로 건너뛰어요" },
+              { step: "01", title: "템플릿 다운로드", desc: "아래 버튼으로 CSV 템플릿을 받아요" },
+              { step: "02", title: "엑셀에서 작성", desc: "엑셀/구글 시트에서 템플릿을 열고 레시피를 입력해요. 1행(헤더)은 수정하지 마세요" },
+              { step: "03", title: "CSV로 저장", desc: "파일 → 다른 이름으로 저장 → CSV UTF-8 형식으로 저장해요" },
+              { step: "04", title: "업로드", desc: "저장한 CSV 파일을 아래에 선택하면 자동으로 가져와요" },
             ].map(({ step, title, desc }) => (
               <div key={step} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
                 <span style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.78rem", fontWeight: 700, color: "var(--latte)", flexShrink: 0, minWidth: "20px" }}>{step}</span>
@@ -4328,32 +4276,23 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
           </div>
 
           {/* 템플릿 다운로드 버튼 */}
-          <button onClick={async () => {
-            if (!window.XLSX) {
-              await new Promise((resolve, reject) => {
-                const s = document.createElement("script");
-                s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-                s.onload = resolve;
-                s.onerror = reject;
-                document.head.appendChild(s);
-              });
-            }
-            const XLSX = window.XLSX;
+          <button onClick={() => {
             const headers = ["메뉴","원두명","원두회사","로스팅일자","기록날짜","커피머신","그라인더","분쇄도","원두량(g)","추출시간(s)","추출량(ml)","물온도(°C)","물종류","희석종류","희석량(ml)","별점(1-5)","메모","공개(TRUE/FALSE)"];
             const example = ["아메리카노","에티오피아 예가체프","테라로사","2026-05-01","2026-06-01","Breville 870","Baratza Encore","7","18","28","36","93","생수","물","150","4","맛있었음","TRUE"];
-            const hint   = ["※ 메뉴: 에스프레소/리스트레토/룽고/아메리카노/롱블랙/카페라떼/카푸치노/플랫화이트/마끼아또/핸드드립/콜드브루/기타","","","","","","","","","","","","수돗물/정수기/생수/기타","물/우유/저지방우유/두유/귀리우유/아몬드우유/코코넛우유","","1~5 숫자","","TRUE 또는 FALSE"];
-            const ws = XLSX.utils.aoa_to_sheet([headers, example, hint]);
-            // 열 너비 자동 설정
-            ws["!cols"] = headers.map((h, i) => ({ wch: Math.max(h.length * 2, [12,16,12,12,12,16,14,8,10,10,10,10,12,14,10,8,20,14][i] || 12) }));
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "레시피");
-            XLSX.writeFile(wb, "brewlog_template.xlsx");
+            const hint = ["※메뉴:에스프레소/리스트레토/룽고/아메리카노/롱블랙/카페라떼/카푸치노/플랫화이트/마끼아또/핸드드립/콜드브루/기타","","","","","","","","","","","","수돗물/정수기/생수/기타","물/우유/저지방우유/두유/귀리우유/아몬드우유/코코넛우유","","1~5","","TRUE/FALSE"];
+            const csv = "\uFEFF" + headers.join(",") + "\n" + example.join(",") + "\n" + hint.join(",");
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "brewlog_template.csv";
+            a.click();
+            URL.revokeObjectURL(a.href);
           }} style={{ width: "100%", padding: "10px", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--foam)", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "10px" }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M2 12h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
             </svg>
-            템플릿 다운로드 (xlsx)
+            템플릿 다운로드 (CSV)
           </button>
 
           <RecipeImporter lang={lang} user={user} />
@@ -4414,7 +4353,7 @@ function ReportModal({ type, targetId, currentUser, onClose, lang = "ko" }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "340px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
           <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--espresso)" }}>🚨 {t.report}</span>
@@ -4466,7 +4405,7 @@ function ReportModal({ type, targetId, currentUser, onClose, lang = "ko" }) {
 }
 
 // ─── RecipeDetailModal ────────────────────────────────────────────
-function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, onCompare, onCopyRecipe, onAuthorClick, lang = "ko" }) {
+function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, onEdit, onDelete, onRequireAuth, onFollow, isFollowing, onBookmark, isBookmarked, onCompare, onCopyRecipe, lang = "ko" }) {
   const [showReport, setShowReport] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
@@ -4578,7 +4517,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
 
   return (
     <>
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "460px" }}>
         {/* 닫기 버튼 */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.8rem" }}>
@@ -4711,14 +4650,9 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
           </div>
         </div>
       )}
-        <div style={{ marginTop: "1rem", borderTop: "1px solid var(--steam)", paddingTop: "0.75rem" }}>
-          {/* 1행: 닉네임 + 팔로우 + 날짜 */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "4px" }}>
-            <span
-              className="card-author"
-              style={{ cursor: onAuthorClick ? "pointer" : "default", whiteSpace: "nowrap" }}
-              onClick={() => { if (onAuthorClick) { onClose(); onAuthorClick({ uid: recipe.uid, name: recipe.author }); } }}
-            >@{recipe.author}</span>
+        <div className="card-footer" style={{ marginTop: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+            <span className="card-author" style={{ cursor: "pointer" }}>@{recipe.author}</span>
             {recipe.author && recipe.uid !== currentUid && onFollow && (
               <button
                 className={`follow-btn ${isFollowing ? "following" : ""}`}
@@ -4727,65 +4661,44 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                 {isFollowing ? t.following : t.follow}
               </button>
             )}
-            <span style={{ color: "var(--muted)", fontSize: "0.75rem", whiteSpace: "nowrap" }}>· {date}</span>
+            <span style={{ color: "var(--muted)" }}> · {date}</span>
           </div>
-          {/* 2행: 액션 버튼 */}
-          <div className="card-actions" style={{ marginLeft: "-6px" }}>
-            {/* 하트 */}
-            <button className={`card-action-btn heart ${liked ? "liked" : ""}`}
-              onClick={() => !isOwner && onLike(recipe)}
-              style={{ cursor: isOwner ? "default" : "pointer", opacity: isOwner ? 0.4 : 1 }}
-              title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}>
-              {liked ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="#C0625A"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z"/></svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
-              )}
-              {likeCount > 0 && <span style={{ fontSize: "0.75rem", marginLeft: "1px", fontFamily: "'DM Sans',sans-serif" }}>{likeCount}</span>}
-            </button>
-            {/* 즐겨찾기 */}
-            {onBookmark && (
-              <button className={`card-action-btn bookmark ${isBookmarked ? "saved" : ""}`}
-                onClick={() => onBookmark(recipe.id)}
-                title={isBookmarked ? t.bookmarkRemove : t.bookmarkAdd}>
-                {isBookmarked ? (
-                  <svg width="18" height="20" viewBox="0 0 18 22" fill="currentColor"><path d="M1 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v19l-8-5-8 5V2z"/></svg>
-                ) : (
-                  <svg width="18" height="20" viewBox="0 0 18 22" fill="none"><path d="M1 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v19l-8-5-8 5V2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
-                )}
-              </button>
-            )}
-            {/* 복사해서 기록하기 */}
+          <div className="card-actions">
+            {/* 이 레시피로 기록하기 (복사) */}
             {currentUser && onCopyRecipe && (
               <button className="card-action-btn"
-                onClick={() => { onCopyRecipe(recipe); }}
-                title={lang === "en" ? "Copy & record" : "복사해서 기록하기"}>
+                onClick={() => { onClose(); onCopyRecipe(recipe); }}
+                title={lang === "en" ? "Copy to my record" : "이 레시피로 기록하기"}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <rect x="9" y="9" width="11" height="13" rx="2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M14.5 13.5v5M12 16h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                  <rect x="8" y="8" width="12" height="14" rx="2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                  <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M14 13h4M14 16h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  <path d="M18 11v6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
                 </svg>
               </button>
             )}
-            {/* 비교 */}
+            {/* 비교 버튼 */}
             {currentUser && onCompare && (
               <button className="card-action-btn"
-                onClick={() => { onCompare(recipe); }}
+                onClick={() => { onClose(); onCompare(recipe); }}
                 title={lang === "en" ? "Compare recipes" : "레시피 비교"}>
                 <svg width="20" height="20" viewBox="0 0 22 20" fill="none">
+                  {/* 왼쪽 카드 */}
                   <rect x="1" y="3" width="8" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
                   <line x1="3" y1="7" x2="7" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                   <line x1="3" y1="10" x2="7" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                   <line x1="3" y1="13" x2="5.5" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  {/* 오른쪽 카드 */}
                   <rect x="13" y="3" width="8" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
                   <line x1="15" y1="7" x2="19" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                   <line x1="15" y1="10" x2="19" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                   <line x1="15" y1="13" x2="17.5" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  {/* 가운데 vs */}
                   <text x="11" y="11.5" textAnchor="middle" fontSize="5" fontWeight="700" fill="currentColor" fontFamily="DM Sans,sans-serif">vs</text>
                 </svg>
               </button>
             )}
-            {/* 공유 */}
+            {/* 공유 버튼 */}
             <button className="card-action-btn"
               onClick={async () => {
                 try {
@@ -4974,6 +4887,18 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                 <circle cx="6" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.6"/>
                 <path d="M8.3 10.8l7.4-4.2M8.3 13.2l7.4 4.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
               </svg>
+            </button>
+            {/* 하트 */}
+            <button className={`card-action-btn heart ${liked ? "liked" : ""}`}
+              onClick={() => !isOwner && onLike(recipe)}
+              style={{ cursor: isOwner ? "default" : "pointer", opacity: isOwner ? 0.4 : 1 }}
+              title={isOwner ? t.heartOwner : liked ? t.heartCancel : t.heart}>
+              {liked ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#C0625A"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z"/></svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.42 5.42 3 8.5 3C10.04 3 11.41 3.78 12 5.03C12.59 3.78 13.96 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14.5 12 21 12 21Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
+              )}
+              {likeCount > 0 && <span style={{ fontSize: "0.75rem", marginLeft: "1px", fontFamily: "'DM Sans',sans-serif" }}>{likeCount}</span>}
             </button>
             {/* 수정/삭제 */}
             {isOwner && (<>
@@ -5256,7 +5181,7 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
   };
 
   return (
-    <div className="modal-backdrop" style={{ zIndex: 210 }} onClick={e => e.target===e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target===e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth:"700px", maxHeight:"90vh", overflowY:"auto", padding:"24px" }}>
         {/* 헤더 */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
@@ -5428,203 +5353,13 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
             위에서 비교할 레시피 B를 선택해주세요
           </div>
         )}
-
-        {/* 공유 버튼 — 비교 대상 선택됐을 때만 */}
-        {recipeB && (
-          <div style={{ marginTop:"20px", display:"flex", justifyContent:"flex-end" }}>
-            <button
-              onClick={async () => {
-                try {
-                  const html2canvas = (await import("html2canvas")).default;
-
-                  const FIELDS_SHARE = [
-                    { key:"gram",       label:"원두량",   unit:"g" },
-                    { key:"seconds",    label:"추출시간", unit:"s" },
-                    { key:"espressoMl", label:"추출량",   unit:"ml" },
-                    { key:"waterTemp",  label:"물온도",   unit:"°C" },
-                    { key:"grindSize",  label:"분쇄도",   unit:"" },
-                    { key:"diluteMl",   label:"희석량",   unit:"ml" },
-                  ];
-
-                  const diffVal = (a, b) => {
-                    const na = parseFloat(a), nb = parseFloat(b);
-                    if (isNaN(na) || isNaN(nb) || na === nb) return null;
-                    return na > nb ? { dir:"up", delta: Math.abs(na-nb) } : { dir:"down", delta: Math.abs(na-nb) };
-                  };
-
-                  // 플레이버 레이더 SVG (오버레이)
-                  const FKEYS = ["Acidity","Sweet","Bitter","Aroma","Aftertaste","Balance","Body"];
-                  const FLBLS = { Acidity:"산미",Sweet:"단맛",Bitter:"쓴맛",Aroma:"아로마",Aftertaste:"후미",Balance:"밸런스",Body:"바디" };
-                  const hasRadar = FKEYS.some(k => recipeA[`flavor${k}`]>0 || recipeB[`flavor${k}`]>0);
-                  const radarSVG = (() => {
-                    if (!hasRadar) return "";
-                    const SIZE=280, cx=140, cy=140, R=96, n=FKEYS.length;
-                    const pt = (i,r) => { const a=-Math.PI/2+2*Math.PI*i/n; return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; };
-                    const gridLines = [1,2,3,4,5].map(l => {
-                      const r=R*l/5;
-                      const pts=FKEYS.map((_,i)=>pt(i,r).join(",")).join(" ");
-                      return `<polygon points="${pts}" fill="${l%2===0?"#F5F3F0":"none"}" stroke="${l===5?"#D5CFC8":"#E8E4DF"}" stroke-width="${l===5?1.2:0.7}"/>`;
-                    }).join("");
-                    const axes = FKEYS.map((_,i) => { const [x,y]=pt(i,R); return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#DDD9D3" stroke-width="0.8"/>`; }).join("");
-                    const aVals = FKEYS.map(k=>(parseInt(recipeA[`flavor${k}`])||0)/5);
-                    const bVals = FKEYS.map(k=>(parseInt(recipeB[`flavor${k}`])||0)/5);
-                    const aPts = FKEYS.map((_,i)=>pt(i,Math.max(aVals[i],0.04)*R).join(",")).join(" ");
-                    const bPts = FKEYS.map((_,i)=>pt(i,Math.max(bVals[i],0.04)*R).join(",")).join(" ");
-                    const dots = FKEYS.map((k,i) => {
-                      const [ax,ay]=pt(i,aVals[i]*R), [bx,by]=pt(i,bVals[i]*R);
-                      return `${aVals[i]>0?`<circle cx="${ax}" cy="${ay}" r="4" fill="#B07D54" stroke="white" stroke-width="1.2"/>`:""}`
-                           + `${bVals[i]>0?`<circle cx="${bx}" cy="${by}" r="4" fill="#2980b9" stroke="white" stroke-width="1.2"/>`:""}`; 
-                    }).join("");
-                    const labels = FKEYS.map((k,i) => {
-                      const [x,y]=pt(i,R+22);
-                      const anchor=x<cx-8?"end":x>cx+8?"start":"middle";
-                      return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="10" fill="#8C8480" font-family="DM Sans,sans-serif">${FLBLS[k]}</text>`;
-                    }).join("");
-                    return `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
-                      ${gridLines}${axes}
-                      <polygon points="${aPts}" fill="#B07D54" fill-opacity="0.18" stroke="#B07D54" stroke-width="2" stroke-linejoin="round"/>
-                      <polygon points="${bPts}" fill="#2980b9" fill-opacity="0.15" stroke="#2980b9" stroke-width="2" stroke-linejoin="round"/>
-                      ${dots}${labels}
-                    </svg>`;
-                  })();
-
-                  // 수치 비교 행 HTML — table 구조로 html2canvas 안정성 확보
-                  const rowsHtml = FIELDS_SHARE.map(f => {
-                    const av=recipeA[f.key], bv=recipeB[f.key];
-                    const d=diffVal(av,bv);
-                    const aColor = d?.dir==="up" ? "#B07D54" : "#8C8480";
-                    const bColor = d?.dir==="down" ? "#2980b9" : "#8C8480";
-                    const aWeight = d?.dir==="up" ? "700" : "400";
-                    const bWeight = d?.dir==="down" ? "700" : "400";
-                    const midHtml = d
-                      ? `<div style="font-size:9px;font-weight:700;color:${d.dir==="up"?"#27ae60":"#e67e22"};">${d.dir==="up"?"▲":"▼"} ${d.delta}${f.unit}</div>`
-                      : `<div style="font-size:11px;color:#DDD;">＝</div>`;
-                    return `
-                      <tr style="border-top:1px solid #F0EFEF;">
-                        <td style="width:160px;padding:10px 14px 10px 20px;font-size:13px;font-weight:${aWeight};color:${aColor};text-align:right;">${av?`${av}${f.unit}`:"—"}</td>
-                        <td style="width:90px;padding:10px 0;text-align:center;">
-                          <div style="font-size:9px;color:#BBB;margin-bottom:3px;">${f.label}</div>
-                          ${midHtml}
-                        </td>
-                        <td style="width:160px;padding:10px 20px 10px 14px;font-size:13px;font-weight:${bWeight};color:${bColor};text-align:left;">${bv?`${bv}${f.unit}`:"—"}</td>
-                      </tr>`;
-                  }).join("");
-
-                  const el = document.createElement("div");
-                  el.style.cssText = "position:absolute;left:-9999px;top:0;font-family:'DM Sans',Arial,sans-serif;width:460px;background:#FBFBFA;border-radius:16px;";
-                  el.innerHTML = `
-                    <!-- 헤더 -->
-                    <div style="background:#1A1614;padding:18px 20px 16px;border-radius:16px 16px 0 0;">
-                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-                        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8" stroke="#FBFBFA" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
-                        <span style="font-size:11px;color:#FBFBFA80;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;">Brewlog Note — Recipe Compare</span>
-                      </div>
-                      <table style="width:100%;border-collapse:collapse;">
-                        <tr>
-                          <td style="width:45%;vertical-align:top;">
-                            <div style="font-size:9px;font-weight:700;color:#B07D54;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">A</div>
-                            <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.3;margin-bottom:4px;">${recipeA.bean||"—"}</div>
-                            <div style="font-size:10px;color:#FBFBFA70;line-height:1.5;">${[recipeA.company,recipeA.menuLabel,`@${recipeA.author}`].filter(Boolean).join(" · ")}</div>
-                          </td>
-                          <td style="width:10%;text-align:center;vertical-align:middle;">
-                            <div style="font-size:12px;font-weight:900;color:#555;">vs</div>
-                          </td>
-                          <td style="width:45%;vertical-align:top;">
-                            <div style="font-size:9px;font-weight:700;color:#2980b9;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">B</div>
-                            <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.3;margin-bottom:4px;">${recipeB.bean||"—"}</div>
-                            <div style="font-size:10px;color:#FBFBFA70;line-height:1.5;">${[recipeB.company,recipeB.menuLabel,`@${recipeB.author}`].filter(Boolean).join(" · ")}</div>
-                          </td>
-                        </tr>
-                      </table>
-                    </div>
-
-                    <!-- 컬럼 레이블 -->
-                    <table style="width:100%;border-collapse:collapse;background:#ECEAE7;">
-                      <tr>
-                        <td style="width:160px;padding:7px 14px 7px 20px;font-size:9px;font-weight:700;color:#B07D54;text-align:right;">레시피 A</td>
-                        <td style="width:90px;"></td>
-                        <td style="width:160px;padding:7px 20px 7px 14px;font-size:9px;font-weight:700;color:#2980b9;text-align:left;">레시피 B</td>
-                      </tr>
-                    </table>
-
-                    <!-- 수치 비교 -->
-                    <table style="width:100%;border-collapse:collapse;background:#FAFAF9;">
-                      ${rowsHtml}
-                    </table>
-
-                    <!-- 플레이버 레이더 -->
-                    ${hasRadar ? `
-                    <div style="background:#FAFAF9;padding:16px 20px 8px;border-top:1px solid #ECEAE7;">
-                      <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;">
-                        <span style="font-size:9px;font-weight:700;color:#BBB;text-transform:uppercase;letter-spacing:0.1em;">Flavor</span>
-                        <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#B07D54;display:inline-block;border-radius:2px;"></span><span style="font-size:9px;color:#AAA;">A</span></span>
-                        <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#2980b9;display:inline-block;border-radius:2px;"></span><span style="font-size:9px;color:#AAA;">B</span></span>
-                      </div>
-                      <div style="text-align:center;">${radarSVG}</div>
-                    </div>` : ""}
-
-                    <!-- 푸터 -->
-                    <div style="background:#ECEAE7;padding:8px 20px;border-radius:0 0 16px 16px;display:flex;align-items:center;justify-content:space-between;">
-                      <span style="font-size:10px;color:#8C8480;">brewlog-jade.vercel.app</span>
-                      <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8" stroke="#1A1614" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    </div>
-                  `;
-
-                  document.body.appendChild(el);
-                  await new Promise(r => requestAnimationFrame(r));
-                  const canvas = await html2canvas(el, {
-                    scale: 3, useCORS: true, backgroundColor: "#FBFBFA",
-                    logging: false, width: 460, windowWidth: 460,
-                  });
-                  document.body.removeChild(el);
-
-                  canvas.toBlob(async (blob) => {
-                    const fileName = `${recipeA.bean||"A"}_vs_${recipeB.bean||"B"}_brewlog.png`;
-                    const file = new File([blob], fileName, { type:"image/png" });
-                    if (navigator.share && navigator.canShare && navigator.canShare({ files:[file] })) {
-                      await navigator.share({ files:[file], title:"레시피 비교", text:"Brewlog Note 레시피 비교 결과예요." })
-                        .catch(e => { if (e.name !== "AbortError") console.warn(e); });
-                    } else {
-                      const a = document.createElement("a");
-                      a.href = URL.createObjectURL(blob);
-                      a.download = fileName;
-                      a.click();
-                      URL.revokeObjectURL(a.href);
-                    }
-                  }, "image/png");
-                } catch(e) {
-                  console.error("[compare-share]", e);
-                  alert("공유에 실패했어요.");
-                }
-              }}
-              style={{
-                display:"inline-flex", alignItems:"center", gap:"7px",
-                padding:"9px 18px", background:"var(--espresso)", color:"var(--cream)",
-                border:"none", borderRadius:"8px", cursor:"pointer",
-                fontFamily:"'DM Sans',sans-serif", fontSize:"0.83rem", fontWeight:600,
-                transition:"opacity 0.15s",
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity="0.85"}
-              onMouseLeave={e => e.currentTarget.style.opacity="1"}
-              title="비교 결과 공유하기"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <circle cx="18" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.6"/>
-                <circle cx="18" cy="19" r="2.5" stroke="currentColor" strokeWidth="1.6"/>
-                <circle cx="6" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.6"/>
-                <path d="M8.3 10.8l7.4-4.2M8.3 13.2l7.4 4.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-              </svg>
-              비교 결과 공유
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
 
-function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, onCardClick, onCompare, onCopy, onAuthorClick, lang = "ko" }) {
+function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, onCardClick, onCompare, onCopy, lang = "ko" }) {
   const t = I18N[lang];
   const date = recipe.createdAt?.toDate?.()?.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR") || "";
   const liked = (recipe.likedBy || []).includes(currentUid);
@@ -5756,11 +5491,7 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
       {recipe.note && <div className="card-note">"{recipe.note}"</div>}
       <div className="card-footer">
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-          <span
-            className="card-author"
-            onClick={e => { e.stopPropagation(); onAuthorClick && onAuthorClick({ uid: recipe.uid, name: recipe.author }); }}
-            style={{ cursor: onAuthorClick ? "pointer" : "default" }}
-          >@{recipe.author}</span>
+          <span className="card-author">@{recipe.author}</span>
           {recipe.author && recipe.uid !== currentUid && onFollow && (
             <button
               className={`follow-btn ${isFollowing ? "following" : ""}`}
@@ -5794,19 +5525,20 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
               <svg width="18" height="20" viewBox="0 0 18 22" fill="none"><path d="M1 2a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v19l-8-5-8 5V2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/></svg>
             )}
           </button>
-          {/* 복사해서 기록하기 */}
-          {currentUid && onCopy && (
-            <button className="card-action-btn"
-              onClick={e => { e.stopPropagation(); onCopy(recipe); }}
-              title={lang === "en" ? "Copy & record" : "복사해서 기록하기"}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <rect x="9" y="9" width="11" height="13" rx="2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M14.5 13.5v5M12 16h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-              </svg>
+          {/* 수정/삭제 — 본인만 */}
+          {isOwner && (<>
+            <button className="card-action-btn edit"
+              onClick={e => { e.stopPropagation(); onEdit(recipe); }}
+              title={lang === "en" ? "Edit" : "수정"}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4-11 11H5.5v-4l11-11z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M14 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
             </button>
-          )}
-          {/* 비교 */}
+            <button className="card-action-btn delete"
+              onClick={e => { e.stopPropagation(); onDelete(recipe.id); }}
+              title={lang === "en" ? "Delete" : "삭제"}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M9 6V4h6v2M10 11v6M14 11v6M5 6l1 14h12L19 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+          </>)}
+          {/* 비교 버튼 — 로그인 시 모든 카드에 표시 */}
           {currentUid && onCompare && (
             <button className="card-action-btn"
               onClick={e => { e.stopPropagation(); onCompare(recipe); }}
@@ -5824,19 +5556,18 @@ function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, 
               </svg>
             </button>
           )}
-          {/* 수정/삭제 — 본인만 */}
-          {isOwner && (<>
-            <button className="card-action-btn edit"
-              onClick={e => { e.stopPropagation(); onEdit(recipe); }}
-              title={lang === "en" ? "Edit" : "수정"}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4-11 11H5.5v-4l11-11z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M14 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+          {/* 복사해서 기록하기 */}
+          {currentUid && onCopy && (
+            <button className="card-action-btn"
+              onClick={e => { e.stopPropagation(); onCopy(recipe); }}
+              title={lang === "en" ? "Copy & record" : "복사해서 기록하기"}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="9" width="11" height="13" rx="2" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M14.5 13.5v5M12 16h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
             </button>
-            <button className="card-action-btn delete"
-              onClick={e => { e.stopPropagation(); onDelete(recipe.id); }}
-              title={lang === "en" ? "Delete" : "삭제"}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M9 6V4h6v2M10 11v6M14 11v6M5 6l1 14h12L19 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-          </>)}
+          )}
         </div>
       </div>
     </div>
@@ -5880,7 +5611,7 @@ function EquipmentModal({ lang, user, editTarget, onClose, onSaved }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "420px" }}>
         <h2>{editTarget ? t.equipEdit : t.equipAdd}</h2>
         <div className="modal-grid">
@@ -6158,7 +5889,7 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()} onTouchMove={e => { if (e.touches.length > 1) e.preventDefault(); }}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "560px" }}>
         <h2>{editTarget ? t.beanEdit : t.beanAdd}</h2>
         <div className="modal-grid">
@@ -7062,30 +6793,15 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const openMyModal = ()  => { window.history.pushState({ modal: true }, ""); setShowMyModalWrapped(true); };
   const openDetail  = (r) => { window.history.pushState({ modal: true }, ""); setDetailRecipeWrapped(r); };
 
-  // 복사 완료 후 상세 카드 복원을 위한 ref
-  const pendingDetailRef = React.useRef(null);
-
   const beanShowModalRef = React.useRef(false);
   const equipShowModalRef = React.useRef(false);
   const compareTargetRef = React.useRef(null);
 
   useEffect(() => {
     const onPop = () => {
-      // 비교 모달 닫기 — 상세 카드는 이미 열려 있으므로 그대로 유지
       if (compareTargetRef.current) { setCompareTarget(null); return; }
-      // 상세 카드 닫기
       if (detailRecipeRef.current)  { setDetailRecipeWrapped(null); return; }
-      // 복사/기록 모달 닫기 → 상세 카드 복원
-      if (showModalRef.current) {
-        setShowModalWrapped(false);
-        setEditTarget(null);
-        if (pendingDetailRef.current) {
-          // history entry를 상세 카드 용으로 재사용 (추가 pushState 없이 복원)
-          setDetailRecipeWrapped(pendingDetailRef.current);
-          pendingDetailRef.current = null;
-        }
-        return;
-      }
+      if (showModalRef.current)     { setShowModalWrapped(false); setEditTarget(null); return; }
       if (showMyModalRef.current)   { setShowMyModalWrapped(false); return; }
       if (beanShowModalRef.current) { setBeanShowModal(false); return; }
       if (equipShowModalRef.current){ setEquipShowModal(false); return; }
@@ -7097,7 +6813,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState("");
   const [myRecipesOnly, setMyRecipesOnly] = useState(false);
-  const [filterAuthor, setFilterAuthor] = useState(null); // { uid, name } | null
   const [isAdmin, setIsAdmin] = useState(false);
   const [feedTab, setFeedTab] = useState("all"); // "all" | "bookmarks" | "following"
 
@@ -7153,7 +6868,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   }, []);
   const [bestPeriod, setBestPeriod] = useState("month"); // "day" | "week" | "month"
   const [showRanking, setShowRanking] = useState(false); // true면 TOP100 페이지
-  const [statModeVal, setStatModeVal] = useState("machine"); // "machine" | "handdrip"
+
   const [following, setFollowing] = useState(() => {
     try { return user?.uid ? JSON.parse(localStorage.getItem("brewlog_following_" + user?.uid) || "[]") : []; } catch { return []; }
   });
@@ -7193,31 +6908,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const setEquipShowModal = (v) => { equipShowModalRef.current = v; if(v) window.history.pushState({modal:true},""); setEquipShowModalState(v); };
   const [compareTarget, setCompareTargetState] = useState(null);
   const setCompareTarget = (v) => { compareTargetRef.current = v; if(v) window.history.pushState({modal:true},""); setCompareTargetState(v); };
-
-  // 모달 열림 시 body 스크롤 잠금 (iOS 핀치줌/스크롤 이탈 방지)
-  useEffect(() => {
-    const anyOpen = showModal || showMyModal || !!detailRecipe || beanShowModal || equipShowModal || !!compareTarget;
-    if (anyOpen) {
-      const scrollY = window.scrollY;
-      document.body.style.overflow = "hidden";
-      document.body.style.position = "fixed";
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = "100%";
-    } else {
-      const scrollY = document.body.style.top;
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.width = "";
-      if (scrollY) window.scrollTo(0, parseInt(scrollY || "0") * -1);
-    }
-    return () => {
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.width = "";
-    };
-  }, [showModal, showMyModal, detailRecipe, beanShowModal, equipShowModal, compareTarget]);
 
   const loadRecipes = useCallback(async () => {
     try {
@@ -7295,10 +6985,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     if (r.isPublic === false && r.uid !== user?.uid) return false;
     // 차단된 유저 레시피 숨김
     if (blocked.includes(r.uid)) return false;
-    // 작성자 필터 (닉네임 클릭 시)
-    if (filterAuthor) {
-      if (filterAuthor.uid ? r.uid !== filterAuthor.uid : r.author !== filterAuthor.name) return false;
-    }
     if (myRecipesOnly && r.uid !== user?.uid) return false;
     if (feedTab === "bookmarks" && !bookmarks.includes(r.id)) return false;
     if (feedTab === "following" && !following.includes(r.uid) && !following.includes(r.author)) return false;
@@ -7334,6 +7020,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       boxShadow: "0 1px 0 var(--divider)",
     }}>
     <header className="app-header" style={{ transform: "none", transition: "none" }}>
+      <div className="header-inner">
       <div className="logo">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="9" cy="9" r="8" stroke="var(--espresso)" strokeWidth="1.5"/>
@@ -7437,28 +7124,29 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           </>
         )}
       </div>
+      </div>
     </header>
       {/* ── 탭 바 + 검색행 ── */}
       <div style={{
         background: "var(--cream)", borderBottom: "1px solid var(--divider)",
-        padding: "14px 24px 14px",
+        padding: "14px 0 14px",
       }}>
       {(<>
-        <div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "6px" }}>
+        <div style={{ maxWidth: "900px", margin: "0 auto", padding: "0 24px", display: "flex", flexDirection: "column", gap: "6px" }}>
           {/* 그룹 1: 피드 탭 + 그룹 2: 내 것 탭 — 한 줄에 양쪽 정렬 */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
             {/* 왼쪽: 피드 탭 */}
             <div style={{ display: "flex", gap: "4px", flexShrink: 0 }}>
               <button className={`bookmark-tab-btn ${feedTab === "all" && !showRanking ? "active" : ""}`}
-                onClick={() => { setFeedTab("all"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                onClick={() => { setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }}>
                 {I18N[lang].allRecipes}
               </button>
               <button className={`bookmark-tab-btn ${feedTab === "following" && !showRanking ? "active" : ""}`}
-                onClick={() => { setFeedTab("following"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                onClick={() => { setFeedTab("following"); setMyRecipesOnly(false); setShowRanking(false); }}>
                 {I18N[lang].followingFeed}{following.length > 0 ? ` (${following.length})` : ""}
               </button>
               <button className={`bookmark-tab-btn ${feedTab === "bookmarks" && !showRanking ? "active" : ""}`}
-                onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                onClick={() => { setFeedTab("bookmarks"); setMyRecipesOnly(false); setShowRanking(false); }}>
                 {I18N[lang].myBookmarks}{bookmarks.length > 0 ? ` (${bookmarks.length})` : ""}
               </button>
             </div>
@@ -7468,15 +7156,15 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             {user && (
               <div style={{ display: "flex", gap: "4px", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flexShrink: 1 }}>
                 <button className={`bookmark-tab-btn ${feedTab === "mine" && !showRanking ? "active" : ""}`}
-                  onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                  onClick={() => { setFeedTab("mine"); setMyRecipesOnly(false); setShowRanking(false); }}>
                   {I18N[lang].myRecipes}
                 </button>
                 <button className={`bookmark-tab-btn ${feedTab === "beans" && !showRanking ? "active" : ""}`}
-                  onClick={() => { setFeedTab("beans"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                  onClick={() => { setFeedTab("beans"); setMyRecipesOnly(false); setShowRanking(false); }}>
                   {I18N[lang].myBeans}
                 </button>
                 <button className={`bookmark-tab-btn ${feedTab === "equip" && !showRanking ? "active" : ""}`}
-                  onClick={() => { setFeedTab("equip"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                  onClick={() => { setFeedTab("equip"); setMyRecipesOnly(false); setShowRanking(false); }}>
                   {I18N[lang].myEquip}
                 </button>
               </div>
@@ -7485,7 +7173,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         </div>
         {/* 두 번째 행: beans → 필터+추가 / equip → 추가 / 나머지 → 검색+기록하기 */}
         {true && (
-          <div style={{ borderTop: "1px solid var(--divider)", marginTop: "10px", paddingTop: "10px", maxWidth: "900px", margin: "10px auto 0" }}>
+          <div style={{ borderTop: "1px solid var(--divider)", marginTop: "10px", paddingTop: "10px", maxWidth: "900px", margin: "10px auto 0", padding: "10px 24px 0" }}>
             {feedTab === "beans" ? (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
                 <div style={{ display: "flex", gap: "5px", flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
@@ -7542,10 +7230,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       {/* 타이틀 */}
       {(() => {
         let title, sub;
-        if (filterAuthor) {
-          title = `@${filterAuthor.name}`;
-          sub = lang === "en" ? `Recipes by @${filterAuthor.name}` : `@${filterAuthor.name}의 레시피`;
-        } else if (myRecipesOnly || feedTab === "mine") {
+        if (myRecipesOnly || feedTab === "mine") {
           title = I18N[lang].myFeedTitle; sub = I18N[lang].myFeedSub;
         } else if (feedTab === "following") {
           title = I18N[lang].followingFeedTitle; sub = I18N[lang].followingFeedSub;
@@ -7563,31 +7248,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           <div className="section-sub">{sub}</div>
         </>);
       })()}
-      {/* 작성자 필터 배지 */}
-      {filterAuthor && (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "8px 0 12px" }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: "6px",
-            padding: "5px 10px 5px 12px", background: "var(--espresso)", color: "var(--cream)",
-            borderRadius: "20px", fontSize: "0.78rem", fontWeight: 600,
-            fontFamily: "'DM Sans', sans-serif",
-          }}>
-            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-              <circle cx="6" cy="4" r="2.5" stroke="currentColor" strokeWidth="1.3"/>
-              <path d="M1.5 10.5c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-            </svg>
-            @{filterAuthor.name}
-            <button
-              onClick={() => setFilterAuthor(null)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--cream)", opacity: 0.7, padding: "0 0 0 2px", lineHeight: 1, fontSize: "1rem", display: "flex", alignItems: "center" }}
-              title={lang === "en" ? "Clear filter" : "필터 해제"}
-            >×</button>
-          </div>
-          <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontFamily: "'DM Sans', sans-serif" }}>
-            {filtered.length}{lang === "en" ? " recipes" : "개"}
-          </span>
-        </div>
-      )}
       <div className="divider" style={{ marginBottom: "1.5rem" }} />
       {/* 내 원두 탭 */}
       {feedTab === "beans" && user && (
@@ -7770,181 +7430,200 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     {/* 레시피 목록 - 랭킹 페이지에선 숨김 */}
     {!showRanking && <div className="main-wrap" style={{ paddingTop: "0" }}>
 
-      {/* ── 내 레시피 통계 ── */}
+      {/* ── 내 기록 현황 ── */}
       {feedTab === "mine" && (() => {
         const mine = recipes.filter(r => r.uid === user?.uid);
         if (mine.length === 0) return null;
 
-        const machineRecipes = mine.filter(r => r.machineType !== "handdrip");
-        const handDripRecipes = mine.filter(r => r.machineType === "handdrip");
-        const statMode = statModeVal;
-
-        const calcStats = (list) => {
-          const withGram = list.filter(r => r.gram);
-          const withSec = list.filter(r => r.seconds);
-          const withMl = list.filter(r => r.espressoMl);
-          const withTemp = list.filter(r => r.waterTemp);
-          return {
-            gram: withGram.length ? { avg: (withGram.reduce((s,r)=>s+Number(r.gram),0)/withGram.length).toFixed(1), min: Math.min(...withGram.map(r=>Number(r.gram))), max: Math.max(...withGram.map(r=>Number(r.gram))) } : null,
-            sec:  withSec.length  ? { avg: Math.round(withSec.reduce((s,r)=>s+Number(r.seconds),0)/withSec.length), min: Math.min(...withSec.map(r=>Number(r.seconds))), max: Math.max(...withSec.map(r=>Number(r.seconds))) } : null,
-            ml:   withMl.length   ? { avg: (withMl.reduce((s,r)=>s+Number(r.espressoMl),0)/withMl.length).toFixed(1), min: Math.min(...withMl.map(r=>Number(r.espressoMl))), max: Math.max(...withMl.map(r=>Number(r.espressoMl))) } : null,
-            temp: withTemp.length  ? { avg: (withTemp.reduce((s,r)=>s+Number(r.waterTemp),0)/withTemp.length).toFixed(1), min: Math.min(...withTemp.map(r=>Number(r.waterTemp))), max: Math.max(...withTemp.map(r=>Number(r.waterTemp))) } : null,
-          };
-        };
-
-        const calcTop = (list) => {
-          const menuCount    = {}; list.forEach(r => { if (r.menuLabel) menuCount[r.menuLabel]     = (menuCount[r.menuLabel]    ||0)+1; });
-          const beanCount    = {}; list.forEach(r => { if (r.bean)      beanCount[r.bean]          = (beanCount[r.bean]         ||0)+1; });
-          const machineCount = {}; list.forEach(r => {
-            // machineBrand 우선, 없으면 machine 전체 문자열 사용
-            const key = r.machineBrand ? r.machineBrand : r.machine;
-            if (key) machineCount[key] = (machineCount[key]||0)+1;
-          });
-          const grinderCount = {}; list.forEach(r => {
-            const key = r.grinderBrand ? r.grinderBrand : r.grinder;
-            if (key) grinderCount[key] = (grinderCount[key]||0)+1;
-          });
-          return {
-            menus:    Object.entries(menuCount).sort((a,b)=>b[1]-a[1]).slice(0,3),
-            beans:    Object.entries(beanCount).sort((a,b)=>b[1]-a[1]).slice(0,3),
-            machines: Object.entries(machineCount).sort((a,b)=>b[1]-a[1]).slice(0,3),
-            grinders: Object.entries(grinderCount).sort((a,b)=>b[1]-a[1]).slice(0,3),
-          };
-        };
-
-        // 두 탭 데이터 모두 미리 계산
-        const mStats = calcStats(machineRecipes); const mTop = calcTop(machineRecipes);
-        const hStats = calcStats(handDripRecipes); const hTop = calcTop(handDripRecipes);
-        const mGlobal = calcStats(recipes.filter(r => r.machineType !== "handdrip"));
-        const hGlobal = calcStats(recipes.filter(r => r.machineType === "handdrip"));
-
+        // ── 데이터 계산 ──────────────────────────────────────────
         const rated = mine.filter(r => r.rating > 0);
         const avgRating = rated.length ? (rated.reduce((s,r)=>s+r.rating,0)/rated.length).toFixed(1) : null;
         const totalLikes = mine.reduce((s,r)=>s+(r.likedBy?.length||0),0);
 
-        const STAT_ROW_H = "2rem";
-        const LABEL_W = "3.8rem";
+        // 기록 시작일
+        const sorted = [...mine].sort((a,b)=>{
+          const ta = a.createdAt?.toDate?.()?.getTime?.() || 0;
+          const tb = b.createdAt?.toDate?.()?.getTime?.() || 0;
+          return ta - tb;
+        });
+        const firstDate = sorted[0]?.createdAt?.toDate?.();
+        const firstDateStr = firstDate
+          ? (lang === "en"
+              ? firstDate.toLocaleDateString("en-US", { year:"numeric", month:"short" })
+              : `${firstDate.getFullYear()}년 ${firstDate.getMonth()+1}월`)
+          : "-";
 
-        const StatBox = ({ label, min, max, avg, globalAvg, unit }) => {
-          const Row = ({ tag, val, bold }) => (
-            <div style={{ display: "flex", alignItems: "center", height: STAT_ROW_H, width: "100%" }}>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", flexShrink: 0, minWidth: "2.4rem" }}>{tag}</span>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: bold ? "0.95rem" : "0.8rem", fontWeight: bold ? 700 : 500, color: bold ? "var(--espresso)" : "var(--roast)", whiteSpace: "nowrap", flex: 1, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {val ?? "-"}<span style={{ fontSize: "0.58rem", fontWeight: 400, color: "var(--muted)", marginLeft: "1px" }}>{unit}</span>
-              </span>
-            </div>
-          );
-          return (
-            <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 0.8rem", boxSizing: "border-box", minWidth: 0, overflow: "hidden" }}>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)", marginBottom: "0.3rem", letterSpacing: "0.04em", textAlign: "center" }}>{label}</div>
-              <Row tag={lang === "en" ? "avg" : "평균"} val={avg} bold />
-              <Row tag={lang === "en" ? "min" : "최소"} val={min} />
-              <Row tag={lang === "en" ? "max" : "최대"} val={max} />
-              <div style={{ borderTop: "1px solid var(--steam)", marginTop: "0.2rem", paddingTop: "0.2rem", display: "flex", alignItems: "center", height: STAT_ROW_H, visibility: globalAvg ? "visible" : "hidden" }}>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.66rem", color: "var(--muted)", flexShrink: 0, minWidth: "2.4rem", whiteSpace: "nowrap" }}>{lang === "en" ? "All avg" : "브루어 평균"}</span>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--latte)", whiteSpace: "nowrap", flex: 1, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {globalAvg}<span style={{ fontSize: "0.58rem", fontWeight: 400, marginLeft: "1px" }}>{unit}</span>
-                </span>
-              </div>
-            </div>
-          );
-        };
+        // 월별 기록 수 (최근 10개월)
+        const monthCounts = {};
+        mine.forEach(r => {
+          const d = r.createdAt?.toDate?.();
+          if (!d) return;
+          const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+          monthCounts[key] = (monthCounts[key] || 0) + 1;
+        });
+        const now = new Date();
+        const monthKeys = [];
+        for (let i = 9; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          monthKeys.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`);
+        }
+        const monthData = monthKeys.map(k => ({ key: k, count: monthCounts[k] || 0 }));
+        const maxMonth = Math.max(...monthData.map(m => m.count), 1);
+        const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+        const lastMonthD = new Date(now.getFullYear(), now.getMonth()-1, 1);
+        const lastMonthKey = `${lastMonthD.getFullYear()}-${String(lastMonthD.getMonth()+1).padStart(2,"0")}`;
+        const thisMonthCount = monthCounts[thisMonthKey] || 0;
+        const lastMonthCount = monthCounts[lastMonthKey] || 0;
+        const totalMonths = Object.keys(monthCounts).length || 1;
+        const avgPerMonth = (mine.length / totalMonths).toFixed(1);
 
-        const TopList = ({ label, items }) => (
-          <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.8rem 1rem", minWidth: 0 }}>
-            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
-            {items.length === 0
-              ? <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)" }}>-</div>
-              : items.map(([name, cnt], i) => (
-              <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: i < items.length - 1 ? "0.3rem" : 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: i === 0 ? "var(--accent)" : "var(--muted)", fontWeight: 700 }}>{i + 1}</span>
-                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "110px" }}>{name}</span>
-                </div>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", flexShrink: 0 }}>{cnt}회</span>
-              </div>
-            ))}
-          </div>
-        );
+        // 주별 활동 도트 (최근 13주)
+        const dotData = [];
+        for (let i = 12; i >= 0; i--) {
+          const weekStart = new Date(now);
+          weekStart.setDate(now.getDate() - i * 7 - now.getDay());
+          weekStart.setHours(0,0,0,0);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 7);
+          const cnt = mine.filter(r => {
+            const d = r.createdAt?.toDate?.();
+            return d && d >= weekStart && d < weekEnd;
+          }).length;
+          dotData.push(cnt);
+        }
+        const maxDot = Math.max(...dotData, 1);
 
-        // 탭별 콘텐츠 렌더 함수 - display로만 전환
-        const TabContent = ({ s, g, top, isHanddrip, visible }) => (
-          <div style={{ display: visible ? "block" : "none" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <StatBox label={lang === "en" ? "Dose (g)" : "원두량"} min={s.gram?.min ?? "-"} avg={s.gram?.avg ?? "-"} max={s.gram?.max ?? "-"} globalAvg={g.gram?.avg} unit="g" />
-              <StatBox label={lang === "en" ? "Time (s)" : "추출시간"} min={s.sec?.min ?? "-"} avg={s.sec?.avg ?? "-"} max={s.sec?.max ?? "-"} globalAvg={g.sec?.avg} unit="s" />
-              <StatBox label={lang === "en" ? "Yield (ml)" : "추출량"} min={s.ml?.min ?? "-"} avg={s.ml?.avg ?? "-"} max={s.ml?.max ?? "-"} globalAvg={g.ml?.avg} unit="ml" />
-              <StatBox label={lang === "en" ? "Water Temp" : "물온도"} min={s.temp?.min ?? "-"} avg={s.temp?.avg ?? "-"} max={s.temp?.max ?? "-"} globalAvg={g.temp?.avg} unit="°C" />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <TopList label={lang === "en" ? "Fav Menu" : "자주 마신 메뉴"} items={top.menus} />
-              <TopList label={lang === "en" ? "Fav Bean" : "자주 쓴 원두"} items={top.beans} />
-            </div>
-            {(top.machines?.length > 0 || top.grinders?.length > 0) && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                {top.machines?.length > 0 && (
-                  <TopList
-                    label={lang === "en" ? (isHanddrip ? "Equipment" : "Machine") : (isHanddrip ? "주로 쓰는 기구" : "주로 쓰는 기기")}
-                    items={top.machines}
-                  />
-                )}
-                {top.grinders?.length > 0 && (
-                  <TopList
-                    label={lang === "en" ? "Grinder" : "그라인더"}
-                    items={top.grinders}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        );
+        // 메뉴 바 차트 (상위 5)
+        const menuCount = {};
+        mine.forEach(r => { if (r.menuLabel) menuCount[r.menuLabel] = (menuCount[r.menuLabel]||0)+1; });
+        const menuList = Object.entries(menuCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        const maxMenu = menuList[0]?.[1] || 1;
+
+        // 자주 쓴 원두 (1위)
+        const beanCount = {};
+        mine.forEach(r => { if (r.bean) beanCount[r.bean] = (beanCount[r.bean]||0)+1; });
+        const topBean = Object.entries(beanCount).sort((a,b)=>b[1]-a[1])[0]?.[0] || "-";
+
+        // 공통 카드 스타일
+        const card = { background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "14px 16px", marginBottom: "8px", boxSizing: "border-box" };
+        const cardTitle = { fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)", marginBottom: "8px", letterSpacing: "0.04em" };
+        const bigNum = { fontFamily: "'DM Sans',sans-serif", fontSize: "1.75rem", fontWeight: 700, color: "var(--espresso)", lineHeight: 1 };
+        const metricCard = { background: "var(--cream)", border: "1px solid var(--divider)", borderRadius: "8px", padding: "12px 14px", boxSizing: "border-box" };
+        const metricLabel = { fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", color: "var(--muted)", marginBottom: "5px", letterSpacing: "0.03em" };
+        const metricVal = { fontFamily: "'DM Sans',sans-serif", fontSize: "1.05rem", fontWeight: 600, color: "var(--espresso)", lineHeight: 1.2 };
 
         return (
-          <div style={{ marginBottom: "2rem", background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "12px", padding: "1rem", boxSizing: "border-box", overflow: "hidden" }}>
-            <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "1rem", paddingBottom: "0.7rem", borderBottom: "1px solid var(--steam)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span>{lang === "en" ? "My Stats" : "나의 통계"}</span>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 400, color: "var(--muted)" }}>총 {mine.length}개 레시피</span>
-            </div>
-            {/* 탭 버튼 */}
-            <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.8rem" }}>
-              {machineRecipes.length > 0 && (
-                <button onClick={() => setStatModeVal("machine")}
-                  style={{ padding: "0.3rem 0.9rem", borderRadius: "999px", border: "1px solid var(--steam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.2s",
-                    background: statMode === "machine" ? "var(--espresso)" : "var(--foam)",
-                    color: statMode === "machine" ? "var(--cream)" : "var(--muted)", fontWeight: statMode === "machine" ? 600 : 400 }}>
-                  {lang === "en" ? "Coffee Machine" : "커피 머신"} ({machineRecipes.length})
-                </button>
-              )}
-              {handDripRecipes.length > 0 && (
-                <button onClick={() => setStatModeVal("handdrip")}
-                  style={{ padding: "0.3rem 0.9rem", borderRadius: "999px", border: "1px solid var(--steam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.2s",
-                    background: statMode === "handdrip" ? "var(--espresso)" : "var(--foam)",
-                    color: statMode === "handdrip" ? "var(--cream)" : "var(--muted)", fontWeight: statMode === "handdrip" ? 600 : 400 }}>
-                  {lang === "en" ? "Hand Drip" : "핸드드립"} ({handDripRecipes.length})
-                </button>
-              )}
+          <div style={{ marginBottom: "2rem" }}>
+            {/* 헤더 라벨 */}
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", color: "var(--muted)", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: "10px" }}>
+              {lang === "en" ? "My Brew Activity" : "나의 기록 현황"}
             </div>
 
-            {/* 별점 + 좋아요 - 항상 표시 */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>{lang === "en" ? "Avg Rating" : "평균 별점"}</span>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1rem", fontWeight: 700, color: "var(--latte)" }}>{avgRating ?? "-"} ★</span>
+            {/* ① 총 기록 + 스파크라인 */}
+            <div style={card}>
+              <div style={cardTitle}>{lang === "en" ? "Total records" : "총 기록"}</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "6px" }}>
+                <span style={bigNum}>{mine.length}</span>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "var(--muted)" }}>{lang === "en" ? "recipes" : "개"}</span>
               </div>
-              <div style={{ background: "white", border: "1px solid var(--steam)", borderRadius: "8px", padding: "0.7rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)" }}>{lang === "en" ? "Total Likes" : "받은 좋아요"}</span>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "1rem", fontWeight: 700, color: "#C0625A", display: "flex", alignItems: "center", gap: "5px" }}>
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.612 2 7.595 2.518 8 3.354C8.405 2.518 9.388 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z"/>
-                  </svg>
-                  {totalLikes}
-                </span>
+              <div style={{ display: "flex", gap: "6px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", marginBottom: "12px", flexWrap: "wrap" }}>
+                <span>{lang === "en" ? "This month" : "이번 달"} <strong style={{ color: "var(--espresso)" }}>{thisMonthCount}{lang === "en" ? "" : "개"}</strong></span>
+                <span style={{ color: "var(--divider)" }}>·</span>
+                <span>{lang === "en" ? "Last month" : "지난 달"} <strong style={{ color: "var(--espresso)" }}>{lastMonthCount}{lang === "en" ? "" : "개"}</strong></span>
+                <span style={{ color: "var(--divider)" }}>·</span>
+                <span>{lang === "en" ? "Avg" : "평균"} <strong style={{ color: "var(--espresso)" }}>{avgPerMonth}{lang === "en" ? "/mo" : "개/월"}</strong></span>
+              </div>
+              {/* 월별 스파크라인 바 */}
+              <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "40px" }}>
+                {monthData.map((m, i) => {
+                  const isCur = m.key === thisMonthKey;
+                  const h = m.count === 0 ? 3 : Math.max(6, Math.round((m.count / maxMonth) * 40));
+                  return (
+                    <div key={m.key} title={`${m.key}: ${m.count}${lang === "en" ? "" : "개"}`}
+                      style={{ flex: 1, height: `${h}px`, borderRadius: "2px 2px 0 0",
+                        background: isCur ? "var(--espresso)" : m.count === 0 ? "var(--divider)" : "var(--muted)",
+                        opacity: isCur ? 1 : m.count === 0 ? 0.5 : 0.4,
+                        transition: "height 0.3s" }} />
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.6rem", color: "var(--muted)" }}>
+                <span>{monthData[0]?.key.replace("-",".")}</span>
+                <span style={{ color: "var(--espresso)", fontWeight: 600 }}>{lang === "en" ? "this month" : "이번 달"}</span>
               </div>
             </div>
 
-            {/* 두 탭 콘텐츠 동시 렌더 - display로만 전환하여 크기 고정 */}
-            <TabContent s={mStats} g={mGlobal} top={mTop} isHanddrip={false} visible={statMode !== "handdrip"} />
-            <TabContent s={hStats} g={hGlobal} top={hTop} isHanddrip={true} visible={statMode === "handdrip"} />
+            {/* ② 주별 활동 도트 그리드 */}
+            <div style={card}>
+              <div style={cardTitle}>{lang === "en" ? "Weekly activity (13 weeks)" : "주별 기록 활동 (최근 13주)"}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(13, 1fr)", gap: "4px" }}>
+                {dotData.map((cnt, i) => {
+                  const level = cnt === 0 ? 0 : cnt < maxDot * 0.4 ? 1 : cnt < maxDot * 0.8 ? 2 : 3;
+                  const bg = level === 0 ? "var(--divider)" : level === 1 ? "var(--muted)" : level === 2 ? "var(--latte)" : "var(--espresso)";
+                  const op = level === 0 ? 0.5 : level === 1 ? 0.35 : level === 2 ? 0.6 : 1;
+                  return (
+                    <div key={i} title={`${cnt}${lang === "en" ? " records" : "개"}`}
+                      style={{ aspectRatio: "1", borderRadius: "2px", background: bg, opacity: op }} />
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", gap: "10px", marginTop: "8px", alignItems: "center", fontFamily: "'DM Sans',sans-serif", fontSize: "0.6rem", color: "var(--muted)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <div style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--divider)", opacity: 0.5 }} />
+                  <span>{lang === "en" ? "none" : "없음"}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <div style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--muted)", opacity: 0.35 }} />
+                  <span>{lang === "en" ? "1" : "1개"}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <div style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--latte)", opacity: 0.6 }} />
+                  <span>{lang === "en" ? "2–3" : "2–3개"}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <div style={{ width: "8px", height: "8px", borderRadius: "2px", background: "var(--espresso)" }} />
+                  <span>{lang === "en" ? "4+" : "4개+"}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ③ 자주 마신 메뉴 바 차트 */}
+            {menuList.length > 0 && (
+              <div style={card}>
+                <div style={cardTitle}>{lang === "en" ? "Favourite menus" : "자주 마신 메뉴"}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {menuList.map(([name, cnt]) => (
+                    <div key={name} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", width: "60px", flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+                      <div style={{ flex: 1, background: "var(--divider)", borderRadius: "99px", height: "5px" }}>
+                        <div style={{ width: `${Math.round((cnt/maxMenu)*100)}%`, height: "5px", borderRadius: "99px", background: "var(--espresso)" }} />
+                      </div>
+                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)", width: "22px", textAlign: "right", flexShrink: 0 }}>{cnt}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ④ 하단 4칸 지표 */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+              <div style={metricCard}>
+                <div style={metricLabel}>{lang === "en" ? "Avg rating" : "평균 별점"}</div>
+                <div style={{ ...metricVal, color: "var(--latte)" }}>{avgRating ?? "-"} <span style={{ fontSize: "0.72rem", fontWeight: 400, color: "var(--muted)" }}>/ 5</span></div>
+              </div>
+              <div style={metricCard}>
+                <div style={metricLabel}>{lang === "en" ? "Total likes" : "받은 좋아요"}</div>
+                <div style={{ ...metricVal, color: "#C0625A" }}>{totalLikes}</div>
+              </div>
+              <div style={metricCard}>
+                <div style={metricLabel}>{lang === "en" ? "Fav bean" : "자주 쓴 원두"}</div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: 600, color: "var(--espresso)", lineHeight: 1.3, marginTop: "2px" }}>{topBean}</div>
+              </div>
+              <div style={metricCard}>
+                <div style={metricLabel}>{lang === "en" ? "Brewing since" : "기록 시작일"}</div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: 600, color: "var(--espresso)", lineHeight: 1.3, marginTop: "2px" }}>{firstDateStr}</div>
+              </div>
+            </div>
           </div>
         );
       })()}
@@ -8032,8 +7711,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
             onEdit={() => { setEditTarget(rec); openModal(); }}
             onCardClick={() => openDetail(rec)}
             onCompare={user?.uid ? () => setCompareTarget(rec) : null}
-            onCopy={user?.uid ? () => handleCopyRecipe(rec) : null}
-            onAuthorClick={a => { setFilterAuthor(a); setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }} />
+            onCopy={user?.uid ? () => handleCopyRecipe(rec) : null} />
         ))}
       </div>}
     </div>}
@@ -8060,18 +7738,8 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         isFollowing={detailRecipe && (following.includes(detailRecipe.uid) || following.includes(detailRecipe.author))}
         onBookmark={toggleBookmark}
         isBookmarked={detailRecipe && bookmarks.includes(detailRecipe.id)}
-        onCompare={user?.uid ? (r) => {
-          // 상세 카드를 닫지 않고 비교 모달을 위에 쌓기
-          // → 뒤로가기: 비교 닫힘 → 상세 카드 그대로 보임
-          setCompareTarget(r);
-        } : null}
-        onCopyRecipe={user?.uid ? (r) => {
-          // 복사 모달 열기 전 상세 카드 recipe 보관 → 복사 모달 닫힐 때 복원
-          pendingDetailRef.current = detailRecipeRef.current;
-          setDetailRecipeWrapped(null);
-          handleCopyRecipe(r);
-        } : null}
-        onAuthorClick={a => { setDetailRecipeWrapped(null); setFilterAuthor(a); setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }}
+        onCompare={user?.uid ? (r) => { setDetailRecipeWrapped(null); setCompareTarget(r); } : null}
+        onCopyRecipe={user?.uid ? (r) => { setDetailRecipeWrapped(null); handleCopyRecipe(r); } : null}
       />
     )}
     {showModal && (
@@ -8299,6 +7967,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
 
   return (<div style={{ width: "100%" }}>
     <header className="app-header">
+      <div className="header-inner">
       <div className="logo">
         <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="9" cy="9" r="8" stroke="var(--espresso)" strokeWidth="1.5"/>
@@ -8314,6 +7983,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
           일반화면
         </button>
         <button className="btn-logout" onClick={() => signOut(auth)}>{I18N[lang].logout}</button>
+      </div>
       </div>
     </header>
 
@@ -8755,6 +8425,24 @@ export default function App() {
     localStorage.setItem("brewlog_lang", next);
   };
 
+  // 모달 열릴 때 body 스크롤 잠금 — iOS 바운스 방지
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const hasModal = !!document.querySelector('.modal-backdrop');
+      if (hasModal) {
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+      } else {
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
   // 비회원이 레시피 올리기 버튼 클릭 시 호출
   const requireAuth = () => {
     setGuestMode(false);
@@ -8764,16 +8452,26 @@ export default function App() {
   useEffect(() => {
     loadBrandsFromDB();
     const unsub = onAuthStateChanged(auth, u => setUser(u ?? null));
-    // 최초 방문 시(localStorage에 언어 설정 없을 때)만 IP 기반 언어 감지
-    if (!localStorage.getItem("brewlog_lang")) {
+    // 최초 방문 시(언어/통화 설정 없을 때)만 IP 기반 자동 감지
+    const noLang = !localStorage.getItem("brewlog_lang");
+    const noCurrency = !localStorage.getItem(CURRENCY_KEY);
+    if (noLang || noCurrency) {
       fetch("https://ipapi.co/json/")
         .then(r => r.json())
         .then(d => {
-          const detected = d.country_code === "KR" ? "ko" : "en";
-          setLang(detected);
-          localStorage.setItem("brewlog_lang", detected);
+          const isKR = d.country_code === "KR";
+          if (noLang) {
+            const detected = isKR ? "ko" : "en";
+            setLang(detected);
+            localStorage.setItem("brewlog_lang", detected);
+          }
+          if (noCurrency) {
+            const detectedCurrency = isKR ? "KRW" : "USD";
+            setCurrencyState(detectedCurrency);
+            saveCurrency(detectedCurrency);
+          }
         })
-        .catch(() => {}); // 실패 시 기본값(ko) 유지
+        .catch(() => {}); // 실패 시 기본값(ko / KRW) 유지
     }
     return unsub;
   }, []);
