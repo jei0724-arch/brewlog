@@ -7212,10 +7212,15 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         .map(r => ({
           menu: r.menuLabel || "",
           bean: r.bean || "",
+          beanBrand: r.beanBrand || "",
           rating: r.rating || 0,
           gram: r.gram || "",
           seconds: r.seconds || "",
           waterTemp: r.waterTemp || "",
+          grinder: r.grinder || "",
+          grindSize: r.grindSize || "",
+          machine: r.machineName || "",
+          weather: r.weather || "",
           acidity: r.flavorAcidity || 0,
           sweet: r.flavorSweet || 0,
           bitter: r.flavorBitter || 0,
@@ -7223,12 +7228,17 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           balance: r.flavorBalance || 0,
         }));
       const isKo = lang === "ko";
+      // 원두 브랜드 목록 추출 (중복 제거)
+      const beanBrands = [...new Set(mine.map(r => r.beanBrand || r.bean).filter(Boolean))].slice(0, 3).join(", ");
+      const topBean = recent[0]?.bean || "";
+      const topBrand = recent[0]?.beanBrand || "";
+      // 상세 데이터 요약
       const recentSummary = recent.map((r,i) =>
-        `${i+1}.${r.menu}/${r.bean}/별점${r.rating}/${r.gram}g/${r.seconds}s/${r.waterTemp}°C`
-      ).join(" | ");
+        `${i+1}.${r.menu}/${r.bean}${r.beanBrand?"("+r.beanBrand+")":""}/별점${r.rating}/머신:${r.machine}/그라인더:${r.grinder}/분쇄도:${r.grindSize}/${r.gram}g/${r.seconds}s/${r.waterTemp}°C/산미${r.acidity}단맛${r.sweet}쓴맛${r.bitter}바디${r.body}밸런스${r.balance}/날씨:${r.weather}`
+      ).join("\n");
       const prompt = isKo
-        ? `커피 바리스타로서 아래 데이터를 보고 JSON만 반환해. 다른 텍스트 없이 JSON만.\n데이터:${recentSummary}\n\n{"tip":"오늘의 추출 팁 2문장","recipeTitle":"추천 레시피명","recipeDesc":"추천 이유 1문장","gram":"숫자만","temp":"숫자만","seconds":"숫자만"}`
-        : `As a barista, return ONLY JSON.\nData:${recentSummary}\n\n{"tip":"2 sentence tip","recipeTitle":"recipe name","recipeDesc":"1 sentence reason","gram":"number","temp":"number","seconds":"number"}`;
+        ? `당신은 전문 바리스타이자 커피 원두 전문가입니다. 아래 브루어의 추출 데이터를 분석하고, 보유 원두 브랜드(${beanBrands || topBean})의 전문 지식을 활용해 최적의 추출 레시피를 추천해주세요.\n\n최근 추출 기록:\n${recentSummary}\n\n분석 요청:\n1. 맛 프로필(산미/단맛/쓴맛/바디/밸런스) 패턴을 분석해 개선점을 찾아주세요\n2. ${topBrand || topBean} 원두의 특성과 권장 추출 파라미터를 반영해주세요\n3. 날씨와 머신 특성도 고려해주세요\n\n반드시 아래 JSON 형식으로만 답변하세요. 다른 텍스트 없이 JSON만:\n{"tip":"데이터 기반 구체적 개선 팁 2-3문장 (수치 포함)","recipeTitle":"오늘 시도해볼 레시피명","recipeDesc":"원두 특성 반영한 추천 이유 1-2문장","gram":"권장 원두량 숫자만","temp":"권장 물온도 숫자만","seconds":"권장 추출시간 숫자만"}`
+        : `You are a professional barista and coffee bean expert. Analyze the brewer data below and recommend the optimal extraction recipe using your knowledge of ${beanBrands || topBean} beans.\n\nRecent brew records:\n${recentSummary}\n\nAnalysis requested:\n1. Analyze flavor profile patterns and find improvements\n2. Apply ${topBrand || topBean} bean characteristics and recommended parameters\n3. Consider weather and machine characteristics\n\nReply ONLY with JSON:\n{"tip":"data-driven specific tip 2-3 sentences with numbers","recipeTitle":"recipe to try today","recipeDesc":"recommendation based on bean characteristics 1-2 sentences","gram":"number only","temp":"number only","seconds":"number only"}`;
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`,
         {
