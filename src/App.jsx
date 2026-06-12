@@ -497,7 +497,7 @@ const CSS = `
   /* 베스트 리스트 행 */
   .best-row {
     display: flex; align-items: center; gap: 16px;
-    padding: 20px 24px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--divider);
     cursor: pointer; transition: background 0.15s;
     position: relative;
@@ -508,39 +508,38 @@ const CSS = `
   /* 순위 번호 — Playfair Serif, 매거진 스타일 */
   .best-rank-num {
     font-family: 'Playfair Display', serif;
-    font-size: 1.3rem;
+    font-size: 1.25rem;
     font-weight: 400;
     letter-spacing: -0.02em;
-    min-width: 40px;
-    text-align: right;
+    min-width: 36px;
+    text-align: left;
     line-height: 1;
     flex-shrink: 0;
   }
   .best-rank-num.rank-1 { color: var(--espresso); font-weight: 700; }
-  .best-rank-num.rank-2 { color: var(--latte); }
-  .best-rank-num.rank-3 { color: var(--muted); }
+  .best-rank-num.rank-2 { color: var(--latte); font-weight: 600; }
+  .best-rank-num.rank-3 { color: #9C8E82; font-weight: 500; }
 
-  .best-row-content { flex: 1; min-width: 0; }
+  .best-row-content { flex: 1; min-width: 0; text-align: left; }
   .best-row-bean {
     font-family: 'Playfair Display', serif;
-    font-size: 1rem; font-weight: 600;
+    font-size: 0.95rem; font-weight: 600;
     color: var(--espresso); line-height: 1.25;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
   }
   .best-row-meta {
     font-family: 'DM Sans', sans-serif;
-    font-size: 0.72rem;
-    color: var(--muted);
-    opacity: 0.75;
-    display: flex; gap: 6px; align-items: center;
+    font-size: 0.7rem;
+    color: #6F5F58;
+    display: flex; gap: 5px; align-items: center; flex-wrap: wrap;
   }
   .best-row-right {
     display: flex; align-items: center; gap: 5px;
     font-family: 'DM Sans', sans-serif;
     font-size: 0.75rem; font-weight: 500;
-    color: var(--muted);
-    flex-shrink: 0;
+    color: #9C8E82;
+    flex-shrink: 0; margin-left: auto;
   }
 
   .modal-backdrop {
@@ -2433,7 +2432,7 @@ function FlavorRadar({ values, size = 200, lang = "ko" }) {
       {[1,2,3,4,5].map(lv => {
         const p = ptAt(0, maxR * lv / 5);
         return <text key={lv} x={(p.x + 3).toFixed(1)} y={(p.y - 2).toFixed(1)}
-          fontSize="7" fill="#8C8480" opacity="0.7">{lv}</text>;
+          fontSize="8" fill="#9C8E82" opacity="0.8" fontFamily="'DM Sans',sans-serif">{lv}</text>;
       })}
       {/* 데이터 영역 */}
       {hasData && (
@@ -7184,6 +7183,91 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [bestPeriod, setBestPeriod] = useState("month"); // "day" | "week" | "month"
   const [showRanking, setShowRanking] = useState(false); // true면 TOP100 페이지
   const [statModeVal, setStatModeVal] = useState("machine"); // "machine" | "handdrip"
+
+  // ── Gemini AI 추천 ─────────────────────────────────────────────────
+  const [geminiAdvice, setGeminiAdvice] = useState(null);   // { tip, recipe, fetchedAt }
+  const [geminiLoading, setGeminiLoading] = useState(false);
+  const [geminiError, setGeminiError] = useState(false);
+  const geminiCalledRef = useRef(false);
+
+  const fetchGeminiAdvice = async () => {
+    console.log("[Gemini] fn start. user:", !!user, "key:", !!import.meta.env.VITE_GEMINI_KEY);
+    if (!user) return;
+    const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY;
+    if (!GEMINI_KEY) return;
+    // localStorage 캐시 확인 — 오늘 이미 받았으면 스킵
+    const storageKey = `brewlog_gemini_${user.uid}`;
+    const today = new Date().toDateString();
+    try {
+      const cached = JSON.parse(localStorage.getItem(storageKey) || "null");
+      if (cached?.fetchedAt === today) { setGeminiAdvice(cached); return; }
+    } catch {}
+    setGeminiLoading(true);
+    setGeminiError(false);
+    try {
+      const allRecipes = recipes;
+      const mine = allRecipes.filter(r => r.uid === user.uid);
+      const recent = [...mine]
+        .sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0))
+        .slice(0, 5)
+        .map(r => ({
+          menu: r.menuLabel || "",
+          bean: r.bean || "",
+          rating: r.rating || 0,
+          gram: r.gram || "",
+          seconds: r.seconds || "",
+          waterTemp: r.waterTemp || "",
+          acidity: r.flavorAcidity || 0,
+          sweet: r.flavorSweet || 0,
+          bitter: r.flavorBitter || 0,
+          body: r.flavorBody || 0,
+          balance: r.flavorBalance || 0,
+        }));
+      const isKo = lang === "ko";
+      const recentSummary = recent.map((r,i) =>
+        `${i+1}.${r.menu}/${r.bean}/별점${r.rating}/${r.gram}g/${r.seconds}s/${r.waterTemp}°C`
+      ).join(" | ");
+      const prompt = isKo
+        ? `커피 바리스타로서 아래 데이터를 보고 JSON만 반환해. 다른 텍스트 없이 JSON만.\n데이터:${recentSummary}\n\n{"tip":"오늘의 추출 팁 2문장","recipeTitle":"추천 레시피명","recipeDesc":"추천 이유 1문장","gram":"숫자만","temp":"숫자만","seconds":"숫자만"}`
+        : `As a barista, return ONLY JSON.\nData:${recentSummary}\n\n{"tip":"2 sentence tip","recipeTitle":"recipe name","recipeDesc":"1 sentence reason","gram":"number","temp":"number","seconds":"number"}`;
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.8, maxOutputTokens: 2048 },
+          }),
+        }
+      );
+      if (!res.ok) throw new Error("Gemini API error");
+      const data = await res.json();
+      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      console.log("[Gemini] RAW:", raw);
+      // 각 필드를 개별적으로 추출 (JSON 잘림 방지)
+      const extract = (key) => {
+        const m = raw.match(new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`) );
+        return m ? m[1] : "";
+      };
+      const parsed = {
+        tip: extract("tip"),
+        recipeTitle: extract("recipeTitle"),
+        recipeDesc: extract("recipeDesc"),
+        gram: extract("gram"),
+        temp: extract("temp"),
+        seconds: extract("seconds"),
+      };
+      if (!parsed.tip) throw new Error("No tip in response: " + raw.slice(0, 80));
+      const adviceData = { ...parsed, fetchedAt: today };
+      setGeminiAdvice(adviceData);
+      try { localStorage.setItem(storageKey, JSON.stringify(adviceData)); } catch {}
+      geminiCalledRef.current = false; // 에러시 ref 초기화 (재시도 가능)
+      setGeminiError(true);
+    } finally {
+      setGeminiLoading(false);
+    }
+  };
   const [following, setFollowing] = useState(() => {
     try { return user?.uid ? JSON.parse(localStorage.getItem("brewlog_following_" + user?.uid) || "[]") : []; } catch { return []; }
   });
@@ -7271,6 +7355,24 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       })
       .catch(() => {});
   }, [loadRecipes, user?.uid]);
+
+
+
+  // Gemini — 앱 시작 후 딱 1회만 호출 (하루 1회 캐시)
+  useEffect(() => {
+    if (!user?.uid || recipes.length === 0) return;
+    const mine = recipes.filter(r => r.uid === user.uid);
+    if (mine.length === 0) return;
+    const today = new Date().toDateString();
+    try {
+      const cached = JSON.parse(localStorage.getItem(`brewlog_gemini_${user.uid}`) || "null");
+      if (cached?.fetchedAt === today) { setGeminiAdvice(cached); return; }
+    } catch {}
+    if (geminiCalledRef.current === today) return;
+    geminiCalledRef.current = today;
+    fetchGeminiAdvice();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, recipes.length]);
 
   const handleDelete = async (id) => {
     if (!confirm("이 레시피를 삭제할까요?")) return;
@@ -7601,6 +7703,121 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         </div>
       )}
       <div className="divider" style={{ marginBottom: "1.5rem" }} />
+
+      {/* ── Gemini AI 추천 카드 (전체 피드 + 로그인 유저) ── */}
+      {feedTab === "all" && !myRecipesOnly && !showRanking && !filterAuthor && user && (() => {
+        // 로딩 스켈레톤
+        if (geminiLoading) return (
+          <div style={{ background: "linear-gradient(135deg, #1A1A1A 0%, #2C1A0E 100%)", borderRadius: 14, padding: "18px 16px", marginBottom: 16, overflow: "hidden", position: "relative" }}>
+            <div style={{ position: "absolute", right: -16, top: -16, width: 80, height: 80, borderRadius: "50%", background: "rgba(176,125,84,0.15)" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(176,125,84,0.3)", animation: "pulse 1.5s ease-in-out infinite" }} />
+              <div style={{ width: 100, height: 10, borderRadius: 6, background: "rgba(255,255,255,0.1)" }} />
+            </div>
+            <div style={{ width: "90%", height: 10, borderRadius: 6, background: "rgba(255,255,255,0.08)", marginBottom: 8 }} />
+            <div style={{ width: "75%", height: 10, borderRadius: 6, background: "rgba(255,255,255,0.06)", marginBottom: 16 }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              {[1,2,3].map(i => <div key={i} style={{ flex:1, height: 48, borderRadius: 10, background: "rgba(255,255,255,0.07)" }} />)}
+            </div>
+            <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
+          </div>
+        );
+
+        // 에러
+        if (geminiError) return (
+          <div style={{ background: "var(--espresso)", borderRadius: 14, padding: "16px 18px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {/* 스피너 아이콘 */}
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(176,125,84,0.2)", border: "1.5px solid rgba(176,125,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  style={{ animation: "spin 2s linear infinite" }}>
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+                    stroke="var(--latte)" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.6rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--latte)", marginBottom: 3 }}>
+                  {lang === "ko" ? "AI 바리스타" : "AI Barista"}
+                </div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.75rem", color: "rgba(255,255,255,0.65)", lineHeight: 1.5 }}>
+                  {lang === "ko"
+                    ? "레시피를 분석 중입니다. 잠시 후 다시 시도해 주세요."
+                    : "Analyzing your recipes. Please retry in a moment."}
+                </div>
+              </div>
+            </div>
+            <button onClick={() => { geminiCalledRef.current = false; setGeminiError(false); fetchGeminiAdvice(); }}
+              style={{ display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--latte)", background: "rgba(176,125,84,0.15)", border: "1px solid rgba(176,125,84,0.3)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap" }}>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M14 8A6 6 0 1 1 8 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M8 2l2.5 2.5L8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              {lang === "ko" ? "다시 시도" : "Retry"}
+            </button>
+          </div>
+        );
+
+        // 데이터 없음 (내 레시피 0개)
+        if (!geminiAdvice) return null;
+
+        return (
+          <div style={{ background: "linear-gradient(135deg, #1A1A1A 0%, #2C1A0E 100%)", borderRadius: 14, padding: "18px 16px", marginBottom: 16, overflow: "hidden", position: "relative" }}>
+            {/* 장식 원 */}
+            <div style={{ position: "absolute", right: -20, top: -20, width: 90, height: 90, borderRadius: "50%", background: "rgba(176,125,84,0.15)", pointerEvents: "none" }} />
+            <div style={{ position: "absolute", right: 30, bottom: -30, width: 60, height: 60, borderRadius: "50%", background: "rgba(176,125,84,0.08)", pointerEvents: "none" }} />
+
+            {/* 헤더 */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--latte)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white" />
+                  </svg>
+                </div>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--latte)" }}>
+                  {lang === "ko" ? "AI 바리스타 · 오늘의 추천" : "AI Barista · Today's Pick"}
+                </span>
+              </div>
+              <button onClick={() => { geminiCalledRef.current = false; setGeminiAdvice(null); fetchGeminiAdvice(); }}
+                style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 8, padding: "4px 8px", cursor: "pointer", color: "rgba(255,255,255,0.5)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", display: "flex", alignItems: "center", gap: 4 }}
+                title={lang === "ko" ? "새로 받기" : "Refresh"}>
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M14 8A6 6 0 1 1 8 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M8 2l2.5 2.5L8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                {lang === "ko" ? "새로고침" : "Refresh"}
+              </button>
+            </div>
+
+            {/* 오늘의 팁 */}
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "rgba(255,255,255,0.82)", lineHeight: 1.6, marginBottom: 14 }}>
+              {geminiAdvice.tip}
+            </div>
+
+            {/* 추천 레시피 박스 */}
+            <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(176,125,84,0.25)", borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.6rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(176,125,84,0.9)", marginBottom: 5 }}>
+                {lang === "ko" ? "오늘 시도해볼 레시피" : "Recipe to Try Today"}
+              </div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.92rem", fontWeight: 700, color: "#fff", marginBottom: 5 }}>
+                {geminiAdvice.recipeTitle}
+              </div>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", lineHeight: 1.5 }}>
+                {geminiAdvice.recipeDesc}
+              </div>
+            </div>
+
+            {/* 파라미터 3개 */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              {[
+                { label: lang === "ko" ? "원두량" : "Dose",    value: geminiAdvice.gram,    unit: "g" },
+                { label: lang === "ko" ? "물 온도" : "Temp",   value: geminiAdvice.temp,    unit: "°C" },
+                { label: lang === "ko" ? "추출 시간" : "Time", value: geminiAdvice.seconds, unit: "s" },
+              ].map(({ label, value, unit }) => (
+                <div key={label} style={{ background: "rgba(255,255,255,0.07)", borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.6rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.1rem", fontWeight: 700, color: "var(--latte)", lineHeight: 1 }}>{value}</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", color: "rgba(255,255,255,0.35)", marginTop: 2 }}>{unit}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
       {/* 내 원두 탭 */}
       {feedTab === "beans" && user && (
         <BeanVault user={user} lang={lang}
