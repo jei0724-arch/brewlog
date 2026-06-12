@@ -8012,11 +8012,12 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     if (!user) return;
     const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY;
     if (!GEMINI_KEY) return;
-    // localStorage 캐시 확인 — 오늘 이미 받았으면 스킵
+    // localStorage 캐시 확인 — 언어별로 분리하여 오늘 이미 받았으면 스킵
     const storageKey = `brewlog_gemini_${user.uid}`;
+    const langKey    = `${storageKey}_${lang}`;   // ko / en 별도 캐시
     const today = new Date().toDateString();
     try {
-      const cached = JSON.parse(localStorage.getItem(storageKey) || "null");
+      const cached = JSON.parse(localStorage.getItem(langKey) || "null");
       if (cached?.fetchedAt === today) { setGeminiAdvice(cached); return; }
     } catch {}
     setGeminiLoading(true);
@@ -8046,17 +8047,15 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
           balance: r.flavorBalance || 0,
         }));
       const isKo = lang === "ko";
-      // 원두 브랜드 목록 추출 (중복 제거)
       const beanBrands = [...new Set(mine.map(r => r.beanBrand || r.bean).filter(Boolean))].slice(0, 3).join(", ");
       const topBean = recent[0]?.bean || "";
       const topBrand = recent[0]?.beanBrand || "";
-      // 상세 데이터 요약
       const recentSummary = recent.map((r,i) =>
         `${i+1}.${r.menu}/${r.bean}${r.beanBrand?"("+r.beanBrand+")":""}/별점${r.rating}/머신:${r.machine}/그라인더:${r.grinder}/분쇄도:${r.grindSize}/${r.gram}g/${r.seconds}s/${r.waterTemp}°C/산미${r.acidity}단맛${r.sweet}쓴맛${r.bitter}바디${r.body}밸런스${r.balance}/날씨:${r.weather}`
       ).join("\n");
       const prompt = isKo
         ? `당신은 전문 바리스타이자 커피 원두 전문가입니다. 아래 브루어의 추출 데이터를 분석하고, 보유 원두 브랜드(${beanBrands || topBean})의 전문 지식을 활용해 최적의 추출 레시피를 추천해주세요.\n\n최근 추출 기록:\n${recentSummary}\n\n분석 요청:\n1. 맛 프로필(산미/단맛/쓴맛/바디/밸런스) 패턴을 분석해 개선점을 찾아주세요\n2. ${topBrand || topBean} 원두의 특성과 권장 추출 파라미터를 반영해주세요\n3. 날씨와 머신 특성도 고려해주세요\n\n반드시 아래 JSON 형식으로만 답변하세요. 다른 텍스트 없이 JSON만:\n{"tip":"데이터 기반 구체적 개선 팁 2-3문장 (수치 포함)","recipeTitle":"오늘 시도해볼 레시피명","recipeDesc":"원두 특성 반영한 추천 이유 1-2문장","gram":"권장 원두량 숫자만","temp":"권장 물온도 숫자만","seconds":"권장 추출시간 숫자만"}`
-        : `You are a professional barista and coffee bean expert. Analyze the brewer data below and recommend the optimal extraction recipe using your knowledge of ${beanBrands || topBean} beans.\n\nRecent brew records:\n${recentSummary}\n\nAnalysis requested:\n1. Analyze flavor profile patterns and find improvements\n2. Apply ${topBrand || topBean} bean characteristics and recommended parameters\n3. Consider weather and machine characteristics\n\nReply ONLY with JSON:\n{"tip":"data-driven specific tip 2-3 sentences with numbers","recipeTitle":"recipe to try today","recipeDesc":"recommendation based on bean characteristics 1-2 sentences","gram":"number only","temp":"number only","seconds":"number only"}`;
+        : `You are a professional barista and coffee bean expert. Analyze the brewer data below and recommend the optimal extraction recipe using your knowledge of ${beanBrands || topBean} beans.\n\nRecent brew records:\n${recentSummary}\n\nAnalysis requested:\n1. Analyze flavor profile patterns and find improvements\n2. Apply ${topBrand || topBean} bean characteristics and recommended parameters\n3. Consider weather and machine characteristics\n\nReply ONLY with this exact JSON and nothing else:\n{"tip":"data-driven specific tip 2-3 sentences with numbers","recipeTitle":"recipe to try today","recipeDesc":"recommendation based on bean characteristics 1-2 sentences","gram":"number only","temp":"number only","seconds":"number only"}`;
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`,
         {
@@ -8071,7 +8070,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       if (!res.ok) throw new Error("Gemini API error");
       const data = await res.json();
       const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      // 각 필드를 개별적으로 추출 (JSON 잘림 방지)
       const extract = (key) => {
         const m = raw.match(new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`) );
         return m ? m[1] : "";
@@ -8085,10 +8083,13 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
         seconds: extract("seconds"),
       };
       if (!parsed.tip) throw new Error("No tip in response: " + raw.slice(0, 80));
-      const adviceData = { ...parsed, fetchedAt: today };
+      // 언어별로 별도 캐시 키 사용 — ko/en 응답이 섞이지 않도록
+      const adviceData = { ...parsed, fetchedAt: today, lang };
       setGeminiAdvice(adviceData);
-      try { localStorage.setItem(storageKey, JSON.stringify(adviceData)); } catch {}
-      geminiCalledRef.current = false; // 에러시 ref 초기화 (재시도 가능)
+      try { localStorage.setItem(`${storageKey}_${lang}`, JSON.stringify(adviceData)); } catch {}
+    } catch (e) {
+      console.error("[Gemini]", e.message);
+      geminiCalledRef.current = false; // 실패 시 재시도 허용
       setGeminiError(true);
     } finally {
       setGeminiLoading(false);
@@ -8184,21 +8185,23 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
 
 
 
-  // Gemini — 앱 시작 후 딱 1회만 호출 (하루 1회 캐시)
+  // Gemini — 앱 시작 또는 언어 변경 시 호출 (언어별 하루 1회 캐시)
   useEffect(() => {
     if (!user?.uid || recipes.length === 0) return;
     const mine = recipes.filter(r => r.uid === user.uid);
     if (mine.length === 0) return;
     const today = new Date().toDateString();
+    const langKey = `brewlog_gemini_${user.uid}_${lang}`;
     try {
-      const cached = JSON.parse(localStorage.getItem(`brewlog_gemini_${user.uid}`) || "null");
+      const cached = JSON.parse(localStorage.getItem(langKey) || "null");
       if (cached?.fetchedAt === today) { setGeminiAdvice(cached); return; }
     } catch {}
-    if (geminiCalledRef.current === today) return;
-    geminiCalledRef.current = today;
+    // 언어가 바뀌면 ref 초기화해서 재호출 허용
+    if (geminiCalledRef.current === `${today}_${lang}`) return;
+    geminiCalledRef.current = `${today}_${lang}`;
     fetchGeminiAdvice();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, recipes.length]);
+  }, [user?.uid, recipes.length, lang]);
 
   const handleDelete = async (id) => {
     if (!confirm("이 레시피를 삭제할까요?")) return;
