@@ -7754,7 +7754,14 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                 </div>
               </div>
             </div>
-            <button onClick={() => { geminiCalledRef.current = false; setGeminiError(false); fetchGeminiAdvice(); }}
+            <button onClick={() => { 
+  const today = new Date().toDateString();
+  const countKey = `brewlog_gemini_count_${user?.uid}_${today}`;
+  const count = parseInt(localStorage.getItem(countKey) || "0");
+  if (count >= 5) { alert(lang === "ko" ? "오늘 AI 추천은 최대 5회까지 가능해요." : "Max 5 AI requests per day."); return; }
+  localStorage.setItem(countKey, count + 1);
+  geminiCalledRef.current = false; setGeminiError(false); fetchGeminiAdvice();
+}}
               style={{ display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--latte)", background: "rgba(176,125,84,0.15)", border: "1px solid rgba(176,125,84,0.3)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap" }}>
               <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M14 8A6 6 0 1 1 8 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M8 2l2.5 2.5L8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
               {lang === "ko" ? "다시 시도" : "Retry"}
@@ -7783,7 +7790,14 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
                   {lang === "ko" ? "AI 바리스타 · 오늘의 추천" : "AI Barista · Today's Pick"}
                 </span>
               </div>
-              <button onClick={() => { geminiCalledRef.current = false; setGeminiAdvice(null); fetchGeminiAdvice(); }}
+              <button onClick={() => { 
+  const today = new Date().toDateString();
+  const countKey = `brewlog_gemini_count_${user?.uid}_${today}`;
+  const count = parseInt(localStorage.getItem(countKey) || "0");
+  if (count >= 5) { alert(lang === "ko" ? "오늘 AI 추천은 최대 5회까지 가능해요." : "Max 5 AI requests per day."); return; }
+  localStorage.setItem(countKey, count + 1);
+  geminiCalledRef.current = false; setGeminiAdvice(null); fetchGeminiAdvice();
+}}
                 style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 8, padding: "4px 8px", cursor: "pointer", color: "rgba(255,255,255,0.5)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", display: "flex", alignItems: "center", gap: 4 }}
                 title={lang === "ko" ? "새로 받기" : "Refresh"}>
                 <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M14 8A6 6 0 1 1 8 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M8 2l2.5 2.5L8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
