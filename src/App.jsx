@@ -1,3 +1,30 @@
+/* ============================================================
+   BREWLOG NOTE — App.jsx  (Single-File React + Vite)
+   ──────────────────────────────────────────────────────────
+   SECTION MAP:
+     1. IMPORTS & FIREBASE INIT
+     2. STYLES (CSS)  ← CSS variables (Light + Soft Dark Mode)
+     3. CONSTANTS & I18N
+     4. UTILITY FUNCTIONS (Brand/Bean/Preset storage, calcPressure)
+     5. SUB-COMPONENTS
+        5-1. CoffeeBeanIcon
+        5-2. BrandInput (React.memo + useMemo 최적화)
+        5-3. TimerField (1초 tick 격리 — 폼 재렌더 방지)
+        5-4. FlavorRadar
+        5-5. RecipeModal (추출 압력 세부기록 + 연속추출 메모 포함)
+        5-6. MyModal / RecipeImporter
+        5-7. ReportModal / RecipeCompareModal / etc.
+     6. MAIN APP COMPONENT (MainApp + App root)
+   ──────────────────────────────────────────────────────────
+   KEY DESIGN TOKENS:
+     --r-chip: 4px  --r-btn: 8px  --r-card: 12px  --r-modal: 14px
+     --transition-fast / --transition-base / --transition-slow
+     --shadow-card / --shadow-hover / --shadow-modal
+   ============================================================ */
+
+/* ============================================================
+   1. IMPORTS & FIREBASE INIT
+   ============================================================ */
 import { useState, useEffect, useCallback, useRef } from "react";
 import React from "react";
 import { initializeApp } from "firebase/app";
@@ -51,10 +78,18 @@ const googleProvider = new GoogleAuthProvider();
 // 자동 로그인 - 브라우저 종료 후에도 로그인 유지
 setPersistence(auth, browserLocalPersistence).catch(() => {});
 
-// ─── Styles ────────────────────────────────────────────────────────
+/* ============================================================
+   2. STYLES (CSS)
+   - Light mode + Soft Dark Mode CSS variable structure
+   - Consistent border-radius tokens: --r-chip(4px) --r-card(12px) --r-modal(14px)
+   - Smooth hover interactions: translateY, box-shadow, scale transitions
+   - clamp() + flex-wrap for perfect mobile responsiveness (max-width: 430px)
+   ============================================================ */
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── Light Mode (default) ── */
   :root {
     --cream:   #FBFBFA;
     --foam:    #FFFFFF;
@@ -65,9 +100,57 @@ const CSS = `
     --latte:   #B07D54;
     --accent:  #3D2B1F;
     --muted:   #8C8480;
-    --r8: 8px;
+
+    /* ── Border-radius tokens (일관성) ── */
+    --r-chip:  4px;   /* 마이크로 칩, 배지 */
+    --r-btn:   8px;   /* 버튼, 인풋 */
+    --r-card:  12px;  /* 레시피 카드, 메인 카드 */
+    --r-modal: 14px;  /* 모달 */
+    --r8: 8px; /* 하위 호환 */
+
+    /* ── Transition tokens ── */
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.22s ease;
+    --transition-slow: 0.35s ease;
+
+    /* ── Shadow tokens ── */
+    --shadow-card:  0 4px 16px rgba(26,22,20,0.06), 0 1px 4px rgba(26,22,20,0.04);
+    --shadow-hover: 0 8px 28px rgba(26,22,20,0.10), 0 2px 8px rgba(26,22,20,0.06);
+    --shadow-modal: 0 20px 60px rgba(26,22,20,0.16), 0 4px 16px rgba(26,22,20,0.08);
   }
-  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; overscroll-behavior-x: none; }
+
+  /* ── Soft Dark Mode — prefers-color-scheme 또는 [data-theme="dark"] ── */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --cream:   #1C1917;
+      --foam:    #231F1C;
+      --steam:   #332E2A;
+      --divider: #2C2825;
+      --espresso:#F2EDE8;
+      --roast:   #D4A47A;
+      --latte:   #C99B6E;
+      --accent:  #C99B6E;
+      --muted:   #8A8480;
+      --shadow-card:  0 4px 16px rgba(0,0,0,0.28), 0 1px 4px rgba(0,0,0,0.18);
+      --shadow-hover: 0 8px 28px rgba(0,0,0,0.38), 0 2px 8px rgba(0,0,0,0.22);
+      --shadow-modal: 0 20px 60px rgba(0,0,0,0.50), 0 4px 16px rgba(0,0,0,0.30);
+    }
+  }
+  [data-theme="dark"] {
+    --cream:   #1C1917;
+    --foam:    #231F1C;
+    --steam:   #332E2A;
+    --divider: #2C2825;
+    --espresso:#F2EDE8;
+    --roast:   #D4A47A;
+    --latte:   #C99B6E;
+    --accent:  #C99B6E;
+    --muted:   #8A8480;
+    --shadow-card:  0 4px 16px rgba(0,0,0,0.28), 0 1px 4px rgba(0,0,0,0.18);
+    --shadow-hover: 0 8px 28px rgba(0,0,0,0.38), 0 2px 8px rgba(0,0,0,0.22);
+    --shadow-modal: 0 20px 60px rgba(0,0,0,0.50), 0 4px 16px rgba(0,0,0,0.30);
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; overscroll-behavior-x: none; transition: background var(--transition-slow), color var(--transition-slow); }
   html { overflow-x: hidden; overscroll-behavior-x: none; }
 
   .auth-wrap {
@@ -76,9 +159,9 @@ const CSS = `
     padding: 16px;
   }
   .auth-card {
-    background: var(--foam); border: 1px solid var(--steam); border-radius: 8px;
+    background: var(--foam); border: 1px solid var(--steam); border-radius: var(--r-card);
     padding: clamp(1.5rem, 5vw, 3rem) clamp(1.2rem, 5vw, 2.5rem);
-    width: 100%; max-width: 440px; box-shadow: 0 16px 48px #1A1A1A08; position: relative;
+    width: 100%; max-width: 440px; box-shadow: var(--shadow-card); position: relative;
   }
   .auth-card::before {
     content: ''; position: absolute; top: 0; left: 2rem; right: 2rem; height: 2px;
@@ -111,20 +194,22 @@ const CSS = `
   .field { margin-bottom: 1.2rem; }
   .field label { display: block; font-size: 0.75rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.4rem; }
   .field input, .field select {
-    width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--steam); border-radius: 8px;
+    width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--steam); border-radius: var(--r-btn);
     background: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.95rem;
-    color: var(--espresso); outline: none; transition: border-color 0.2s;
+    color: var(--espresso); outline: none; transition: border-color var(--transition-base), box-shadow var(--transition-base);
   }
-  .field input:focus, .field select:focus { border-color: var(--latte); }
+  .field input:focus, .field select:focus { border-color: var(--latte); box-shadow: 0 0 0 3px rgba(176,125,84,0.12); }
 
   .btn-primary {
     width: 100%; padding: 0.85rem; background: var(--espresso); color: var(--foam);
-    border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif;
-    font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; margin-top: 0.5rem;
-    letter-spacing: 0.01em;
+    border: none; border-radius: var(--r-btn); font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem; font-weight: 500; cursor: pointer;
+    transition: background var(--transition-base), transform var(--transition-fast), box-shadow var(--transition-base);
+    margin-top: 0.5rem; letter-spacing: 0.01em;
   }
-  .btn-primary:hover { background: #2D1E15; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary:hover { background: #2D1E15; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,22,20,0.18); }
+  .btn-primary:active { transform: translateY(0); box-shadow: none; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
   .msg-error { color: #c0392b; font-size: 0.82rem; margin-top: 0.8rem; text-align: center; }
   .msg-ok { color: #27ae60; font-size: 0.82rem; margin-top: 0.8rem; text-align: center; }
 
@@ -260,31 +345,33 @@ const CSS = `
     padding: 0 16px; height: 36px;
     background: var(--espresso); color: var(--foam);
     border: 1px solid var(--espresso);
-    border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.8rem;
-    font-weight: 500; cursor: pointer; white-space: nowrap; transition: all 0.2s;
+    border-radius: var(--r-btn); font-family: 'DM Sans', sans-serif; font-size: 0.8rem;
+    font-weight: 500; cursor: pointer; white-space: nowrap;
+    transition: background var(--transition-base), transform var(--transition-fast), box-shadow var(--transition-base);
     display: inline-flex; align-items: center; gap: 7px; letter-spacing: 0.02em;
   }
-  .btn-new:hover { background: var(--roast); border-color: var(--roast); }
+  .btn-new:hover { background: var(--roast); border-color: var(--roast); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,22,20,0.18); }
+  .btn-new:active { transform: translateY(0); box-shadow: none; }
 
   .recipes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
   /* ── 카드 공통 폰트 기준 ──────────────────────────────── */
   /* label-xs : 0.68rem / label-sm : 0.75rem / body : 0.85rem / title : 1.05rem */
 
   .recipe-card {
-    background: var(--foam); border: 1px solid var(--divider); border-radius: 8px;
+    background: var(--foam); border: 1px solid var(--divider); border-radius: var(--r-card);
     padding: 24px;
     position: relative;
-    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; overflow: hidden;
+    transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base); overflow: hidden;
     font-family: 'DM Sans', sans-serif; text-align: left;
   }
-  .recipe-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px #1A1A1A06; border-color: #DEDAD6; }
+  .recipe-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); border-color: #DEDAD6; }
 
   /* 장비 칩 태그 */
   .card-chip {
     display: inline-flex; align-items: center; gap: 3px;
     font-family: 'DM Sans', sans-serif; font-size: 0.7rem; font-weight: 400;
     color: var(--muted); background: var(--cream);
-    border: 1px solid var(--steam); border-radius: 4px;
+    border: 1px solid var(--steam); border-radius: var(--r-chip);
     padding: 2px 8px; white-space: nowrap; line-height: 1.4;
   }
 
@@ -306,7 +393,7 @@ const CSS = `
   }
   /* 스탯 박스 */
   .card-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 16px; }
-  .stat { background: var(--cream); padding: 8px 4px; border-radius: 6px; text-align: center; border: 1px solid var(--divider); min-width: 0; }
+  .stat { background: var(--cream); padding: 8px 4px; border-radius: var(--r-btn); text-align: center; border: 1px solid var(--divider); min-width: 0; }
   .stat-val {
     font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 600;
     color: var(--roast); display: block; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -372,7 +459,7 @@ const CSS = `
     line-height: 1.6; max-width: 260px;
   }
   .pressure-box {
-    background: var(--foam); color: var(--espresso); border-radius: 2px;
+    background: var(--foam); color: var(--espresso); border-radius: var(--r-btn);
     padding: 0.8rem 1rem; margin-top: 0.5rem; font-size: 0.82rem; line-height: 1.7;
     border: 1px solid var(--steam);
   }
@@ -386,17 +473,17 @@ const CSS = `
   .pressure-high { color: #f39c12; }
   .pressure-low  { color: #e74c3c; }
   .star-rating { display: flex; gap: 0.3rem; align-items: center; }
-  .star-btn { background: none; border: none; cursor: pointer; font-size: 1.8rem; line-height: 1; padding: 0; transition: transform 0.1s; color: var(--steam); }
+  .star-btn { background: none; border: none; cursor: pointer; font-size: 1.8rem; line-height: 1; padding: 0; transition: transform var(--transition-fast); color: var(--steam); }
   .star-btn:hover, .star-btn.active { color: var(--latte); transform: scale(1.15); }
   .star-label { font-size: 0.78rem; color: var(--muted); margin-left: 0.4rem; }
-  .weather-box { display: flex; align-items: center; gap: 0.8rem; padding: 0.7rem 1rem; background: var(--cream); border: 1px solid var(--steam); border-radius: 2px; font-size: 0.85rem; color: var(--muted); }
+  .weather-box { display: flex; align-items: center; gap: 0.8rem; padding: 0.7rem 1rem; background: var(--cream); border: 1px solid var(--steam); border-radius: var(--r-btn); font-size: 0.85rem; color: var(--muted); }
   .weather-icon { font-size: 1.5rem; }
   .weather-info { display: flex; flex-direction: column; gap: 0.1rem; }
   .weather-main { font-size: 0.88rem; color: var(--espresso); font-weight: 500; }
   .weather-detail { font-size: 0.78rem; color: var(--muted); }
   .weather-loading { color: var(--muted); font-size: 0.82rem; display: flex; align-items: center; gap: 6px; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  .card-weather { font-family: "DM Sans", sans-serif; font-size: 0.75rem; color: var(--muted); padding: 0.35rem 0.7rem; background: var(--cream); border-radius: 4px; margin-bottom: 0.6rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .card-weather { font-family: "DM Sans", sans-serif; font-size: 0.75rem; color: var(--muted); padding: 0.35rem 0.7rem; background: var(--cream); border-radius: var(--r-chip); margin-bottom: 0.6rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
   .menu-selector {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -406,15 +493,15 @@ const CSS = `
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 6px;
     padding: 12px 8px 10px;
-    border: 1px solid var(--steam); border-radius: 8px;
+    border: 1px solid var(--steam); border-radius: var(--r-btn);
     background: var(--foam);
     font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 400;
-    color: var(--muted); cursor: pointer; transition: all 0.18s;
+    color: var(--muted); cursor: pointer; transition: all var(--transition-base);
     line-height: 1.2; text-align: center; white-space: nowrap;
   }
   .menu-btn:hover {
     border-color: var(--latte); color: var(--espresso);
-    background: #FDF9F6;
+    background: #FDF9F6; transform: translateY(-1px);
   }
   .menu-btn:hover svg { color: var(--latte); }
   .menu-btn.selected {
@@ -422,36 +509,38 @@ const CSS = `
     border-color: var(--espresso); font-weight: 500;
   }
   .menu-btn.selected svg { color: var(--cream); opacity: 0.9; }
-  .menu-btn svg { flex-shrink: 0; transition: color 0.18s; }
-  .timer-box { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 1rem 1rem 0.8rem; background: var(--cream); border: 1px solid var(--steam); border-radius: 2px; margin-top: 0.5rem; }
+  .menu-btn svg { flex-shrink: 0; transition: color var(--transition-base); }
+  .timer-box { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 1rem 1rem 0.8rem; background: var(--cream); border: 1px solid var(--steam); border-radius: var(--r-btn); margin-top: 0.5rem; }
   .timer-display { font-family: 'Playfair Display', serif; font-size: 3rem; color: var(--espresso); letter-spacing: 0.08em; line-height: 1; min-width: 4rem; text-align: center; }
   .timer-display.running { color: var(--accent); }
   .timer-display.done { color: #27ae60; }
   .timer-btns { display: flex; gap: 0.5rem; width: 100%; }
-  .timer-start { flex: 1; padding: 0.6rem 0; background: var(--espresso); color: var(--cream); border: none; border-radius: 2px; font-family: 'DM Sans',sans-serif; font-size: 0.85rem; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
-  .timer-start:hover { background: var(--roast); }
-  .timer-reset { flex: 1; padding: 0.6rem 0; background: none; border: 1px solid var(--steam); border-radius: 2px; font-family: 'DM Sans',sans-serif; font-size: 0.85rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .timer-start { flex: 1; padding: 0.6rem 0; background: var(--espresso); color: var(--cream); border: none; border-radius: var(--r-btn); font-family: 'DM Sans',sans-serif; font-size: 0.85rem; cursor: pointer; transition: background var(--transition-base), transform var(--transition-fast); white-space: nowrap; }
+  .timer-start:hover { background: var(--roast); transform: translateY(-1px); }
+  .timer-start:active { transform: translateY(0); }
+  .timer-reset { flex: 1; padding: 0.6rem 0; background: none; border: 1px solid var(--steam); border-radius: var(--r-btn); font-family: 'DM Sans',sans-serif; font-size: 0.85rem; color: var(--muted); cursor: pointer; white-space: nowrap; transition: border-color var(--transition-base), color var(--transition-base); }
+  .timer-reset:hover { border-color: var(--espresso); color: var(--espresso); }
   .bean-counter { display: flex; flex-direction: column; gap: 0.5rem; }
   .bean-counter-label { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
   .bean-counter-display { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-  .bean-icons { display: flex; flex-wrap: wrap; gap: 0.3rem; min-height: 2rem; align-items: center; padding: 0.5rem; background: var(--cream); border: 1px solid var(--steam); border-radius: 2px; flex: 1; }
-  .bean-icon { cursor: pointer; transition: transform 0.1s; display: inline-flex; align-items: center; }
+  .bean-icons { display: flex; flex-wrap: wrap; gap: 0.3rem; min-height: 2rem; align-items: center; padding: 0.5rem; background: var(--cream); border: 1px solid var(--steam); border-radius: var(--r-btn); flex: 1; }
+  .bean-icon { cursor: pointer; transition: transform var(--transition-fast); display: inline-flex; align-items: center; }
   .bean-icon:hover { transform: scale(1.2); }
   .bean-counter-btns { display: flex; gap: 0.4rem; }
-  .bean-btn { width: 2rem; height: 2rem; border: 1px solid var(--steam); border-radius: 2px; background: var(--foam); font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; color: var(--espresso); }
+  .bean-btn { width: 2rem; height: 2rem; border: 1px solid var(--steam); border-radius: var(--r-btn); background: var(--foam); font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: border-color var(--transition-base), color var(--transition-base); color: var(--espresso); }
   .bean-btn:hover { border-color: var(--accent); color: var(--accent); }
   .bean-count-text { font-size: 0.82rem; color: var(--muted); min-width: 3rem; }
   .auto-badge { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; background: var(--latte); color: var(--espresso); padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: 500; margin-left: 0.4rem; }
   .autocomplete-wrap { position: relative; }
   .autocomplete-list {
-    position: absolute; top: calc(100% + 2px); left: 0; right: 0;
-    background: var(--foam); border: 1px solid var(--latte); border-radius: 2px;
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--foam); border: 1px solid var(--latte); border-radius: var(--r-btn);
     max-height: 200px; overflow-y: auto; z-index: 300;
-    box-shadow: 0 4px 20px #2c181018;
+    box-shadow: var(--shadow-hover);
   }
   .autocomplete-item {
     padding: 0.6rem 1rem; font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
-    color: var(--espresso); cursor: pointer; transition: background 0.1s;
+    color: var(--espresso); cursor: pointer; transition: background var(--transition-fast);
   }
   .autocomplete-item:hover, .autocomplete-item.active { background: var(--cream); color: var(--roast); }
   .btn-bookmark { background: none; border: none; cursor: pointer; font-size: 0.95rem; color: var(--muted); transition: all 0.15s; padding: 0; line-height: 1; display: inline-flex; align-items: center; }
@@ -464,9 +553,9 @@ const CSS = `
   .bookmark-tab { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
   .bookmark-tab-btn {
     padding: 7px 14px;
-    border: 1px solid var(--steam); border-radius: 8px; background: var(--foam);
+    border: 1px solid var(--steam); border-radius: var(--r-btn); background: var(--foam);
     font-family: 'DM Sans', sans-serif; font-size: 0.8rem; color: var(--muted);
-    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    cursor: pointer; transition: border-color var(--transition-base), color var(--transition-base), background var(--transition-base); white-space: nowrap;
     display: inline-flex; align-items: center; justify-content: center; gap: 5px;
     line-height: 1;
   }
@@ -499,7 +588,7 @@ const CSS = `
     display: flex; align-items: center; gap: 16px;
     padding: 16px 20px;
     border-bottom: 1px solid var(--divider);
-    cursor: pointer; transition: background 0.15s;
+    cursor: pointer; transition: background var(--transition-fast);
     position: relative;
   }
   .best-row:last-child { border-bottom: none; }
@@ -551,37 +640,38 @@ const CSS = `
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .modal {
-    background: var(--foam); border: 1px solid var(--steam); border-radius: 8px;
+    background: var(--foam); border: 1px solid var(--steam); border-radius: var(--r-modal);
     padding: 32px 28px; width: 100%; max-width: 500px; max-height: 90vh;
-    overflow-y: auto; overflow-x: hidden; position: relative; animation: slideUp 0.2s ease;
-    text-align: left; box-shadow: 0 24px 48px #1A1A1A10;
+    overflow-y: auto; overflow-x: hidden; position: relative; animation: slideUp 0.22s ease;
+    text-align: left; box-shadow: var(--shadow-modal);
     touch-action: pan-y; overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
-  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .modal::before { content: ''; position: absolute; top: 0; left: 2rem; right: 2rem; height: 2px; background: linear-gradient(90deg, transparent, var(--latte), transparent); }
   .modal h2 { font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 24px; color: var(--espresso); }
   .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .modal-grid .field { margin-bottom: 0; }
   .field.full { grid-column: 1 / -1; }
   .modal-actions { display: flex; gap: 8px; margin-top: 24px; justify-content: flex-end; }
-  .btn-cancel { padding: 0.7rem 1.5rem; background: none; border: 1px solid var(--steam); border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; color: var(--muted); cursor: pointer; transition: all 0.2s; }
-  .btn-cancel:hover { border-color: var(--muted); }
-  textarea { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--steam); border-radius: 2px; background: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--espresso); outline: none; resize: vertical; min-height: 80px; }
-  textarea:focus { border-color: var(--latte); }
+  .btn-cancel { padding: 0.7rem 1.5rem; background: none; border: 1px solid var(--steam); border-radius: var(--r-btn); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; color: var(--muted); cursor: pointer; transition: border-color var(--transition-base), color var(--transition-base); }
+  .btn-cancel:hover { border-color: var(--muted); color: var(--espresso); }
+  textarea { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--steam); border-radius: var(--r-btn); background: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.9rem; color: var(--espresso); outline: none; resize: vertical; min-height: 80px; transition: border-color var(--transition-base), box-shadow var(--transition-base); }
+  textarea:focus { border-color: var(--latte); box-shadow: 0 0 0 3px rgba(176,125,84,0.12); }
   .loading-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--cream); }
   .loading-wrap p { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--muted); }
   .my-section { margin-bottom: 1.8rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--steam); }
   .my-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
   .my-section-title { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--espresso); margin-bottom: 1rem; }
   .my-locked-row { display: flex; gap: 0.5rem; align-items: center; }
-  .my-locked-val { flex: 1; padding: 0.7rem 1rem; border: 1px solid var(--steam); border-radius: 2px; background: var(--steam); font-size: 0.9rem; color: var(--espresso); font-weight: 500; }
-  .btn-change { padding: 0.7rem 0.8rem; background: none; border: 1px solid var(--steam); border-radius: 2px; font-family: 'DM Sans',sans-serif; font-size: 0.8rem; color: var(--muted); cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.2s; }
+  .my-locked-val { flex: 1; padding: 0.7rem 1rem; border: 1px solid var(--steam); border-radius: var(--r-btn); background: var(--steam); font-size: 0.9rem; color: var(--espresso); font-weight: 500; }
+  .btn-change { padding: 0.7rem 0.8rem; background: none; border: 1px solid var(--steam); border-radius: var(--r-btn); font-family: 'DM Sans',sans-serif; font-size: 0.8rem; color: var(--muted); cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: border-color var(--transition-base), color var(--transition-base); }
   .btn-change:hover { border-color: var(--accent); color: var(--accent); }
   .save-row { display: flex; justify-content: flex-end; margin-top: 0.8rem; }
-  .btn-save-sm { padding: 0.6rem 1.5rem; background: var(--espresso); color: var(--cream); border: none; border-radius: 2px; font-family: 'DM Sans',sans-serif; font-size: 0.85rem; cursor: pointer; transition: background 0.2s; }
-  .btn-save-sm:hover { background: var(--roast); }
-  .btn-save-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-save-sm { padding: 0.6rem 1.5rem; background: var(--espresso); color: var(--cream); border: none; border-radius: var(--r-btn); font-family: 'DM Sans',sans-serif; font-size: 0.85rem; cursor: pointer; transition: background var(--transition-base), transform var(--transition-fast); }
+  .btn-save-sm:hover { background: var(--roast); transform: translateY(-1px); }
+  .btn-save-sm:active { transform: translateY(0); }
+  .btn-save-sm:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
 
   /* ── Admin ── */
@@ -610,8 +700,9 @@ const CSS = `
   .admin-tab:hover:not(.active) { border-color: var(--espresso); color: var(--espresso); }
 
   .admin-card {
-    background: var(--foam); border: 1px solid var(--divider); border-radius: 8px;
+    background: var(--foam); border: 1px solid var(--divider); border-radius: var(--r-card);
     padding: 16px 20px; margin-bottom: 16px; box-sizing: border-box; width: 100%;
+    transition: box-shadow var(--transition-base);
   }
   .admin-card-title {
     font-family: 'DM Sans', sans-serif; font-size: 0.72rem; font-weight: 600;
@@ -620,9 +711,11 @@ const CSS = `
 
   .admin-stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
   .stat-card {
-    background: var(--foam); border: 1px solid var(--divider); border-radius: 8px;
+    background: var(--foam); border: 1px solid var(--divider); border-radius: var(--r-card);
     padding: 16px 12px; text-align: center; box-sizing: border-box;
+    transition: box-shadow var(--transition-base);
   }
+  .stat-card:hover { box-shadow: var(--shadow-card); }
   .stat-card-val { font-family: 'Playfair Display', serif; font-size: 1.8rem; color: var(--espresso); display: block; font-weight: 700; }
   .stat-card-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; display: block; }
 
@@ -632,10 +725,10 @@ const CSS = `
   .admin-table tr:last-child td { border-bottom: none; }
   .admin-table tr:hover td { background: var(--cream); }
 
-  .btn-danger { padding: 0 10px; height: 28px; background: none; border: 1px solid #c0392b40; color: #c0392b; border-radius: 6px; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+  .btn-danger { padding: 0 10px; height: 28px; background: none; border: 1px solid #c0392b40; color: #c0392b; border-radius: var(--r-btn); font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base); display: inline-flex; align-items: center; gap: 4px; }
   .btn-danger:hover { background: #c0392b; color: white; border-color: #c0392b; }
 
-  .admin-action-btn { padding: 0 12px; height: 30px; border: none; border-radius: 6px; font-family: 'DM Sans',sans-serif; font-size: 0.78rem; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px; font-weight: 500; }
+  .admin-action-btn { padding: 0 12px; height: 30px; border: none; border-radius: var(--r-btn); font-family: 'DM Sans',sans-serif; font-size: 0.78rem; cursor: pointer; transition: background var(--transition-base), color var(--transition-base); display: inline-flex; align-items: center; gap: 5px; font-weight: 500; }
   .admin-action-restore { background: #eafaf1; color: #27ae60; }
   .admin-action-restore:hover { background: #27ae60; color: white; }
   .admin-action-hide { background: #fef9e7; color: #e67e22; }
@@ -644,7 +737,7 @@ const CSS = `
   .admin-action-delete:hover { background: #e74c3c; color: white; }
 
   .notice-form { display: flex; flex-direction: column; gap: 12px; }
-  .notice-item { background: var(--foam); border: 1px solid var(--divider); border-radius: 8px; padding: 16px; }
+  .notice-item { background: var(--foam); border: 1px solid var(--divider); border-radius: var(--r-card); padding: 16px; }
   .notice-item-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
   .notice-item-title { font-weight: 600; color: var(--espresso); margin-bottom: 4px; font-size: 0.9rem; }
   .notice-item-body { font-size: 0.82rem; color: var(--muted); line-height: 1.55; }
@@ -652,14 +745,14 @@ const CSS = `
 
   .brand-tag {
     display: inline-flex; align-items: center; gap: 6px;
-    background: var(--cream); border: 1px solid var(--steam); border-radius: 6px;
+    background: var(--cream); border: 1px solid var(--steam); border-radius: var(--r-btn);
     padding: 4px 10px; font-size: 0.82rem; color: var(--espresso);
   }
-  .brand-tag-remove { background: none; border: none; cursor: pointer; color: var(--muted); padding: 0; line-height: 1; display: flex; align-items: center; transition: color 0.15s; }
+  .brand-tag-remove { background: none; border: none; cursor: pointer; color: var(--muted); padding: 0; line-height: 1; display: flex; align-items: center; transition: color var(--transition-fast); }
   .brand-tag-remove:hover { color: #c0392b; }
 
   .report-card {
-    border: 1px solid var(--divider); border-radius: 8px; padding: 16px;
+    border: 1px solid var(--divider); border-radius: var(--r-card); padding: 16px;
     background: var(--foam);
   }
   .report-card.pending { border-left: 3px solid #e74c3c; }
@@ -686,10 +779,10 @@ const CSS = `
     .notice-item-header { flex-direction: column; gap: 8px; }
     .notice-item-date { align-self: flex-start; }
   }
-  .btn-admin-header { background: none; border: 1px solid #e74c3c40; color: #c0392b; padding: 0 12px; height: 32px; border-radius: 8px; font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; }
+  .btn-admin-header { background: none; border: 1px solid #e74c3c40; color: #c0392b; padding: 0 12px; height: 32px; border-radius: var(--r-btn); font-family: 'DM Sans',sans-serif; font-size: 0.72rem; cursor: pointer; transition: border-color var(--transition-base); white-space: nowrap; display: inline-flex; align-items: center; }
   .btn-admin-header:hover { border-color: #ff6b6b; }
   /* ── 알림 ── */
-  .notif-btn { position: relative; background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px; line-height: 1; transition: color 0.2s; display: flex; align-items: center; }
+  .notif-btn { position: relative; background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px; line-height: 1; transition: color var(--transition-base); display: flex; align-items: center; }
   .notif-btn:hover { color: var(--espresso); }
   .notif-badge { position: absolute; top: -3px; right: -5px; background: #e74c3c; color: white; font-size: 0.55rem; font-weight: 700; min-width: 15px; height: 15px; border-radius: 999px; display: flex; align-items: center; justify-content: center; padding: 0 3px; font-family: 'DM Sans',sans-serif; }
   .notif-dropdown {
@@ -700,14 +793,14 @@ const CSS = `
     max-width: calc(100vw - 24px);
     background: var(--foam);
     border: 1px solid var(--divider);
-    border-radius: 8px;
-    box-shadow: 0 8px 32px #0003;
+    border-radius: var(--r-card);
+    box-shadow: var(--shadow-modal);
     z-index: 9999;
     overflow: hidden;
   }
   .notif-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--divider); font-family: 'DM Sans',sans-serif; font-size: 0.85rem; font-weight: 600; color: var(--espresso); }
   .notif-list { max-height: 360px; overflow-y: auto; }
-  .notif-item { padding: 12px 16px; border-bottom: 1px solid var(--divider); cursor: pointer; transition: background 0.15s; display: flex; flex-direction: column; gap: 4px; }
+  .notif-item { padding: 12px 16px; border-bottom: 1px solid var(--divider); cursor: pointer; transition: background var(--transition-fast); display: flex; flex-direction: column; gap: 4px; }
   .notif-item:last-child { border-bottom: none; }
   .notif-item:hover { background: var(--cream); }
   .notif-item.unread { background: #FDF6EF; border-left: 3px solid var(--latte); padding-left: 13px; }
@@ -846,11 +939,11 @@ const CSS = `
   }
   .bean-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
   .bean-card {
-    background: var(--foam); border: 1px solid var(--divider); border-radius: 8px;
-    padding: 20px; position: relative; transition: transform 0.2s, box-shadow 0.2s;
+    background: var(--foam); border: 1px solid var(--divider); border-radius: var(--r-card);
+    padding: 20px; position: relative; transition: transform var(--transition-base), box-shadow var(--transition-base);
     font-family: 'DM Sans', sans-serif;
   }
-  .bean-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px #1A1A1A06; }
+  .bean-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
   .bean-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
   .bean-card-name { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; color: var(--espresso); line-height: 1.25; }
   .bean-card-roastery { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; opacity: 0.75; }
@@ -888,20 +981,20 @@ const CSS = `
   .bean-roast-label { font-size: 0.68rem; color: var(--muted); white-space: nowrap; min-width: 56px; text-align: right; }
 
   .bean-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-  .bean-stat { background: var(--cream); border: 1px solid var(--divider); border-radius: 6px; padding: 7px 6px; text-align: center; }
+  .bean-stat { background: var(--cream); border: 1px solid var(--divider); border-radius: var(--r-btn); padding: 7px 6px; text-align: center; }
   .bean-stat-val { font-size: 0.88rem; font-weight: 600; color: var(--espresso); display: block; line-height: 1.2; }
   .bean-stat-lbl { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-top: 2px; }
 
   .bean-card-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--divider); }
   .bean-days-chip { font-size: 0.72rem; color: var(--muted); }
   .bean-actions { display: flex; gap: 6px; }
-  .bean-btn { background: none; border: 1px solid var(--steam); border-radius: 6px; padding: 0 10px; height: 26px; font-family: 'DM Sans',sans-serif; font-size: 0.7rem; color: var(--muted); cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; }
+  .bean-btn { background: none; border: 1px solid var(--steam); border-radius: var(--r-btn); padding: 0 10px; height: 26px; font-family: 'DM Sans',sans-serif; font-size: 0.7rem; color: var(--muted); cursor: pointer; transition: border-color var(--transition-base), color var(--transition-base); display: inline-flex; align-items: center; }
   .bean-btn:hover { border-color: var(--espresso); color: var(--espresso); }
   .bean-btn.danger:hover { border-color: #c0392b; color: #c0392b; }
 
   /* status selector */
   .bean-status-row { display: flex; gap: 6px; margin-bottom: 12px; }
-  .bean-status-btn { flex: 1; padding: 6px 4px; border: 1px solid var(--steam); border-radius: 6px; background: var(--foam); font-family: 'DM Sans',sans-serif; font-size: 0.72rem; color: var(--muted); cursor: pointer; transition: all 0.2s; text-align: center; }
+  .bean-status-btn { flex: 1; padding: 6px 4px; border: 1px solid var(--steam); border-radius: var(--r-btn); background: var(--foam); font-family: 'DM Sans',sans-serif; font-size: 0.72rem; color: var(--muted); cursor: pointer; transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base); text-align: center; }
   .bean-status-btn.active { background: var(--espresso); color: var(--cream); border-color: var(--espresso); font-weight: 500; }
 
   @media (max-width: 600px) {
@@ -911,6 +1004,9 @@ const CSS = `
 `;
 
 
+/* ============================================================
+   3. CONSTANTS & I18N
+   ============================================================ */
 const SECURITY_QUESTIONS = [
   "첫 번째로 키운 반려동물의 이름은?",
   "초등학교 때 가장 친한 친구 이름은?",
@@ -1558,6 +1654,10 @@ function isBothModeBrand(brand) {
 }
 
 // 브랜드 기본값 (Firestore에서 덮어씀)
+/* ============================================================
+   4. UTILITY FUNCTIONS
+   (Brand/Bean/Preset storage helpers, calcPressure, formatPrice)
+   ============================================================ */
 const DEFAULT_MACHINE_BRANDS = [
   // ── 상업용 ──
   "La Marzocco (라마르조코)",
@@ -1781,7 +1881,11 @@ const formatCostPerCup = (cost, currency, rate = null) => {
   return `${Math.round(n)}원/잔`;
 };
 
-// ─── CoffeeBeanIcon ────────────────────────────────────────────────
+/* ============================================================
+   5. SUB-COMPONENTS
+   ============================================================ */
+
+/* 5-1. CoffeeBeanIcon */
 function CoffeeBeanIcon({ size = 22, color = "#5c3317" }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1791,15 +1895,19 @@ function CoffeeBeanIcon({ size = 22, color = "#5c3317" }) {
   );
 }
 
-// ─── BrandInput (자동완성 입력창) ─────────────────────────────────
-function BrandInput({ value, onChange, brands, placeholder }) {
+/* 5-2. BrandInput — React.memo + useMemo 최적화 (자동완성 재연산 방지) */
+const BrandInput = React.memo(function BrandInput({ value, onChange, brands, placeholder }) {
   const [query, setQuery] = useState(value || "");
   const [open, setOpen] = useState(false);
   const wrapRef = React.useRef(null);
 
-  const filtered = query.trim()
-    ? brands.filter(b => b.toLowerCase().includes(query.toLowerCase()))
-    : brands;
+  // useMemo: query 또는 brands가 바뀔 때만 필터링 재연산
+  const filtered = React.useMemo(() =>
+    query.trim()
+      ? brands.filter(b => b.toLowerCase().includes(query.toLowerCase()))
+      : brands,
+    [query, brands]
+  );
 
   useEffect(() => {
     const handler = e => {
@@ -1809,11 +1917,11 @@ function BrandInput({ value, onChange, brands, placeholder }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const select = (b) => {
+  const select = useCallback((b) => {
     setQuery(b);
     onChange(b);
     setOpen(false);
-  };
+  }, [onChange]);
 
   return (
     <div className="autocomplete-wrap" ref={wrapRef}>
@@ -1822,7 +1930,7 @@ function BrandInput({ value, onChange, brands, placeholder }) {
         onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         placeholder={placeholder || "브랜드 입력 또는 검색…"}
-        style={{ width: "100%", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "2px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }}
+        style={{ width: "100%", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none", transition: "border-color var(--transition-base)" }}
       />
       {open && filtered.length > 0 && (
         <div className="autocomplete-list">
@@ -1833,10 +1941,11 @@ function BrandInput({ value, onChange, brands, placeholder }) {
       )}
     </div>
   );
-}
+});
 
 
 
+/* 5-3 prefix — I18N (다국어) ── 새 텍스트: brewPressureDetail, continuousMemo */
 // ─── 다국어 ────────────────────────────────────────────────────────
 const I18N = {
   ko: {
@@ -1878,6 +1987,10 @@ const I18N = {
     pressureTitle: "예상 추출 압력", brewPressure: "추출 압력",
     pressureGood: "✅ 적정 압력", pressureHigh: "⚠️ 압력 높음", pressureLow: "⚠️ 압력 낮음",
     pressureRange: "적정: 9~11 bar",
+    brewPressureDetail: "추출 압력 세부 기록 (BAR)",
+    brewPressureDetailPh: "예) 9.0 — 직접 측정한 압력게이지 값",
+    continuousMemo: "연속 추출 메모",
+    continuousMemoPh: "예) 2샷 연속 / 더블 샷 / 탬핑 조정 후 재추출 등",
     save: "기록 저장", update: "수정 저장", saving: "저장 중…", cancel: "취소",
     deleteConfirm: "이 레시피를 삭제할까요?",
     mySettings: "MY 설정", myMachine: "커피 머신", myGrinder: "그라인더",
@@ -1960,6 +2073,10 @@ const I18N = {
     pressureTitle: "Est. Brew Pressure", brewPressure: "Brew Pressure",
     pressureGood: "✅ Optimal", pressureHigh: "⚠️ Too High", pressureLow: "⚠️ Too Low",
     pressureRange: "Optimal: 9~11 bar",
+    brewPressureDetail: "Brew Pressure Detail (BAR)",
+    brewPressureDetailPh: "e.g. 9.0 — measured gauge reading",
+    continuousMemo: "Continuous Extraction Note",
+    continuousMemoPh: "e.g. 2nd shot / double shot / after tamping adjustment",
     save: "Save", update: "Update", saving: "Saving…", cancel: "Cancel",
     deleteConfirm: "Delete this recipe?",
     mySettings: "My Settings", myMachine: "Coffee Machine", myGrinder: "Grinder",
@@ -2180,6 +2297,7 @@ function calcPressure(espressoMl, seconds) {
   };
 }
 
+/* 5-4. TimerField — setInterval은 내부 state만 업데이트, 폼 재렌더 완전 격리 */
 // ─── TimerField ────────────────────────────────────────────────────
 function TimerField({ value, infusionValue, onChange, onInfusionChange, lang, t }) {
   // phase: idle | infusing | extracting | done
@@ -2361,6 +2479,7 @@ function TimerField({ value, infusionValue, onChange, onInfusionChange, lang, t 
   );
 }
 
+/* 5-5. FlavorRadar — SVG 레이더 차트 */
 // ─── RecipeModal ───────────────────────────────────────────────────
 // ─── Flavor Radar Chart ────────────────────────────────────────────
 const FLAVOR_AXES = [
@@ -2555,6 +2674,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     waterType: editTarget.waterType || "",
     waterBrand: editTarget.waterBrand || "",
     diluteCustom: editTarget.diluteCustom || "",
+    brewPressureBar: editTarget.brewPressureBar || "",    // [신규] 하위 호환
+    continuousMemo: editTarget.continuousMemo || "",     // [신규] 하위 호환
     // 복사 시 기록 날짜는 오늘로 초기화
     recordDate: isCopy ? new Date().toISOString().split("T")[0] : (editTarget.recordDate || new Date().toISOString().split("T")[0]),
     // 복사 시 공개 여부는 기본 공개로
@@ -2580,7 +2701,9 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     grindSize: savedDefaults?.grindSize || "",
     isPublic: true,
     isIced: false,
-    syrup: "", note: ""
+    syrup: "", note: "",
+    brewPressureBar: "",   // [신규] 추출 압력 세부 기록 (BAR, 직접 측정값)
+    continuousMemo: "",    // [신규] 연속 추출 메모
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [saving, setSaving] = useState(false);
@@ -2678,6 +2801,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       diluteMl:        preset.diluteMl        ?? "",
       diluteType:      preset.diluteType      ?? "물",
       syrup:           preset.syrup           ?? "",
+      brewPressureBar: preset.brewPressureBar ?? "",   // [신규]
+      continuousMemo:  preset.continuousMemo  ?? "",   // [신규]
     }));
   };
 
@@ -2711,6 +2836,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       diluteMl:        form.diluteMl,
       diluteType:      form.diluteType,
       syrup:           form.syrup || "",
+      brewPressureBar: form.brewPressureBar || "",   // [신규]
+      continuousMemo:  form.continuousMemo || "",    // [신규]
       createdAt: new Date().toISOString(),
     };
     const updated = [...presets, newPreset];
@@ -2856,6 +2983,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         grindSize: form.grindSize,
         isPublic: form.isPublic !== false,
         linkedBeanId: linkedBeanId || null,
+        brewPressureBar: form.brewPressureBar || null,   // [신규] 직접 측정 압력값
+        continuousMemo: form.continuousMemo || "",       // [신규] 연속 추출 메모
       };
       if (isEdit) {
         const { id, ...rest } = payload;
@@ -2968,6 +3097,64 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         } catch(e) { console.error("[알림] 구독자 알림 오류:", e.message); }
       }
       onSave();
+
+      // ── 자동 구글 드라이브 백업 (백그라운드, 실패해도 저장은 완료) ──
+      try {
+        const autoKey  = `brewlog_gdrive_auto_${user?.uid}`;
+        const tokenKey = `brewlog_gdrive_token_${user?.uid}`;
+        const isAuto   = localStorage.getItem(autoKey) === "true";
+        const token    = sessionStorage.getItem(tokenKey);
+        if (isAuto && token) {
+          (async () => {
+            try {
+              if (!window.XLSX) {
+                await new Promise((res, rej) => {
+                  const s = document.createElement("script");
+                  s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+                  s.onload = res; s.onerror = rej;
+                  document.head.appendChild(s);
+                });
+              }
+              const XLSX = window.XLSX;
+              const snap = await getDocs(query(collection(db, "recipes"), where("uid", "==", user.uid)));
+              const recs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+              recs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+              if (!recs.length) return;
+              const fmtD = (v) => { if (!v) return ""; if (v?.toDate) return v.toDate().toISOString().slice(0,10); return typeof v==="string"?v.slice(0,10):""; };
+              const WL = { tap:"수돗물", filter:"정수기", bottle:"생수", other:"기타" };
+              const hdrs = ["메뉴","원두명","원두회사","로스팅일자","기록날짜","커피머신","그라인더","분쇄도","원두량(g)","추출시간(s)","추출량(ml)","물온도(°C)","물종류","희석종류","희석량(ml)","별점(1-5)","메모","공개","추출압력(BAR)","연속추출메모","하트수","작성일시"];
+              const rows = recs.map(r => {
+                const mn = COFFEE_MENUS.find(x => x.id === r.menuId);
+                return [r.menuLabel||mn?.label||"", r.bean||"", r.company||"", r.roastDate||"", r.recordDate||fmtD(r.createdAt), r.machine||"", r.grinder||"", r.grindSize||"", r.gram||"", r.seconds||"", r.espressoMl||"", r.waterTemp||"", WL[r.waterType]||r.waterType||"", r.diluteType||"", r.diluteMl||"", r.rating||0, r.note||"", r.isPublic!==false?"TRUE":"FALSE", r.brewPressureBar||"", r.continuousMemo||"", r.likedBy?.length||0, fmtD(r.createdAt)];
+              });
+              const ws = XLSX.utils.aoa_to_sheet([hdrs, ...rows]);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "내 레시피");
+              const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+              const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+              const fileName = "brewlog_backup.xlsx";
+              const auth = { Authorization: `Bearer ${token}` };
+              const fs = await fetch(`https://www.googleapis.com/drive/v3/files?q=name%3D'Brewlog'%20and%20mimeType%3D'application%2Fvnd.google-apps.folder'%20and%20trashed%3Dfalse&fields=files(id)`, { headers: auth }).then(r=>r.json());
+              let fid = fs.files?.[0]?.id;
+              if (!fid) {
+                const fr = await fetch("https://www.googleapis.com/drive/v3/files", { method:"POST", headers:{...auth,"Content-Type":"application/json"}, body:JSON.stringify({name:"Brewlog",mimeType:"application/vnd.google-apps.folder"}) }).then(r=>r.json());
+                fid = fr.id;
+              }
+              const ex = await fetch(`https://www.googleapis.com/drive/v3/files?q=name%3D'${fileName}'%20and%20'${fid}'%20in%20parents%20and%20trashed%3Dfalse&fields=files(id)`, { headers: auth }).then(r=>r.json());
+              const bnd = "bl_bnd";
+              const meta = { name: fileName, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" };
+              const mkBody = (m) => [`--${bnd}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(m)}\r\n`, `--${bnd}\r\nContent-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\nContent-Transfer-Encoding: base64\r\n\r\n${b64}\r\n`, `--${bnd}--`].join("");
+              if (ex.files?.length > 0) {
+                await fetch(`https://www.googleapis.com/upload/drive/v3/files/${ex.files[0].id}?uploadType=multipart`, { method:"PATCH", headers:{...auth,"Content-Type":`multipart/related; boundary=${bnd}`}, body: mkBody(meta) });
+              } else {
+                meta.parents = [fid];
+                await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`, { method:"POST", headers:{...auth,"Content-Type":`multipart/related; boundary=${bnd}`}, body: mkBody(meta) });
+              }
+              console.log("[GDrive] 자동 백업 완료");
+            } catch (gErr) { console.warn("[GDrive] 자동 백업 실패:", gErr.message); }
+          })();
+        }
+      } catch (gErr) { /* 자동 백업 오류는 저장에 영향 없음 */ }
     } catch (e) { alert("저장 오류: " + e.message); }
     setSaving(false);
   };
@@ -3719,6 +3906,66 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             <textarea value={form.note} onChange={e => set("note", e.target.value)} placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"} />
           </div>
 
+          {/* ── [신규] 추출 압력 세부 기록 (BAR) + 연속 추출 메모 ── */}
+          {machineType !== "handdrip" && (
+            <div className="field full" style={{ background: "var(--cream)", border: "1px solid var(--divider)", borderRadius: "var(--r-card)", padding: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
+              {/* 섹션 헤더 */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="8" cy="8" r="6.5" stroke="var(--latte)" strokeWidth="1.3"/>
+                  <path d="M8 5v3.5l2 1.5" stroke="var(--latte)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 700, color: "var(--espresso)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  {lang === "en" ? "Advanced Brew Log" : "추출 세부 기록"}
+                </span>
+              </div>
+              {/* 압력 직접 입력 */}
+              <div>
+                <label style={{ display: "block", fontSize: "0.72rem", color: "var(--muted)", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: "6px" }}>
+                  {t.brewPressureDetail}
+                </label>
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <input
+                    type="number" min="0" max="20" step="0.1"
+                    value={form.brewPressureBar || ""}
+                    onChange={e => set("brewPressureBar", e.target.value)}
+                    placeholder={t.brewPressureDetailPh}
+                    style={{ width: "100%", padding: "0.7rem 3.2rem 0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", color: "var(--espresso)", outline: "none", transition: "border-color var(--transition-base)" }}
+                    onFocus={e => e.target.style.borderColor = "var(--latte)"}
+                    onBlur={e => e.target.style.borderColor = "var(--steam)"}
+                  />
+                  <span style={{ position: "absolute", right: "12px", fontSize: "0.8rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, pointerEvents: "none" }}>BAR</span>
+                </div>
+                {form.brewPressureBar && (() => {
+                  const bar = parseFloat(form.brewPressureBar);
+                  const status = bar >= 9 && bar <= 11 ? "good" : bar > 11 ? "high" : "low";
+                  const colors = { good: "#27ae60", high: "#e67e22", low: "#2980b9" };
+                  const labels = { good: t.pressureGood, high: t.pressureHigh, low: t.pressureLow };
+                  return (
+                    <p style={{ marginTop: "5px", fontSize: "0.75rem", color: colors[status], display: "flex", alignItems: "center", gap: "4px" }}>
+                      {labels[status]} ({t.pressureRange})
+                    </p>
+                  );
+                })()}
+              </div>
+              {/* 연속 추출 메모 */}
+              <div>
+                <label style={{ display: "block", fontSize: "0.72rem", color: "var(--muted)", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: "6px" }}>
+                  {t.continuousMemo}
+                </label>
+                <textarea
+                  value={form.continuousMemo || ""}
+                  onChange={e => set("continuousMemo", e.target.value)}
+                  placeholder={t.continuousMemoPh}
+                  rows={2}
+                  style={{ width: "100%", padding: "0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", color: "var(--espresso)", outline: "none", resize: "vertical", minHeight: "70px", lineHeight: 1.55, transition: "border-color var(--transition-base)" }}
+                  onFocus={e => e.target.style.borderColor = "var(--latte)"}
+                  onBlur={e => e.target.style.borderColor = "var(--steam)"}
+                />
+              </div>
+            </div>
+          )}
+
           {/* 공개 설정 */}
           <div className="field full">
             <label>{lang === "en" ? "Visibility" : "공개 설정"}</label>
@@ -3812,6 +4059,8 @@ function RecipeImporter({ lang, user }) {
     "별점(1-5)": "rating", "별점": "rating", "rating": "rating",
     "메모": "note", "note": "note",
     "공개(true/false)": "isPublic", "공개": "isPublic", "ispublic": "isPublic", "public": "isPublic",
+    "추출압력(bar)": "brewPressureBar", "추출압력": "brewPressureBar", "brewpressurebar": "brewPressureBar", "pressure": "brewPressureBar",
+    "연속추출메모": "continuousMemo", "continuousmemo": "continuousMemo", "extractionnote": "continuousMemo",
   };
 
   // SheetJS로 xlsx/csv 파일 → row 배열로 파싱
@@ -3899,23 +4148,25 @@ function RecipeImporter({ lang, user }) {
           const waterTypeId = WATER_TYPE_MAP[rawWaterType] || WATER_TYPE_MAP[num(row.waterType)] || (rawWaterType ? "other" : "");
           await addDoc(collection(db, "recipes"), {
             menuId, menuLabel,
-            bean:       num(row.bean),
-            company:    num(row.company),
-            roastDate:  num(row.roastDate),
-            recordDate: num(row.recordDate) || new Date().toISOString().split("T")[0],
-            machine:    num(row.machine),
-            grinder:    num(row.grinder),
-            grindSize:  num(row.grindSize),
-            gram:       num(row.gram),
-            seconds:    num(row.seconds),
-            espressoMl: num(row.espressoMl),
-            waterTemp:  num(row.waterTemp) || "93",
-            waterType:  waterTypeId,
-            diluteType: num(row.diluteType),
-            diluteMl:   num(row.diluteMl),
-            rating:     ratingVal,
-            note:       num(row.note),
-            isPublic:   isPublicVal,
+            bean:            num(row.bean),
+            company:         num(row.company),
+            roastDate:       num(row.roastDate),
+            recordDate:      num(row.recordDate) || new Date().toISOString().split("T")[0],
+            machine:         num(row.machine),
+            grinder:         num(row.grinder),
+            grindSize:       num(row.grindSize),
+            gram:            num(row.gram),
+            seconds:         num(row.seconds),
+            espressoMl:      num(row.espressoMl),
+            waterTemp:       num(row.waterTemp) || "93",
+            waterType:       waterTypeId,
+            diluteType:      num(row.diluteType),
+            diluteMl:        num(row.diluteMl),
+            rating:          ratingVal,
+            note:            num(row.note),
+            isPublic:        isPublicVal,
+            brewPressureBar: num(row.brewPressureBar) || null,   // [신규]
+            continuousMemo:  num(row.continuousMemo) || "",      // [신규]
             uid: user.uid, author: user.displayName,
             likedBy: [],
             createdAt: serverTimestamp(), isImported: true,
@@ -4030,6 +4281,328 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
       }
     }
     setPwSaving(false);
+  };
+
+  // ── 레시피 내보내기 ──────────────────────────────────────────────
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState(null);
+
+  const exportMyRecipes = async () => {
+    if (!user?.uid) return;
+    setExporting(true);
+    setExportMsg(null);
+    try {
+      // SheetJS CDN 로드
+      if (!window.XLSX) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      const XLSX = window.XLSX;
+
+      // 내 레시피 전체 Firestore에서 조회
+      const snap = await getDocs(
+        query(collection(db, "recipes"), where("uid", "==", user.uid))
+      );
+      const recipes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // 최신순 정렬
+      recipes.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+      if (recipes.length === 0) {
+        setExportMsg({ type: "error", text: lang === "en" ? "No recipes to export." : "내보낼 레시피가 없어요." });
+        setExporting(false);
+        return;
+      }
+
+      // 날짜 포맷 헬퍼
+      const fmtDate = (v) => {
+        if (!v) return "";
+        if (v?.toDate) return v.toDate().toISOString().slice(0, 10);
+        if (typeof v === "string") return v.slice(0, 10);
+        return "";
+      };
+
+      // 물 종류 내부 ID → 표시 레이블
+      const WATER_LABEL = { tap: "수돗물", filter: "정수기", bottle: "생수", other: "기타" };
+
+      const headers = [
+        "메뉴", "원두명", "원두회사", "로스팅일자", "기록날짜",
+        "커피머신", "그라인더", "분쇄도",
+        "원두량(g)", "추출시간(s)", "추출량(ml)", "물온도(°C)",
+        "물종류", "희석종류", "희석량(ml)",
+        "별점(1-5)", "메모",
+        "공개(TRUE/FALSE)", "추출압력(BAR)", "연속추출메모",
+        "하트수", "작성일시"
+      ];
+
+      const rows = recipes.map(r => {
+        const menuDef = COFFEE_MENUS.find(m => m.id === r.menuId);
+        const menuLabel = lang === "en"
+          ? (menuDef?.labelEn || r.menuLabel || r.menuId || "")
+          : (r.menuLabel || menuDef?.label || r.menuId || "");
+        return [
+          menuLabel,
+          r.bean        || "",
+          r.company     || "",
+          r.roastDate   || "",
+          r.recordDate  || fmtDate(r.createdAt),
+          r.machine     || "",
+          r.grinder     || "",
+          r.grindSize   || "",
+          r.gram        || "",
+          r.seconds     || "",
+          r.espressoMl  || "",
+          r.waterTemp   || "",
+          WATER_LABEL[r.waterType] || r.waterType || "",
+          r.diluteType  || "",
+          r.diluteMl    || "",
+          r.rating      || 0,
+          r.note        || "",
+          r.isPublic !== false ? "TRUE" : "FALSE",
+          r.brewPressureBar || "",
+          r.continuousMemo  || "",
+          (r.likedBy?.length) || 0,
+          fmtDate(r.createdAt),
+        ];
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+      // 열 너비
+      const colWidths = [14,18,14,12,12, 18,16,8, 10,10,10,10, 12,14,10, 8,30, 14,14,20, 6,14];
+      ws["!cols"] = headers.map((_, i) => ({ wch: colWidths[i] || 12 }));
+
+      // 헤더 행 스타일 (배경색)
+      const range = XLSX.utils.decode_range(ws["!ref"]);
+      for (let C = range.s.c; C <= range.e.c; C++) {
+        const cellAddr = XLSX.utils.encode_cell({ r: 0, c: C });
+        if (!ws[cellAddr]) continue;
+        ws[cellAddr].s = {
+          fill: { fgColor: { rgb: "3D2B1F" } },
+          font: { color: { rgb: "FBFBFA" }, bold: true },
+          alignment: { horizontal: "center" },
+        };
+      }
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, lang === "en" ? "My Recipes" : "내 레시피");
+
+      const today = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `brewlog_my_recipes_${today}.xlsx`);
+
+      setExportMsg({
+        type: "ok",
+        text: lang === "en"
+          ? `${recipes.length} recipes exported successfully.`
+          : `${recipes.length}개 레시피를 내보냈어요 ✓`,
+      });
+    } catch (e) {
+      console.error("[export]", e);
+      setExportMsg({
+        type: "error",
+        text: lang === "en" ? "Export failed: " + e.message : "내보내기 실패: " + e.message,
+      });
+    }
+    setExporting(false);
+  };
+
+  // ── 구글 드라이브 백업 ────────────────────────────────────────────
+  const GDRIVE_TOKEN_KEY = `brewlog_gdrive_token_${user?.uid}`;
+  const GDRIVE_AUTO_KEY  = `brewlog_gdrive_auto_${user?.uid}`;
+
+  const [driveToken,    setDriveToken]    = useState(() => sessionStorage.getItem(GDRIVE_TOKEN_KEY) || null);
+  const [driveAuto,     setDriveAuto]     = useState(() => localStorage.getItem(GDRIVE_AUTO_KEY) === "true");
+  const [driveLoading,  setDriveLoading]  = useState(false);
+  const [driveMsg,      setDriveMsg]      = useState(null);
+
+  // Google Identity Services 스크립트 로드 (1회)
+  const loadGis = () => new Promise((resolve, reject) => {
+    if (window.google?.accounts?.oauth2) { resolve(); return; }
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+
+  // OAuth 팝업으로 drive.file 토큰 획득
+  const connectDrive = async () => {
+    const clientId = import.meta.env.VITE_GDRIVE_CLIENT_ID;
+    if (!clientId) {
+      setDriveMsg({ type: "error", text: "VITE_GDRIVE_CLIENT_ID 환경변수가 없어요." });
+      return;
+    }
+    setDriveLoading(true);
+    setDriveMsg(null);
+    try {
+      await loadGis();
+      await new Promise((resolve, reject) => {
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: "https://www.googleapis.com/auth/drive.file",
+          callback: (resp) => {
+            if (resp.error) { reject(new Error(resp.error)); return; }
+            sessionStorage.setItem(GDRIVE_TOKEN_KEY, resp.access_token);
+            setDriveToken(resp.access_token);
+            resolve(resp.access_token);
+          },
+        });
+        client.requestAccessToken({ prompt: "consent" });
+      });
+      setDriveMsg({ type: "ok", text: lang === "en" ? "Google Drive connected ✓" : "구글 드라이브 연결됐어요 ✓" });
+    } catch (e) {
+      setDriveMsg({ type: "error", text: lang === "en" ? "Connection failed: " + e.message : "연결 실패: " + e.message });
+    }
+    setDriveLoading(false);
+  };
+
+  // 드라이브에 xlsx 업로드 (Brewlog 폴더 자동 생성 + 덮어쓰기)
+  const backupToDrive = async (token) => {
+    const useToken = token || driveToken;
+    if (!useToken || !user?.uid) return false;
+
+    // SheetJS 로드
+    if (!window.XLSX) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    const XLSX = window.XLSX;
+
+    // Firestore에서 내 레시피 조회
+    const snap = await getDocs(query(collection(db, "recipes"), where("uid", "==", user.uid)));
+    const recipes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    recipes.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    if (recipes.length === 0) return false;
+
+    const fmtDate = (v) => {
+      if (!v) return "";
+      if (v?.toDate) return v.toDate().toISOString().slice(0, 10);
+      return typeof v === "string" ? v.slice(0, 10) : "";
+    };
+    const WATER_LABEL = { tap: "수돗물", filter: "정수기", bottle: "생수", other: "기타" };
+    const headers = ["메뉴","원두명","원두회사","로스팅일자","기록날짜","커피머신","그라인더","분쇄도","원두량(g)","추출시간(s)","추출량(ml)","물온도(°C)","물종류","희석종류","희석량(ml)","별점(1-5)","메모","공개(TRUE/FALSE)","추출압력(BAR)","연속추출메모","하트수","작성일시"];
+    const rows = recipes.map(r => {
+      const menuDef = COFFEE_MENUS.find(m => m.id === r.menuId);
+      return [
+        lang === "en" ? (menuDef?.labelEn || r.menuLabel || "") : (r.menuLabel || menuDef?.label || ""),
+        r.bean||"", r.company||"", r.roastDate||"", r.recordDate||fmtDate(r.createdAt),
+        r.machine||"", r.grinder||"", r.grindSize||"",
+        r.gram||"", r.seconds||"", r.espressoMl||"", r.waterTemp||"",
+        WATER_LABEL[r.waterType]||r.waterType||"", r.diluteType||"", r.diluteMl||"",
+        r.rating||0, r.note||"", r.isPublic!==false?"TRUE":"FALSE",
+        r.brewPressureBar||"", r.continuousMemo||"",
+        r.likedBy?.length||0, fmtDate(r.createdAt),
+      ];
+    });
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws["!cols"] = [14,18,14,12,12,18,16,8,10,10,10,10,12,14,10,8,30,14,14,20,6,14].map(w => ({ wch: w }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, lang === "en" ? "My Recipes" : "내 레시피");
+
+    // ArrayBuffer → base64
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    const fileName = "brewlog_backup.xlsx";
+    const authHeader = { Authorization: `Bearer ${useToken}` };
+
+    // 1) Brewlog 폴더 찾기 or 생성
+    let folderId = null;
+    const folderSearch = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name%3D'Brewlog'%20and%20mimeType%3D'application%2Fvnd.google-apps.folder'%20and%20trashed%3Dfalse&fields=files(id)`,
+      { headers: authHeader }
+    ).then(r => r.json());
+    if (folderSearch.files?.length > 0) {
+      folderId = folderSearch.files[0].id;
+    } else {
+      const folderRes = await fetch("https://www.googleapis.com/drive/v3/files", {
+        method: "POST",
+        headers: { ...authHeader, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Brewlog", mimeType: "application/vnd.google-apps.folder" }),
+      }).then(r => r.json());
+      folderId = folderRes.id;
+    }
+
+    // 2) 기존 백업 파일 찾기 (있으면 덮어쓰기, 없으면 새로 생성)
+    const fileSearch = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name%3D'${fileName}'%20and%20'${folderId}'%20in%20parents%20and%20trashed%3Dfalse&fields=files(id)`,
+      { headers: authHeader }
+    ).then(r => r.json());
+
+    const metadata = { name: fileName, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" };
+    const boundary = "brewlog_boundary";
+    const body = [
+      `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(metadata)}\r\n`,
+      `--${boundary}\r\nContent-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\nContent-Transfer-Encoding: base64\r\n\r\n${b64}\r\n`,
+      `--${boundary}--`,
+    ].join("");
+
+    let uploadUrl, uploadMethod;
+    if (fileSearch.files?.length > 0) {
+      // PATCH: 기존 파일 업데이트
+      uploadUrl = `https://www.googleapis.com/upload/drive/v3/files/${fileSearch.files[0].id}?uploadType=multipart`;
+      uploadMethod = "PATCH";
+    } else {
+      // POST: 신규 생성 (폴더 지정)
+      metadata.parents = [folderId];
+      const bodyWithParent = [
+        `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(metadata)}\r\n`,
+        `--${boundary}\r\nContent-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\nContent-Transfer-Encoding: base64\r\n\r\n${b64}\r\n`,
+        `--${boundary}--`,
+      ].join("");
+      uploadUrl = `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
+      uploadMethod = "POST";
+      const uploadRes = await fetch(uploadUrl, {
+        method: uploadMethod,
+        headers: { ...authHeader, "Content-Type": `multipart/related; boundary=${boundary}` },
+        body: bodyWithParent,
+      });
+      if (!uploadRes.ok) throw new Error(await uploadRes.text());
+      return true;
+    }
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: uploadMethod,
+      headers: { ...authHeader, "Content-Type": `multipart/related; boundary=${boundary}` },
+      body,
+    });
+    if (!uploadRes.ok) throw new Error(await uploadRes.text());
+    return true;
+  };
+
+  // 수동 백업 버튼
+  const handleManualBackup = async () => {
+    setDriveLoading(true);
+    setDriveMsg(null);
+    try {
+      await backupToDrive();
+      const now = new Date().toLocaleString(lang === "en" ? "en-US" : "ko-KR");
+      setDriveMsg({ type: "ok", text: lang === "en" ? `Backed up to Google Drive ✓ (${now})` : `구글 드라이브에 백업됐어요 ✓ (${now})` });
+    } catch (e) {
+      // 토큰 만료 시 재연결 유도
+      if (e.message?.includes("401") || e.message?.includes("invalid_token")) {
+        sessionStorage.removeItem(GDRIVE_TOKEN_KEY);
+        setDriveToken(null);
+        setDriveMsg({ type: "error", text: lang === "en" ? "Session expired. Please reconnect." : "세션이 만료됐어요. 다시 연결해 주세요." });
+      } else {
+        setDriveMsg({ type: "error", text: lang === "en" ? "Backup failed: " + e.message : "백업 실패: " + e.message });
+      }
+    }
+    setDriveLoading(false);
+  };
+
+  // 자동 백업 토글
+  const toggleDriveAuto = () => {
+    const next = !driveAuto;
+    setDriveAuto(next);
+    localStorage.setItem(GDRIVE_AUTO_KEY, String(next));
+    if (next) setDriveMsg({ type: "ok", text: lang === "en" ? "Auto backup enabled. Backup runs after each save." : "자동 백업 켜짐. 레시피 저장할 때마다 자동으로 백업돼요." });
+    else setDriveMsg({ type: "ok", text: lang === "en" ? "Auto backup disabled." : "자동 백업 꺼짐." });
   };
 
   // 차단 목록
@@ -4328,7 +4901,225 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
           )}
         </div>
 
-        {/* ── 레시피 일괄 가져오기 ── */}
+        {/* ── 내 레시피 내보내기 ── */}
+        <div className="my-section">
+          <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2 12V4a1 1 0 0 1 1-1h7l4 4v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+              <path d="M9 3v4h4" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+              <path d="M6 8l2-2 2 2M8 6v5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {lang === "en" ? "Export My Recipes" : "내 레시피 내보내기"}
+          </div>
+
+          <p style={{ fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.6, marginBottom: "14px" }}>
+            {lang === "en"
+              ? "Download all your brew records as an Excel file (.xlsx). Includes menu, bean, machine, extraction data, flavor notes, and more."
+              : "내가 기록한 모든 추출 레시피를 엑셀 파일(.xlsx)로 다운받아요. 메뉴, 원두, 머신, 추출 파라미터, 맛 노트 등 전체 데이터가 포함돼요."}
+          </p>
+
+          {exportMsg && (
+            <p style={{
+              fontSize: "0.82rem", marginBottom: "10px", padding: "8px 12px",
+              borderRadius: "var(--r-btn)",
+              background: exportMsg.type === "ok" ? "#eafaf1" : "#fdecea",
+              color:      exportMsg.type === "ok" ? "#27ae60" : "#c0392b",
+              border: `1px solid ${exportMsg.type === "ok" ? "#a9dfbf" : "#f5b7b1"}`,
+            }}>
+              {exportMsg.text}
+            </p>
+          )}
+
+          <button
+            onClick={exportMyRecipes}
+            disabled={exporting}
+            style={{
+              width: "100%", padding: "11px 0",
+              background: exporting ? "var(--steam)" : "var(--espresso)",
+              color: exporting ? "var(--muted)" : "var(--cream)",
+              border: "none", borderRadius: "var(--r-btn)",
+              fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", fontWeight: 500,
+              cursor: exporting ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+              transition: "background var(--transition-base), transform var(--transition-fast)",
+            }}
+            onMouseEnter={e => { if (!exporting) e.currentTarget.style.background = "var(--roast)"; }}
+            onMouseLeave={e => { if (!exporting) e.currentTarget.style.background = "var(--espresso)"; }}
+          >
+            {exporting ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation: "spin 1s linear infinite" }}>
+                  <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 25" strokeLinecap="round"/>
+                </svg>
+                {lang === "en" ? "Exporting…" : "내보내는 중…"}
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                {lang === "en" ? "Download as Excel (.xlsx)" : "엑셀로 다운받기 (.xlsx)"}
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* ── 구글 드라이브 백업 ── */}
+        <div className="my-section">
+          <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            {/* Google Drive 아이콘 */}
+            <svg width="15" height="13" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0a15.92 15.92 0 0 0 2.1 7.9z" fill="#0066da"/>
+              <path d="M43.65 25L29.9 1.2a15.5 15.5 0 0 0-3.3 3.3L2.1 45.5A15.92 15.92 0 0 0 0 53h27.5z" fill="#00ac47"/>
+              <path d="M73.55 76.8a15.5 15.5 0 0 0 3.3-3.3l1.6-2.75 7.65-13.25A15.92 15.92 0 0 0 88.3 50H60.8l5.85 11.5z" fill="#ea4335"/>
+              <path d="M43.65 25L57.4 1.2A15.67 15.67 0 0 0 49.5 0h-11.7a15.67 15.67 0 0 0-7.9 1.2z" fill="#00832d"/>
+              <path d="M60.8 50H27.5L13.75 73.8a15.67 15.67 0 0 0 7.9 2.2h41.8a15.67 15.67 0 0 0 7.9-2.2z" fill="#2684fc"/>
+              <path d="M73.4 26.5l-13.75-23.8a15.5 15.5 0 0 0-3.3-3.3L43.65 25 60.8 50h27.45a15.92 15.92 0 0 0-2.1-7.9z" fill="#ffba00"/>
+            </svg>
+            {lang === "en" ? "Google Drive Backup" : "구글 드라이브 백업"}
+          </div>
+
+          <p style={{ fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.6, marginBottom: "14px" }}>
+            {lang === "en"
+              ? "Back up all your recipes to your own Google Drive (Brewlog/ folder). Free, uses your personal 15GB storage."
+              : "내 레시피를 내 구글 드라이브의 Brewlog 폴더에 자동 백업해요. 무료이며, 내 구글 계정 저장공간(15GB)을 사용해요."}
+          </p>
+
+          {/* 상태 메시지 */}
+          {driveMsg && (
+            <p style={{
+              fontSize: "0.82rem", marginBottom: "12px", padding: "8px 12px",
+              borderRadius: "var(--r-btn)",
+              background: driveMsg.type === "ok" ? "#eafaf1" : "#fdecea",
+              color:      driveMsg.type === "ok" ? "#27ae60" : "#c0392b",
+              border: `1px solid ${driveMsg.type === "ok" ? "#a9dfbf" : "#f5b7b1"}`,
+              lineHeight: 1.5,
+            }}>
+              {driveMsg.text}
+            </p>
+          )}
+
+          {!driveToken ? (
+            /* 미연결 상태 */
+            <button onClick={connectDrive} disabled={driveLoading} style={{
+              width: "100%", padding: "11px 0",
+              background: driveLoading ? "var(--steam)" : "var(--foam)",
+              color: driveLoading ? "var(--muted)" : "var(--espresso)",
+              border: "1px solid var(--steam)", borderRadius: "var(--r-btn)",
+              fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", fontWeight: 500,
+              cursor: driveLoading ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+              transition: "border-color var(--transition-base), box-shadow var(--transition-base)",
+            }}
+              onMouseEnter={e => { if (!driveLoading) e.currentTarget.style.borderColor = "var(--latte)"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--steam)"; }}
+            >
+              {driveLoading ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation: "spin 1s linear infinite" }}>
+                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 25" strokeLinecap="round"/>
+                  </svg>
+                  {lang === "en" ? "Connecting…" : "연결 중…"}
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1v9M5 7l3 3 3-3" stroke="#4285F4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M2 11v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2" stroke="#4285F4" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                  {lang === "en" ? "Connect Google Drive" : "구글 드라이브 연결하기"}
+                </>
+              )}
+            </button>
+          ) : (
+            /* 연결됨 상태 */
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {/* 연결 상태 표시 */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: "8px",
+                padding: "8px 12px", background: "#eafaf1",
+                border: "1px solid #a9dfbf", borderRadius: "var(--r-btn)",
+                fontSize: "0.78rem", color: "#27ae60",
+              }}>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="7" fill="#27ae60"/>
+                  <path d="M5 8l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {lang === "en" ? "Connected — saves to Brewlog/ folder" : "연결됨 — 내 드라이브 Brewlog 폴더에 저장돼요"}
+                <button onClick={() => { sessionStorage.removeItem(GDRIVE_TOKEN_KEY); setDriveToken(null); setDriveMsg(null); }}
+                  style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: "0.72rem", color: "#27ae60", textDecoration: "underline", fontFamily: "'DM Sans',sans-serif", padding: 0 }}>
+                  {lang === "en" ? "Disconnect" : "연결 해제"}
+                </button>
+              </div>
+
+              {/* 수동 백업 버튼 */}
+              <button onClick={handleManualBackup} disabled={driveLoading} style={{
+                width: "100%", padding: "11px 0",
+                background: driveLoading ? "var(--steam)" : "#4285F4",
+                color: driveLoading ? "var(--muted)" : "white",
+                border: "none", borderRadius: "var(--r-btn)",
+                fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", fontWeight: 500,
+                cursor: driveLoading ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+                transition: "background var(--transition-base), transform var(--transition-fast)",
+              }}
+                onMouseEnter={e => { if (!driveLoading) { e.currentTarget.style.background = "#2b6de0"; e.currentTarget.style.transform = "translateY(-1px)"; }}}
+                onMouseLeave={e => { e.currentTarget.style.background = driveLoading ? "var(--steam)" : "#4285F4"; e.currentTarget.style.transform = "none"; }}
+              >
+                {driveLoading ? (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation: "spin 1s linear infinite" }}>
+                      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 25" strokeLinecap="round"/>
+                    </svg>
+                    {lang === "en" ? "Backing up…" : "백업 중…"}
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <path d="M8 1v9M5 7l3 3 3-3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 11v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    {lang === "en" ? "Backup Now" : "지금 바로 백업"}
+                  </>
+                )}
+              </button>
+
+              {/* 자동 백업 토글 */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 14px", background: "var(--cream)",
+                border: "1px solid var(--divider)", borderRadius: "var(--r-btn)",
+              }}>
+                <div>
+                  <div style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--espresso)", marginBottom: "2px" }}>
+                    {lang === "en" ? "Auto Backup" : "자동 백업"}
+                  </div>
+                  <div style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
+                    {lang === "en" ? "Sync to Drive after every recipe save" : "레시피 저장할 때마다 자동으로 백업"}
+                  </div>
+                </div>
+                {/* 토글 스위치 */}
+                <div onClick={toggleDriveAuto} style={{
+                  width: "44px", height: "24px", borderRadius: "12px",
+                  background: driveAuto ? "#4285F4" : "var(--steam)",
+                  position: "relative", cursor: "pointer",
+                  transition: "background var(--transition-base)", flexShrink: 0,
+                }}>
+                  <div style={{
+                    position: "absolute", top: "3px",
+                    left: driveAuto ? "23px" : "3px",
+                    width: "18px", height: "18px", borderRadius: "50%",
+                    background: "white", boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                    transition: "left var(--transition-base)",
+                  }}/>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── 엑셀에서 레시피 가져오기 ── */}
         <div className="my-section">
           <div className="my-section-title" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -4368,12 +5159,12 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
               });
             }
             const XLSX = window.XLSX;
-            const headers = ["메뉴","원두명","원두회사","로스팅일자","기록날짜","커피머신","그라인더","분쇄도","원두량(g)","추출시간(s)","추출량(ml)","물온도(°C)","물종류","희석종류","희석량(ml)","별점(1-5)","메모","공개(TRUE/FALSE)"];
-            const example = ["아메리카노","에티오피아 예가체프","테라로사","2026-05-01","2026-06-01","Breville 870","Baratza Encore","7","18","28","36","93","생수","물","150","4","맛있었음","TRUE"];
-            const hint   = ["※ 메뉴: 에스프레소/리스트레토/룽고/아메리카노/롱블랙/카페라떼/카푸치노/플랫화이트/마끼아또/핸드드립/콜드브루/기타","","","","","","","","","","","","수돗물/정수기/생수/기타","물/우유/저지방우유/두유/귀리우유/아몬드우유/코코넛우유","","1~5 숫자","","TRUE 또는 FALSE"];
+            const headers = ["메뉴","원두명","원두회사","로스팅일자","기록날짜","커피머신","그라인더","분쇄도","원두량(g)","추출시간(s)","추출량(ml)","물온도(°C)","물종류","희석종류","희석량(ml)","별점(1-5)","메모","공개(TRUE/FALSE)","추출압력(BAR)","연속추출메모"];
+            const example = ["아메리카노","에티오피아 예가체프","테라로사","2026-05-01","2026-06-01","Breville 870","Baratza Encore","7","18","28","36","93","생수","물","150","4","맛있었음","TRUE","9.2","2샷 연속 추출"];
+            const hint   = ["※ 메뉴: 에스프레소/리스트레토/룽고/아메리카노/롱블랙/카페라떼/카푸치노/플랫화이트/마끼아또/핸드드립/콜드브루/기타","","","","","","","","","","","","수돗물/정수기/생수/기타","물/우유/저지방우유/두유/귀리우유/아몬드우유/코코넛우유","","1~5 숫자","","TRUE 또는 FALSE","압력게이지 측정값(선택)","자유 기재(선택)"];
             const ws = XLSX.utils.aoa_to_sheet([headers, example, hint]);
             // 열 너비 자동 설정
-            ws["!cols"] = headers.map((h, i) => ({ wch: Math.max(h.length * 2, [12,16,12,12,12,16,14,8,10,10,10,10,12,14,10,8,20,14][i] || 12) }));
+            ws["!cols"] = headers.map((h, i) => ({ wch: Math.max(h.length * 2, [12,16,12,12,12,16,14,8,10,10,10,10,12,14,10,8,20,14,14,18][i] || 12) }));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "레시피");
             XLSX.writeFile(wb, "brewlog_template.xlsx");
@@ -4711,6 +5502,28 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
         </div>
       )}
       {recipe.note && <div className="card-note">"{recipe.note}"</div>}
+      {/* [신규] 추출 압력 세부 기록 표시 */}
+      {recipe.brewPressureBar && (
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", padding: "8px 12px", background: "var(--cream)", borderRadius: "var(--r-chip)", border: "1px solid var(--divider)" }}>
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="6.5" stroke="var(--latte)" strokeWidth="1.3"/>
+            <path d="M8 5v3.5l2 1.5" stroke="var(--latte)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif" }}>
+            {lang === "en" ? "Measured Pressure" : "측정 압력"}&nbsp;
+            <strong style={{ color: "var(--espresso)", fontWeight: 600 }}>{recipe.brewPressureBar} BAR</strong>
+          </span>
+        </div>
+      )}
+      {/* [신규] 연속 추출 메모 표시 */}
+      {recipe.continuousMemo && (
+        <div style={{ marginBottom: "8px", padding: "8px 12px", background: "var(--cream)", borderRadius: "var(--r-chip)", border: "1px solid var(--divider)", fontSize: "0.78rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", lineHeight: 1.55 }}>
+          <span style={{ fontSize: "0.62rem", fontWeight: 700, color: "var(--latte)", textTransform: "uppercase", letterSpacing: "0.07em", display: "block", marginBottom: "3px" }}>
+            {lang === "en" ? "Extraction Note" : "연속 추출 메모"}
+          </span>
+          {recipe.continuousMemo}
+        </div>
+      )}
       {/* 플레이버 프로파일 — 레이더 + 2열 바 */}
       {FLAVOR_AXES.some(ax => (parseInt(recipe[ax.key]) || 0) > 0) && (
         <div style={{ margin: "12px 0", padding: "16px", background: "var(--cream)", borderRadius: "8px", border: "1px solid var(--divider)" }}>
@@ -6946,6 +7759,11 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
   );
 }
 
+/* ============================================================
+   6. MAIN APP COMPONENT
+   MainApp: 피드, 베스트, 알림, 어드민 등 메인 앱 로직
+   App (root): onAuthStateChanged, lang 감지, 게스트 모드
+   ============================================================ */
 function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const [notifications, setNotifications] = useState([]);
   const [showNotif, setShowNotif] = useState(false);
@@ -9327,6 +10145,7 @@ function AdminApp({ user, onExit, lang = 'ko' }) {
   </div>);
 }
 
+/* ── Root ─────────────────────────────────────────────────────────── */
 // ─── Root ──────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(undefined);
