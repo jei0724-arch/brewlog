@@ -7191,7 +7191,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
   const geminiCalledRef = useRef(false);
 
   const fetchGeminiAdvice = async () => {
-    console.log("[Gemini] fn start. user:", !!user, "key:", !!import.meta.env.VITE_GEMINI_KEY);
     if (!user) return;
     const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY;
     if (!GEMINI_KEY) return;
@@ -7244,7 +7243,6 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       if (!res.ok) throw new Error("Gemini API error");
       const data = await res.json();
       const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      console.log("[Gemini] RAW:", raw);
       // 각 필드를 개별적으로 추출 (JSON 잘림 방지)
       const extract = (key) => {
         const m = raw.match(new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`) );
