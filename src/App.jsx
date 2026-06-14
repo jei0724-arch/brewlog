@@ -5603,8 +5603,11 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
           <div className="stat"><span className="stat-val">{recipe.espressoMl ? `${recipe.espressoMl}ml` : "—"}</span><span className="stat-label">{t.statMl}</span></div>
           {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang === "en" ? "Temp" : "물온도"}</span></div>}
         </div>
-        {/* 추출 비율 자동 계산 표시 */}
-        {recipe.gram && recipe.espressoMl && (() => {
+        {/* 추출 비율 자동 계산 표시 — 에스프레소 계열 메뉴만 */}
+        {recipe.gram && recipe.espressoMl
+         && recipe.menuId !== "hand_drip"
+         && recipe.menuId !== "cold_brew"
+         && (() => {
           const ratio = (parseFloat(recipe.espressoMl) / parseFloat(recipe.gram)).toFixed(1);
           const isOk  = ratio >= 1.5 && ratio <= 3.0;
           const label = ratio < 1.5 ? (lang==="en"?"Ristretto":"리스트레토")
