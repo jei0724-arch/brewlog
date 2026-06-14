@@ -3098,6 +3098,9 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       }
       onSave();
 
+      // Gemini 캐시 무효화 — 새 레시피 저장 시 다음 접속 때 최신 데이터로 재분석
+      try { ["ko","en"].forEach(l => localStorage.removeItem(`brewlog_gemini_${user?.uid}_${l}`)); } catch {}
+
       // ── 자동 구글 드라이브 백업 (백그라운드, 실패해도 저장은 완료) ──
       try {
         const autoKey  = `brewlog_gdrive_auto_${user?.uid}`;
@@ -8023,39 +8026,509 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
     setGeminiLoading(true);
     setGeminiError(false);
     try {
-      const allRecipes = recipes;
-      const mine = allRecipes.filter(r => r.uid === user.uid);
-      const recent = [...mine]
-        .sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0))
-        .slice(0, 5)
-        .map(r => ({
-          menu: r.menuLabel || "",
-          bean: r.bean || "",
-          beanBrand: r.beanBrand || "",
-          rating: r.rating || 0,
-          gram: r.gram || "",
-          seconds: r.seconds || "",
-          waterTemp: r.waterTemp || "",
-          grinder: r.grinder || "",
-          grindSize: r.grindSize || "",
-          machine: r.machineName || "",
-          weather: r.weather || "",
-          acidity: r.flavorAcidity || 0,
-          sweet: r.flavorSweet || 0,
-          bitter: r.flavorBitter || 0,
-          body: r.flavorBody || 0,
-          balance: r.flavorBalance || 0,
-        }));
+      const mine = recipes.filter(r => r.uid === user.uid);
+      const sorted = [...mine].sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
+      const recent  = sorted.slice(0, 7);   // 최신 7개 (상세 분석용)
+      const latestR = recent[0] || {};
+
+      // ── 1. 장비 정보 ──────────────────────────────────────────────
+      const machineName  = latestR.machine || [latestR.machineBrand, latestR.machineModel].filter(Boolean).join(" ") || "Unknown";
+      const machineType  = latestR.machineType === "auto"     ? (lang==="ko"?"전자동":"Super-automatic")
+                         : latestR.machineType === "manual"   ? (lang==="ko"?"반자동":"Semi-automatic")
+                         : latestR.machineType === "handdrip" ? (lang==="ko"?"핸드드립":"Hand drip")
+                         : (lang==="ko"?"에스프레소":"Espresso");
+      const machineBrand = latestR.machineBrand || machineName.split(" ")[0] || "";
+      const grinderName  = latestR.grinder || [latestR.grinderBrand, latestR.grinderModel].filter(Boolean).join(" ") || "";
+      const grinderBrand = latestR.grinderBrand || grinderName.split(" ")[0] || "";
+      const pressureVal  = latestR.brewPressureBar
+        ? `${latestR.brewPressureBar} BAR (실측)` : latestR.showerBar
+        ? `${parseFloat(latestR.showerBar).toFixed(1)} BAR (계산값)` : "";
+
+      // ── 2. 원두 정보 ──────────────────────────────────────────────
+      const beanName    = latestR.bean    || "";
+      const beanCompany = latestR.company || latestR.beanBrand || "";
+      const topBeanLabel = [beanCompany, beanName].filter(Boolean).join(" ");
+      const beanBrands   = [...new Set(mine.map(r=>[r.company||r.beanBrand,r.bean].filter(Boolean).join(" ")).filter(Boolean))].slice(0,3).join(" / ");
+
+      // ── 3. 원두 신선도 계산 ───────────────────────────────────────
+      const calcFreshness = (r) => {
+        if (!r.roastDate) return null;
+        const roast  = new Date(r.roastDate);
+        const record = r.recordDate ? new Date(r.recordDate) : new Date();
+        const days   = Math.round((record - roast) / 86400000);
+        if (days < 0) return null;
+        const stage  = days <= 3  ? (lang==="ko"?"디개싱 중(미성숙)":"Degassing (too fresh)")
+                     : days <= 14 ? (lang==="ko"?"최적 성숙기":"Peak freshness")
+                     : days <= 30 ? (lang==="ko"?"사용 가능":"Acceptable")
+                     : (lang==="ko"?"신선도 저하 우려":"Possibly stale");
+        return { days, stage };
+      };
+      const freshness = calcFreshness(latestR);
+
+      // ── 4. 날씨 데이터 파싱 ───────────────────────────────────────
+      const parseWeather = (r) => {
+        if (!r.weather) return null;
+        // weather 필드: "☀️ 맑음 · 23°C · 습도 61%" 또는 객체 형태
+        if (typeof r.weather === "object") {
+          return { desc: r.weather.desc||"", temp: r.weather.temp||"", humidity: r.weather.humidity||"" };
+        }
+        const tempM = String(r.weather).match(/(-?\d+(?:\.\d+)?)\s*°C/);
+        const humM  = String(r.weather).match(/(\d+)\s*%/);
+        const desc  = String(r.weather).replace(/[-\d.]+°C/,"").replace(/\d+%/,"").replace(/[·•]/g,"").trim();
+        return { desc, temp: tempM?tempM[1]:"", humidity: humM?humM[1]:"" };
+      };
+      const latestWeather = parseWeather(latestR);
+      // 날씨 기반 조언 기준
+      const getWeatherNote = (w) => {
+        if (!w || !w.temp) return "";
+        const t = parseFloat(w.temp);
+        const h = parseFloat(w.humidity||"50");
+        const notes = [];
+        if (t >= 28) notes.push(lang==="ko"?"고온("+t+"°C): 분쇄도 0.5단계 굵게, 추출속도 빨라짐 주의":"High temp("+t+"°C): grind 0.5 step coarser, watch faster flow");
+        if (t <= 10) notes.push(lang==="ko"?"저온("+t+"°C): 기기 예열 충분히, 수율 낮아질 수 있음":"Low temp("+t+"°C): allow extra warm-up, yield may drop");
+        if (h >= 75) notes.push(lang==="ko"?"고습도("+h+"%): 원두 흡습→분쇄도 굵게 조정 필요":"High humidity("+h+"%): beans absorb moisture, grind coarser");
+        if (h <= 30) notes.push(lang==="ko"?"저습도("+h+"%): 정전기 발생 주의, WDT 필수":"Low humidity("+h+"%): static charge risk, WDT essential");
+        return notes.join(" / ");
+      };
+      const weatherNote = latestWeather ? getWeatherNote(latestWeather) : "";
+
+      // ── 5. 별점 추세 분석 ─────────────────────────────────────────
+      const ratings = recent.filter(r=>r.rating>0).map(r=>r.rating);
+      const avgRating = ratings.length ? (ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1) : null;
+      const ratingTrend = (() => {
+        if (ratings.length < 3) return null;
+        const half = Math.floor(ratings.length/2);
+        const older = ratings.slice(half).reduce((a,b)=>a+b,0)/half;
+        const newer = ratings.slice(0,half).reduce((a,b)=>a+b,0)/half;
+        const diff  = newer - older;
+        if (diff > 0.3)  return lang==="ko"?"📈 개선 중":"📈 Improving";
+        if (diff < -0.3) return lang==="ko"?"📉 하락 중":"📉 Declining";
+        return lang==="ko"?"➡️ 유지 중":"➡️ Stable";
+      })();
+
+      // ── 6. 추출 비율 계산 (전체 평균 포함) ──────────────────────
+      const calcRatio = (r) => {
+        const dose  = parseFloat(r.gram);
+        const yield_ = parseFloat(r.espressoMl);
+        if (!dose || !yield_) return null;
+        return { ratio: (yield_/dose).toFixed(2), dose, yield: yield_ };
+      };
+      const latestRatio = calcRatio(latestR);
+      // 전체 평균 추출 비율
+      const allRatios = mine.map(calcRatio).filter(Boolean);
+      const avgRatio  = allRatios.length
+        ? (allRatios.reduce((a,b)=>a+parseFloat(b.ratio),0)/allRatios.length).toFixed(2) : null;
+      // 비율 판정
+      const getRatioNote = (ratio) => {
+        if (!ratio) return "";
+        const r = parseFloat(ratio);
+        if (r < 1.5) return lang==="ko"?"리스트레토 구간(과소추출 가능성)":"Ristretto range (possible under-extraction)";
+        if (r < 2.0) return lang==="ko"?"리스트레토~에스프레소 경계":"Ristretto-espresso boundary";
+        if (r < 2.5) return lang==="ko"?"에스프레소 정석 구간":"Espresso standard range";
+        if (r < 3.0) return lang==="ko"?"룽고 구간":"Lungo range";
+        return lang==="ko"?"과다추출 가능성":"Possible over-extraction";
+      };
+
+      // ── 7. 전체 장기 패턴 (최대 30개) ───────────────────────────
+      const longTerm = sorted.slice(0, 30);
+      const ltAvgGram    = (longTerm.filter(r=>r.gram).reduce((a,r)=>a+parseFloat(r.gram||0),0) / (longTerm.filter(r=>r.gram).length||1)).toFixed(1);
+      const ltAvgSeconds = (longTerm.filter(r=>r.seconds).reduce((a,r)=>a+parseFloat(r.seconds||0),0) / (longTerm.filter(r=>r.seconds).length||1)).toFixed(1);
+      const ltAvgTemp    = (longTerm.filter(r=>r.waterTemp).reduce((a,r)=>a+parseFloat(r.waterTemp||0),0) / (longTerm.filter(r=>r.waterTemp).length||1)).toFixed(1);
+      const ltAvgAcid    = (longTerm.filter(r=>r.flavorAcidity).reduce((a,r)=>a+parseFloat(r.flavorAcidity||0),0) / (longTerm.filter(r=>r.flavorAcidity).length||1)).toFixed(1);
+      const ltAvgSweet   = (longTerm.filter(r=>r.flavorSweet).reduce((a,r)=>a+parseFloat(r.flavorSweet||0),0) / (longTerm.filter(r=>r.flavorSweet).length||1)).toFixed(1);
+      const ltAvgBitter  = (longTerm.filter(r=>r.flavorBitter).reduce((a,r)=>a+parseFloat(r.flavorBitter||0),0) / (longTerm.filter(r=>r.flavorBitter).length||1)).toFixed(1);
+      const ltAvgBody    = (longTerm.filter(r=>r.flavorBody).reduce((a,r)=>a+parseFloat(r.flavorBody||0),0) / (longTerm.filter(r=>r.flavorBody).length||1)).toFixed(1);
+      const ltAvgBalance = (longTerm.filter(r=>r.flavorBalance).reduce((a,r)=>a+parseFloat(r.flavorBalance||0),0) / (longTerm.filter(r=>r.flavorBalance).length||1)).toFixed(1);
+
+      // ── 8. 맛 노트 텍스트 수집 ───────────────────────────────────
+      const flavorNotes = recent.filter(r=>r.note).map((r,i)=>`${i+1}. ${r.note}`).join(" / ");
+
+      // ── 9. 최근 레시피 상세 요약 ─────────────────────────────────
+      const recentSummary = recent.slice(0,5).map((r,i)=>{
+        const mach  = r.machine || [r.machineBrand,r.machineModel].filter(Boolean).join(" ") || "?";
+        const grind = r.grinder || [r.grinderBrand,r.grinderModel].filter(Boolean).join(" ") || "?";
+        const press = r.brewPressureBar ? `${r.brewPressureBar}BAR` : r.showerBar ? `~${parseFloat(r.showerBar).toFixed(1)}BAR` : "";
+        const fr    = calcFreshness(r);
+        const ratio = calcRatio(r);
+        const wx    = parseWeather(r);
+        return lang==="ko"
+          ? `${i+1}. 메뉴:${r.menuLabel||""} | 원두:${r.bean||""}${r.company?"("+r.company+")":""} | 별점:${r.rating||0}${ratio?" | 비율:1:"+ratio.ratio+" ("+getRatioNote(ratio.ratio)+")":""} | 머신:${mach} | 그라인더:${grind} | 분쇄도:${r.grindSize||""} | 도징:${r.gram||""}g | 추출:${r.seconds||""}s | 추출량:${r.espressoMl||""}ml | 수온:${r.waterTemp||""}°C${press?" | 압력:"+press:""} | 맛[산미${r.flavorAcidity||0}/단맛${r.flavorSweet||0}/쓴맛${r.flavorBitter||0}/바디${r.flavorBody||0}/밸런스${r.flavorBalance||0}]${fr?" | 신선도:로스팅후"+fr.days+"일("+fr.stage+")":""}${wx?.temp?" | 날씨:"+wx.temp+"°C 습도"+wx.humidity+"%":""}${r.note?" | 노트:"+r.note:""}${r.continuousMemo?" | 연속추출:"+r.continuousMemo:""}`
+          : `${i+1}. Menu:${r.menuLabel||""} | Bean:${r.bean||""}${r.company?"("+r.company+")":""} | Rating:${r.rating||0}${ratio?" | Ratio:1:"+ratio.ratio+" ("+getRatioNote(ratio.ratio)+")":""} | Machine:${mach} | Grinder:${grind} | Grind:${r.grindSize||""} | Dose:${r.gram||""}g | Time:${r.seconds||""}s | Yield:${r.espressoMl||""}ml | Temp:${r.waterTemp||""}°C${press?" | Pressure:"+press:""} | Flavor[acid${r.flavorAcidity||0}/sweet${r.flavorSweet||0}/bitter${r.flavorBitter||0}/body${r.flavorBody||0}/balance${r.flavorBalance||0}]${fr?" | Freshness:"+fr.days+"d post-roast("+fr.stage+")":""}${wx?.temp?" | Weather:"+wx.temp+"°C hum"+wx.humidity+"%":""}${r.note?" | Note:"+r.note:""}${r.continuousMemo?" | ContinuousMemo:"+r.continuousMemo:""}`;
+      }).join("\n");
+
+      // ══════════════════════════════════════════════════════════════
+      // 장비 지식 DB — 하드코딩 + Gemini 자체 지식 위임 병행
+      // 새 브랜드/모델 추가 시: MACHINE_KB 또는 GRINDER_KB 객체에
+      // { spec, tips, grindRange, pressure, boiler } 형식으로 추가
+      // ══════════════════════════════════════════════════════════════
+      const MACHINE_KB = {
+        // ── 브레빌 (Breville / Sage) ──────────────────────────────
+        "breville": {
+          // 모델별 세부 스펙
+          models: {
+            "bambino":          { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", pressure:"9BAR OPV", preinfusion:"자동 3초", notes:"소형 입문기. 스팀 온도 수동 제어 불가. 추출 온도 93°C 고정." },
+            "bambino plus":     { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", pressure:"9BAR OPV", preinfusion:"자동 3초", notes:"밤비노에 자동 스팀 추가. 우유 온도/질감 자동 조절 가능." },
+            "barista express":  { boiler:"써모코일(단일)", heatup:"30초", portafilter:"54mm", grinder:"내장 60단계 코니컬 버(54mm)", pressure:"9BAR OPV", preinfusion:"자동 8초", notes:"도저 포함. 분쇄량 조절 다이얼로 도징량 세밀 조정 가능." },
+            "barista express impress": { boiler:"써모코일(단일)", heatup:"30초", portafilter:"54mm", grinder:"내장 60단계 코니컬 버(54mm)", pressure:"9BAR OPV", preinfusion:"자동 8초", notes:"어시스트 탬핑 기능 추가(자동 균일 탬핑 10kg). 분쇄-탬핑 일체화." },
+            "barista pro":      { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", grinder:"내장 30단계 코니컬 버(54mm)", pressure:"9BAR OPV", preinfusion:"자동 8초", notes:"LCD 디스플레이 탑재. 추출 온도 3단계(88/92/96°C) 선택 가능. 스팀 즉시 전환." },
+            "barista touch":    { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", grinder:"내장 30단계 코니컬 버(54mm)", pressure:"9BAR OPV", preinfusion:"자동 8초", notes:"터치스크린. 레시피 저장(8개). 자동 스팀. 온도 3단계 선택." },
+            "barista touch impress": { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", grinder:"내장 30단계 코니컬 버(54mm)", pressure:"9BAR OPV", preinfusion:"자동 8초", notes:"바리스타 터치 + 어시스트 탬핑 결합 최상위 올인원." },
+            "dual boiler":      { boiler:"듀얼 보일러(독립 에스프레소/스팀)", heatup:"25초", portafilter:"58mm", pressure:"9BAR OPV(조절 가능 0-12BAR)", preinfusion:"수동/자동 0-10초", notes:"추출 온도 PID 1°C 단위 조절(67~104°C). 유량 제어. 오버프레셔 밸브 조절 가능. 반자동 플래그십." },
+            "oracle":           { boiler:"듀얼 보일러", heatup:"25초", portafilter:"58mm", grinder:"내장 코니컬 버", pressure:"9BAR OPV", preinfusion:"자동", notes:"분쇄~탬핑~추출 완전 자동. 밀크 자동 스팀. 오라클 터치는 터치스크린 추가." },
+            "oracle touch":     { boiler:"듀얼 보일러", heatup:"25초", portafilter:"58mm", grinder:"내장 코니컬 버", pressure:"9BAR OPV", preinfusion:"자동", notes:"오라클 + 터치스크린. 레시피 프로그래밍. 완전자동 워크플로우." },
+            "the barista":      { boiler:"단일 보일러", heatup:"45초", portafilter:"54mm", pressure:"15BAR 펌프(9BAR OPV)", preinfusion:"없음", notes:"입문형. 압력 게이지 내장. 스팀 기능 포함." },
+            "duo temp pro":     { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", pressure:"9BAR OPV", preinfusion:"없음", notes:"PID 없음. 아날로그 압력 게이지. 입문 반자동." },
+            "infuser":          { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", pressure:"9BAR OPV", preinfusion:"수동/자동 0-10초", notes:"프리인퓨전 수동 조절 가능. 볼륨 프로그래밍. 중급 반자동." },
+            "985":              { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", pressure:"9BAR", preinfusion:"자동", notes:"밤비노 플러스 한국 유통 모델명(BES500). 자동 스팀 기능." },
+          },
+          // 브랜드 공통 팁
+          commonTips: lang === "ko"
+            ? [
+                "브레빌 54mm 포터필터 기준 권장 도징: 18~20g (더블샷 기준)",
+                "분쇄도 변경 시 0.5단계씩 조정 후 2~3샷 안정화 추출 필요",
+                "채널링 방지: WDT 툴로 분쇄 원두 분산 후 탬핑",
+                "추출 비율 목표: 1:2 (도징 18g → 에스프레소 36ml, 25~30초)",
+                "OPV 9BAR 기준 — 압력이 높다면 분쇄도를 굵게, 낮다면 가늘게",
+                "서드파티 바스켓(IMS/VST 58mm→54mm 어댑터) 사용 시 추출 향상 가능",
+              ]
+            : [
+                "Breville 54mm portafilter: recommended dose 18-20g (double shot)",
+                "Adjust grind by 0.5 steps at a time; allow 2-3 shots to stabilize",
+                "Prevent channeling: distribute grounds with WDT tool before tamping",
+                "Target extraction ratio 1:2 (18g in → 36ml out, 25-30s)",
+                "OPV set at 9BAR — if pressure high, grind coarser; if low, finer",
+                "Aftermarket baskets (IMS/VST with 54mm adapter) can improve extraction",
+              ],
+        },
+
+        // ── 드롱기 (De'Longhi) ─────────────────────────────────────
+        "delonghi": {
+          models: {
+            "magnifica":     { type:"전자동", grinder:"내장 13단계 버 그라인더", notes:"LatteCrema 우유 시스템. 분쇄도 조절은 원두 갈리는 중에만 가능." },
+            "magnifica evo":  { type:"전자동", grinder:"내장 13단계", notes:"My Latte 아트 기능. 터치 디스플레이." },
+            "eletta":        { type:"전자동", grinder:"내장 13단계", notes:"LatteCrema Cool 시스템(냉장 우유). 아이스 커피 기능." },
+            "dinamica":      { type:"전자동", grinder:"내장 13단계", notes:"MyMenu 기능. 트루 브루 시스템." },
+            "la specialista": { type:"반자동", portafilter:"51mm", notes:"내장 센서 그라인딩. 어시스트 탬핑. 스마트 워터 시스템." },
+          },
+          commonTips: lang === "ko"
+            ? [
+                "전자동 분쇄도 조절: 반드시 그라인딩 중에만 조절(정지 중 조절 시 버 손상)",
+                "커피 강도 설정: 분쇄 굵기보다 도징량(강도 다이얼)으로 먼저 조절",
+                "주 1회 커피 오일 세척 권장(리나 클리너 사용)",
+                "원두 교체 시 2~3샷 희생샷 추출 후 사용",
+              ]
+            : [
+                "Grind adjustment: only change while grinding is in progress (prevents burr damage)",
+                "Adjust strength via dose dial before changing grind size",
+                "Weekly cleaning cycle recommended (use Urnex or De'Longhi cleaner)",
+                "When changing beans, discard 2-3 shots to flush old grounds",
+              ],
+        },
+
+        // ── 가찌아 (Gaggia) ───────────────────────────────────────
+        "gaggia": {
+          models: {
+            "classic pro": { boiler:"단일 보일러(스테인리스)", portafilter:"58mm", pressure:"9BAR OPV", notes:"OPV 9BAR 사전 조정됨(구형 클래식은 15BAR). 상업용 58mm 포터필터. 스팀 온도 수동." },
+            "classic evo":  { boiler:"단일 보일러", portafilter:"58mm", pressure:"9BAR OPV", notes:"클래식 프로 업그레이드. 개선된 스팀 완드." },
+            "babila":       { boiler:"듀얼 보일러", portafilter:"58mm", pressure:"9BAR", notes:"독립 추출/스팀 보일러. PID 온도 제어." },
+          },
+          commonTips: lang === "ko"
+            ? [
+                "58mm 포터필터: 도징 18~21g, 탬핑 15~20kg 균일 압력",
+                "단일 보일러: 추출→스팀 전환 시 30초 대기 필요",
+                "클래식 프로 OPV 조절: 기본 9BAR, 스프링 교체로 8BAR 다운 가능",
+              ]
+            : [
+                "58mm portafilter: dose 18-21g, tamp 15-20kg consistent pressure",
+                "Single boiler: 30s wait required when switching espresso→steam",
+                "Classic Pro OPV: stock 9BAR, spring swap can reduce to 8BAR",
+              ],
+        },
+
+        // ── 유라 (Jura) ───────────────────────────────────────────
+        "jura": {
+          models: {
+            "e6":  { type:"전자동", grinder:"Aroma G3(5단계)", notes:"IPBAS. P.E.P(맥동 추출). 중급 전자동." },
+            "e8":  { type:"전자동", grinder:"Aroma G3(6단계)", notes:"E6 + 카푸치노 시스템. 15가지 음료." },
+            "s8":  { type:"전자동", grinder:"Aroma G3(6단계)", notes:"E8 + 터치 디스플레이. 3D Brewing." },
+            "z10": { type:"전자동", grinder:"Aroma G3(6단계)", notes:"콜드 브루 기능. 최상위 라인업. 듀얼 스페셜티." },
+          },
+          commonTips: lang === "ko"
+            ? [
+                "분쇄도 조절: 반드시 머신 가동 중(그라인딩 중)에만 변경",
+                "P.E.P(맥동 추출 공정): 추출 압력을 펄스로 조절해 향미 극대화",
+                "IPBAS: 원두 종류 감지 후 사전 우림(프리브루잉) 자동 최적화",
+                "탈석회화 주기: 수질 경도 설정에 따라 JURA Claris 필터 교체",
+              ]
+            : [
+                "Grind adjustment: ONLY while machine is actively grinding",
+                "P.E.P (Pulse Extraction Process): pulsed pressure maximizes aroma",
+                "IPBAS auto-optimizes pre-brewing based on bean type detection",
+                "Descaling interval depends on water hardness setting and Claris filter",
+              ],
+        },
+
+        // ── 사에코 (Saeco) ────────────────────────────────────────
+        "saeco": {
+          commonTips: lang === "ko"
+            ? ["세라믹 버 그라인더 탑재 모델 다수. 세라믹은 내열성 우수하나 단단한 원두에 취약.", "AquaClean 필터 사용 시 탈석회화 없이 5000잔 가능."]
+            : ["Many models use ceramic burr grinders. Ceramic excels in heat resistance but can chip on very hard beans.", "AquaClean filter enables up to 5000 cups without descaling."],
+        },
+
+        // ── 필립스 (Philips) ─────────────────────────────────────
+        "philips": {
+          commonTips: lang === "ko"
+            ? ["LatteGo 우유 시스템: 청소가 쉬운 분리형 우유 용기.", "분쇄도 12단계. 원두 경도에 따라 하드빈 설정 변경 가능."]
+            : ["LatteGo milk system: easy-clean detachable milk container.", "12-step grind adjustment. Enable hard bean setting for dense roasts."],
+        },
+      };
+
+      // ── 그라인더 지식 DB ──────────────────────────────────────────
+      const GRINDER_KB = {
+        "baratza": {
+          models: {
+            "encore":    { steps:40, espressoRange:"8~12", stepEffect:"1단계=약 2~3초 추출시간 변화", burr:"40mm 코니컬", notes:"입문 올라운더. 에스프레소 경계선급 성능." },
+            "encore esp":{ steps:40, espressoRange:"8~15", stepEffect:"1단계=약 2~3초", burr:"40mm 코니컬", notes:"앙코르 에스프레소 전용 버전. 더 세밀한 에스프레소 구간." },
+            "virtuoso+": { steps:40, espressoRange:"8~15", stepEffect:"1단계=약 2~3초", burr:"40mm 코니컬", notes:"DC 모터로 RPM 안정적. 앙코르보다 균일한 분쇄." },
+            "sette 270": { steps:270, espressoRange:"1A~3A", stepEffect:"매우 세밀", burr:"40mm 코니컬", notes:"매크로+마이크로 2단계 조절. 에스프레소 특화." },
+            "forte":     { steps:260, espressoRange:"1F~4F", burr:"54mm 플랫", notes:"플랫 버. 상업용 수준. 균일도 높음." },
+          },
+          commonTips: lang === "ko"
+            ? ["바라짜 보정: 0점 조정(espresso grinder calibration) 주기적 필요.", "RPM 안정화를 위해 연속 분쇄 전 3~5초 예열 권장."]
+            : ["Baratza calibration: periodic zero-point adjustment recommended.", "Let motor warm up 3-5s before grinding for RPM stability."],
+        },
+        "niche": {
+          models: {
+            "zero":  { steps:"360(무단)", espressoRange:"15~25", burr:"63mm 코니컬", notes:"싱글 도저. 분쇄 잔량 0.1g 이하. 에스프레소 최상급." },
+            "duo":   { steps:"360(무단)", burr:"63mm 코니컬", notes:"2단 RPM 조절. 에스프레소+필터 겸용." },
+          },
+          commonTips: lang === "ko"
+            ? ["싱글도저: 계량 후 호퍼에 투입. 커피 오일 산패 방지.", "63mm 코니컬 버: 분쇄 균일도 매우 높음. 채널링 최소화."]
+            : ["Single dose: weigh and drop in. Prevents oil rancidity.", "63mm conical burr: high grind uniformity, minimizes channeling."],
+        },
+        "eureka": {
+          commonTips: lang === "ko"
+            ? ["유레카 미뇽 시리즈: 스텝리스(무단) 분쇄도 조절. 마이크론 단위 미세 조정 가능.", "저RPM 고토크 모터로 열 발생 최소화."]
+            : ["Eureka Mignon: stepless grind adjustment, micrometric precision.", "Low RPM/high torque motor minimizes heat buildup."],
+        },
+        "timemore": {
+          commonTips: lang === "ko"
+            ? ["타임모어 핸드밀: C2/C3는 에스프레소 불가, S3/Sculptor 078은 에스프레소 가능.", "S3 에스프레소 구간: 클릭 3~6번."]
+            : ["Timemore hand grinder: C2/C3 not suitable for espresso; S3/Sculptor 078 can do espresso.", "S3 espresso range: 3-6 clicks."],
+        },
+        "1zpresso": {
+          commonTips: lang === "ko"
+            ? ["1Zpresso JX-Pro: 에스프레소 가능 핸드밀. 분쇄도 기준 1회전=90마이크론.", "K-Ultra/Q2: 에스프레소 전용 핸드밀. 정밀도 높음."]
+            : ["1Zpresso JX-Pro: espresso-capable hand grinder. 1 rotation = 90 microns.", "K-Ultra/Q2: espresso-dedicated, high precision."],
+        },
+      };
+
+      // ── 원두 로스터리 지식 DB ────────────────────────────────────
+      const BEAN_KB = {
+        "테라로사": lang === "ko" ? "테라로사는 한국 스페셜티 선두 로스터리. 싱글오리진 중심, 미디엄~미디엄라이트 로스팅. 산미 선명하고 과일향 풍부. 권장 추출온도 90~93°C." : "Terra Rosa is a leading Korean specialty roastery. Single-origin focused, medium-light roast. Bright acidity, fruity aromatics. Recommended 90-93°C.",
+        "커피리브레": lang === "ko" ? "커피리브레: 한국 스페셜티 로스터리. 워시드 프로세스 중심. 클린컵과 플로럴 향미 특징. 92~94°C 추출 권장." : "Coffee Libre: Korean specialty roaster, washed-process focused. Clean cup, floral notes. 92-94°C recommended.",
+        "블루보틀": lang === "ko" ? "블루보틀: 미디엄 로스팅 중심. 스페셜티 블렌드 강점. 에스프레소 블렌드는 93°C, 25~28초 기준." : "Blue Bottle: medium roast focused. Specialty blends. Espresso blend: 93°C, 25-28s.",
+        "로우키": lang === "ko" ? "로우키커피: 라이트~미디엄라이트. 에티오피아/케냐 싱글 강점. 낮은 추출온도(88~91°C) 시 과일향 극대화." : "Lowkey Coffee: light-medium light. Ethiopia/Kenya singles. Lower temp (88-91°C) maximizes fruity notes.",
+      };
+
+      // ── 머신/그라인더 매칭 ─────────────────────────────────────
+      const getMachineKnowledge = (machineName, machineBrand) => {
+        const mn = machineName.toLowerCase();
+        const mb = machineBrand.toLowerCase();
+
+        // 브랜드 매칭
+        let kb = null;
+        if (mb.includes("breville") || mb.includes("브레빌") || mb.includes("sage")) kb = MACHINE_KB["breville"];
+        else if (mb.includes("delonghi") || mb.includes("드롱기") || mb.includes("de'longhi")) kb = MACHINE_KB["delonghi"];
+        else if (mb.includes("gaggia") || mb.includes("가찌아")) kb = MACHINE_KB["gaggia"];
+        else if (mb.includes("jura") || mb.includes("유라")) kb = MACHINE_KB["jura"];
+        else if (mb.includes("saeco") || mb.includes("사에코")) kb = MACHINE_KB["saeco"];
+        else if (mb.includes("philips") || mb.includes("필립스")) kb = MACHINE_KB["philips"];
+
+        if (!kb) return null;
+
+        // 모델 매칭
+        let modelSpec = null;
+        if (kb.models) {
+          for (const [modelKey, spec] of Object.entries(kb.models)) {
+            if (mn.includes(modelKey)) { modelSpec = spec; break; }
+          }
+        }
+
+        const lines = [];
+        if (modelSpec) {
+          lines.push(lang === "ko" ? `[모델 스펙]` : `[Model Spec]`);
+          if (modelSpec.boiler)       lines.push((lang==="ko"?"보일러: ":"Boiler: ") + modelSpec.boiler);
+          if (modelSpec.portafilter)  lines.push((lang==="ko"?"포터필터: ":"Portafilter: ") + modelSpec.portafilter);
+          if (modelSpec.grinder)      lines.push((lang==="ko"?"내장 그라인더: ":"Built-in grinder: ") + modelSpec.grinder);
+          if (modelSpec.pressure)     lines.push((lang==="ko"?"압력: ":"Pressure: ") + modelSpec.pressure);
+          if (modelSpec.preinfusion)  lines.push((lang==="ko"?"프리인퓨전: ":"Pre-infusion: ") + modelSpec.preinfusion);
+          if (modelSpec.heatup)       lines.push((lang==="ko"?"예열시간: ":"Heat-up: ") + modelSpec.heatup);
+          if (modelSpec.notes)        lines.push((lang==="ko"?"특이사항: ":"Notes: ") + modelSpec.notes);
+        }
+        if (kb.commonTips?.length) {
+          lines.push(lang === "ko" ? `[브랜드 공통 팁]` : `[Brand Tips]`);
+          kb.commonTips.forEach(t => lines.push("• " + t));
+        }
+        return lines.join("\n");
+      };
+
+      const getGrinderKnowledge = (grinderName) => {
+        const gn = grinderName.toLowerCase();
+        let gkb = null;
+        if (gn.includes("baratza") || gn.includes("바라짜")) gkb = GRINDER_KB["baratza"];
+        else if (gn.includes("niche") || gn.includes("니치")) gkb = GRINDER_KB["niche"];
+        else if (gn.includes("eureka") || gn.includes("유레카")) gkb = GRINDER_KB["eureka"];
+        else if (gn.includes("timemore") || gn.includes("타임모어")) gkb = GRINDER_KB["timemore"];
+        else if (gn.includes("1zpresso") || gn.includes("1z")) gkb = GRINDER_KB["1zpresso"];
+        if (!gkb) return null;
+
+        const lines = [];
+        if (gkb.models) {
+          for (const [mk, spec] of Object.entries(gkb.models)) {
+            if (gn.includes(mk)) {
+              lines.push(lang==="ko" ? `[그라인더 스펙]` : `[Grinder Spec]`);
+              if (spec.steps)        lines.push((lang==="ko"?"분쇄단계: ":"Steps: ") + spec.steps);
+              if (spec.espressoRange)lines.push((lang==="ko"?"에스프레소 구간: ":"Espresso range: ") + spec.espressoRange);
+              if (spec.stepEffect)   lines.push((lang==="ko"?"단계별 효과: ":"Step effect: ") + spec.stepEffect);
+              if (spec.burr)         lines.push((lang==="ko"?"버 종류: ":"Burr: ") + spec.burr);
+              if (spec.notes)        lines.push((lang==="ko"?"특이사항: ":"Notes: ") + spec.notes);
+              break;
+            }
+          }
+        }
+        if (gkb.commonTips?.length) {
+          lines.push(lang==="ko" ? `[그라인더 팁]` : `[Grinder Tips]`);
+          gkb.commonTips.forEach(t => lines.push("• " + t));
+        }
+        return lines.join("\n");
+      };
+
+      const getBeanKnowledge = (beanName, company) => {
+        const combined = `${company||""} ${beanName||""}`.toLowerCase();
+        for (const [key, val] of Object.entries(BEAN_KB)) {
+          if (combined.includes(key.toLowerCase())) return val;
+        }
+        return null;
+      };
+
+      const machineKnowledge = getMachineKnowledge(machineName, machineBrand || "");
+      const grinderKnowledge = getGrinderKnowledge(grinderName || "");
+      const beanKnowledge    = getBeanKnowledge(beanName, beanCompany);
+
+      // DB에 없는 장비는 Gemini 자체 지식 위임 문구 추가
+      const unknownMachineNote = !machineKnowledge
+        ? (lang==="ko"
+            ? `※ ${machineName}은 내부 DB에 없습니다. 당신이 알고 있는 이 머신의 스펙(보일러, 포터필터, 압력, 프리인퓨전 등)과 최적 파라미터를 직접 적용해 분석해주세요.`
+            : `※ ${machineName} is not in our local DB. Please apply your own knowledge of this machine's specs (boiler type, portafilter size, pressure, pre-infusion, etc.) directly in your analysis.`)
+        : "";
+      const unknownGrinderNote = !grinderKnowledge && grinderName
+        ? (lang==="ko"
+            ? `※ ${grinderName}은 내부 DB에 없습니다. 이 그라인더의 특성과 에스프레소 권장 분쇄 구간을 당신의 지식으로 반영해주세요.`
+            : `※ ${grinderName} is not in our local DB. Apply your own knowledge of this grinder's characteristics and espresso grind range.`)
+        : "";
+
       const isKo = lang === "ko";
-      const beanBrands = [...new Set(mine.map(r => r.beanBrand || r.bean).filter(Boolean))].slice(0, 3).join(", ");
-      const topBean = recent[0]?.bean || "";
-      const topBrand = recent[0]?.beanBrand || "";
-      const recentSummary = recent.map((r,i) =>
-        `${i+1}.${r.menu}/${r.bean}${r.beanBrand?"("+r.beanBrand+")":""}/별점${r.rating}/머신:${r.machine}/그라인더:${r.grinder}/분쇄도:${r.grindSize}/${r.gram}g/${r.seconds}s/${r.waterTemp}°C/산미${r.acidity}단맛${r.sweet}쓴맛${r.bitter}바디${r.body}밸런스${r.balance}/날씨:${r.weather}`
-      ).join("\n");
+
       const prompt = isKo
-        ? `당신은 전문 바리스타이자 커피 원두 전문가입니다. 아래 브루어의 추출 데이터를 분석하고, 보유 원두 브랜드(${beanBrands || topBean})의 전문 지식을 활용해 최적의 추출 레시피를 추천해주세요.\n\n최근 추출 기록:\n${recentSummary}\n\n분석 요청:\n1. 맛 프로필(산미/단맛/쓴맛/바디/밸런스) 패턴을 분석해 개선점을 찾아주세요\n2. ${topBrand || topBean} 원두의 특성과 권장 추출 파라미터를 반영해주세요\n3. 날씨와 머신 특성도 고려해주세요\n\n반드시 아래 JSON 형식으로만 답변하세요. 다른 텍스트 없이 JSON만:\n{"tip":"데이터 기반 구체적 개선 팁 2-3문장 (수치 포함)","recipeTitle":"오늘 시도해볼 레시피명","recipeDesc":"원두 특성 반영한 추천 이유 1-2문장","gram":"권장 원두량 숫자만","temp":"권장 물온도 숫자만","seconds":"권장 추출시간 숫자만"}`
-        : `You are a professional barista and coffee bean expert. Analyze the brewer data below and recommend the optimal extraction recipe using your knowledge of ${beanBrands || topBean} beans.\n\nRecent brew records:\n${recentSummary}\n\nAnalysis requested:\n1. Analyze flavor profile patterns and find improvements\n2. Apply ${topBrand || topBean} bean characteristics and recommended parameters\n3. Consider weather and machine characteristics\n\nReply ONLY with this exact JSON and nothing else:\n{"tip":"data-driven specific tip 2-3 sentences with numbers","recipeTitle":"recipe to try today","recipeDesc":"recommendation based on bean characteristics 1-2 sentences","gram":"number only","temp":"number only","seconds":"number only"}`;
+        ? `당신은 전문 바리스타이자 커피 장비 전문가입니다. 아래 종합 데이터를 분석해 최적의 추출 레시피를 추천해주세요.
+
+## 브루어 장비 프로필
+- 머신: ${machineName} (${machineType})
+- 그라인더: ${grinderName || "미상"}
+${pressureVal ? `- 최근 추출 압력: ${pressureVal}` : ""}
+- 주요 사용 원두: ${beanBrands || topBeanLabel}
+
+## 장비 지식 (내부 DB)
+${machineKnowledge || unknownMachineNote}
+${grinderKnowledge ? "\n" + grinderKnowledge : unknownGrinderNote}
+${beanKnowledge    ? "\n[원두 로스터리 정보]\n" + beanKnowledge : ""}
+
+## 원두 신선도
+${freshness ? `로스팅 후 ${freshness.days}일 경과 → ${freshness.stage}` : "로스팅 날짜 미기록"}
+${freshness?.days <= 3  ? "⚠️ 디개싱 중: 수율 불안정, 추출 시간 짧게 시작 권장" : ""}
+${freshness?.days >= 30 ? "⚠️ 신선도 저하: 분쇄도 가늘게, 수온 낮추기 고려" : ""}
+
+## 현재 날씨 환경
+${latestWeather ? `온도: ${latestWeather.temp}°C | 습도: ${latestWeather.humidity}% | ${latestWeather.desc}` : "날씨 데이터 없음"}
+${weatherNote ? `날씨 영향: ${weatherNote}` : ""}
+
+## 별점 추세 분석 (최근 ${ratings.length}샷)
+- 평균 별점: ${avgRating || "데이터 없음"} / 5.0
+- 추세: ${ratingTrend || "데이터 부족"}
+
+## 추출 비율 분석
+- 최근 추출 비율: ${latestRatio ? `1:${latestRatio.ratio} → ${getRatioNote(latestRatio.ratio)}` : "데이터 없음"}
+- 전체 평균 비율 (${allRatios.length}샷 기준): ${avgRatio ? `1:${avgRatio}` : "데이터 없음"}
+
+## 장기 패턴 (최근 ${longTerm.length}샷 평균)
+- 평균 도징: ${ltAvgGram}g | 평균 추출시간: ${ltAvgSeconds}s | 평균 수온: ${ltAvgTemp}°C
+- 평균 맛 프로필: 산미${ltAvgAcid} / 단맛${ltAvgSweet} / 쓴맛${ltAvgBitter} / 바디${ltAvgBody} / 밸런스${ltAvgBalance}
+
+## 최근 맛 노트 (주관적 기록)
+${flavorNotes || "맛 노트 없음"}
+
+## 최근 추출 기록 상세 (최신순)
+${recentSummary}
+
+## 분석 요청
+1. 장비(${machineName}) 스펙을 tip에 명시하며 구체적 파라미터 개선점 제시 (수치 포함)
+2. 별점 추세(${ratingTrend||"불명"})와 장기 맛 프로필 패턴에서 개선점 분석
+3. 원두 신선도(${freshness?freshness.days+"일차":"미상"})와 현재 날씨(${latestWeather?.temp||"?"}°C, 습도${latestWeather?.humidity||"?"}%)를 반드시 반영
+4. 추출 비율(최근 1:${latestRatio?.ratio||"?"})이 적정한지 판단하고 개선 방향 제시
+5. 맛 노트 텍스트에서 향미 특성을 파악해 원두 특성 반영
+
+반드시 아래 JSON만 출력하세요. gram/temp/seconds는 숫자만(단위 없이):
+{"tip":"장비명·신선도·날씨·비율을 모두 반영한 구체적 개선 팁 2-3문장","recipeTitle":"오늘 시도해볼 레시피명","recipeDesc":"원두+장비+컨디션 반영한 추천 이유 1-2문장","gram":"숫자만","temp":"숫자만","seconds":"숫자만"}`
+        : `You are a professional barista and coffee equipment specialist. Analyze the comprehensive data below to recommend the optimal extraction recipe.
+
+## Brewer Equipment Profile
+- Machine: ${machineName} (${machineType})
+- Grinder: ${grinderName || "Unknown"}
+${pressureVal ? `- Recent brew pressure: ${pressureVal}` : ""}
+- Primary beans: ${beanBrands || topBeanLabel}
+
+## Equipment Knowledge (Internal DB)
+${machineKnowledge || unknownMachineNote}
+${grinderKnowledge ? "\n" + grinderKnowledge : unknownGrinderNote}
+${beanKnowledge    ? "\n[Bean Roastery Info]\n" + beanKnowledge : ""}
+
+## Bean Freshness
+${freshness ? `${freshness.days} days post-roast → ${freshness.stage}` : "Roast date not recorded"}
+${freshness?.days <= 3  ? "⚠️ Degassing: unstable yield, start with shorter extraction" : ""}
+${freshness?.days >= 30 ? "⚠️ Freshness declining: grind finer, consider lower temp" : ""}
+
+## Current Weather Conditions
+${latestWeather ? `Temp: ${latestWeather.temp}°C | Humidity: ${latestWeather.humidity}% | ${latestWeather.desc}` : "No weather data"}
+${weatherNote ? `Weather impact: ${weatherNote}` : ""}
+
+## Rating Trend Analysis (last ${ratings.length} shots)
+- Average rating: ${avgRating || "no data"} / 5.0
+- Trend: ${ratingTrend || "insufficient data"}
+
+## Extraction Ratio Analysis
+- Latest ratio: ${latestRatio ? `1:${latestRatio.ratio} → ${getRatioNote(latestRatio.ratio)}` : "no data"}
+- Overall average ratio (${allRatios.length} shots): ${avgRatio ? `1:${avgRatio}` : "no data"}
+
+## Long-term Patterns (avg of last ${longTerm.length} shots)
+- Avg dose: ${ltAvgGram}g | Avg time: ${ltAvgSeconds}s | Avg temp: ${ltAvgTemp}°C
+- Avg flavor: acidity${ltAvgAcid} / sweet${ltAvgSweet} / bitter${ltAvgBitter} / body${ltAvgBody} / balance${ltAvgBalance}
+
+## Recent Flavor Notes (subjective)
+${flavorNotes || "No flavor notes recorded"}
+
+## Recent Brew Records (newest first)
+${recentSummary}
+
+## Analysis Request
+1. Reference ${machineName} specs explicitly in tip with concrete parameter improvements
+2. Analyze rating trend (${ratingTrend||"unknown"}) and long-term flavor profile patterns
+3. Factor in bean freshness (${freshness?freshness.days+"d post-roast":"unknown"}) and weather (${latestWeather?.temp||"?"}°C, humidity ${latestWeather?.humidity||"?"}%)
+4. Evaluate extraction ratio (latest 1:${latestRatio?.ratio||"?"}) and suggest improvement direction
+5. Extract flavor characteristics from tasting notes and match to bean profile
+
+Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
+{"tip":"specific 2-3 sentence tip referencing machine/freshness/weather/ratio","recipeTitle":"recipe name to try today","recipeDesc":"1-2 sentence recommendation reflecting bean+equipment+conditions","gram":"numberonly","temp":"numberonly","seconds":"numberonly"}`;
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`,
         {
@@ -8070,18 +8543,74 @@ function MainApp({ user, lang, toggleLang, onRequireAuth }) {
       if (!res.ok) throw new Error("Gemini API error");
       const data = await res.json();
       const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      const extract = (key) => {
+
+      // ── 파싱 전략 1: 정규식으로 각 필드 개별 추출 ──────────────
+      // 문자열 값: "key": "value"
+      const extractStr = (key) => {
         const m = raw.match(new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`) );
-        return m ? m[1] : "";
+        return m ? m[1].trim() : "";
       };
-      const parsed = {
-        tip: extract("tip"),
-        recipeTitle: extract("recipeTitle"),
-        recipeDesc: extract("recipeDesc"),
-        gram: extract("gram"),
-        temp: extract("temp"),
-        seconds: extract("seconds"),
+      // 숫자 값: "key": 20 또는 "key": "20" 또는 "key": "20g" 모두 처리
+      const extractNum = (key) => {
+        // 따옴표 없는 숫자: "gram": 20
+        let m = raw.match(new RegExp(`"${key}"\\s*:\\s*(\\d+(?:\\.\\d+)?)`));
+        if (m) return m[1];
+        // 따옴표 있는 숫자(단위 포함 가능): "gram": "20" or "20g" or "20 g"
+        m = raw.match(new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`) );
+        if (m) {
+          const numOnly = m[1].replace(/[^0-9.]/g, "");
+          if (numOnly) return numOnly;
+        }
+        return "";
       };
+
+      let parsed = {
+        tip:         extractStr("tip"),
+        recipeTitle: extractStr("recipeTitle"),
+        recipeDesc:  extractStr("recipeDesc"),
+        gram:        extractNum("gram"),
+        temp:        extractNum("temp"),
+        seconds:     extractNum("seconds"),
+      };
+
+      // ── 파싱 전략 2: JSON.parse 시도 (따옴표 제거 후) ───────────
+      if (!parsed.tip) {
+        try {
+          const jsonMatch = raw.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const obj = JSON.parse(jsonMatch[0]);
+            parsed = {
+              tip:         String(obj.tip         || ""),
+              recipeTitle: String(obj.recipeTitle || ""),
+              recipeDesc:  String(obj.recipeDesc  || ""),
+              gram:        String(obj.gram        || "").replace(/[^0-9.]/g, ""),
+              temp:        String(obj.temp        || "").replace(/[^0-9.]/g, ""),
+              seconds:     String(obj.seconds     || "").replace(/[^0-9.]/g, ""),
+            };
+          }
+        } catch {}
+      }
+
+      // ── 파싱 전략 3: gram/temp/seconds가 비어있으면 tip 텍스트에서 추출 ──
+      // tip에 "19.5g", "92°C", "28s" 같은 패턴이 있을 때 fallback
+      if (!parsed.gram) {
+        const m = parsed.tip.match(/(\d+(?:\.\d+)?)\s*g(?:ram)?/i);
+        if (m) parsed.gram = m[1];
+      }
+      if (!parsed.temp) {
+        const m = parsed.tip.match(/(\d+(?:\.\d+)?)\s*°?[Cc]/);
+        if (m) parsed.temp = m[1];
+      }
+      if (!parsed.seconds) {
+        const m = parsed.tip.match(/(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?(?:\s|$)/i);
+        if (m) parsed.seconds = m[1];
+      }
+
+      // ── 최종 fallback: 최근 레시피 기본값 사용 ──────────────────
+      if (!parsed.gram)    parsed.gram    = String(latestR.gram    || "18");
+      if (!parsed.temp)    parsed.temp    = String(latestR.waterTemp || "93");
+      if (!parsed.seconds) parsed.seconds = String(latestR.seconds  || "28");
+
       if (!parsed.tip) throw new Error("No tip in response: " + raw.slice(0, 80));
       // 언어별로 별도 캐시 키 사용 — ko/en 응답이 섞이지 않도록
       const adviceData = { ...parsed, fetchedAt: today, lang };
