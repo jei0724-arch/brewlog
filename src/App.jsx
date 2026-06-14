@@ -151,7 +151,8 @@ const CSS = `
     --shadow-modal: 0 20px 60px rgba(0,0,0,0.50), 0 4px 16px rgba(0,0,0,0.30);
   }
   body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--espresso); min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; overscroll-behavior-x: none; transition: background var(--transition-slow), color var(--transition-slow); }
-  html { overflow-x: hidden; overscroll-behavior-x: none; }
+  html { overflow-x: hidden; overscroll-behavior-x: none; max-width: 100vw; }
+  *, *::before, *::after { box-sizing: border-box; max-width: 100%; }
 
   .auth-wrap {
     min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -297,6 +298,76 @@ const CSS = `
   .btn-my:hover { border-color: var(--espresso); color: var(--espresso); }
 
   .main-wrap { max-width: 900px; margin: 0 auto; padding: 12px 24px 40px; }
+
+  /* ── 모바일 반응형 전면 보강 ── */
+  @media (max-width: 600px) {
+    /* 레이아웃 기본 */
+    .main-wrap        { padding: 10px 14px 60px; }
+    .toolbar          { padding: 0 14px; gap: 6px; }
+    .admin-wrap       { padding: 16px 14px; }
+
+    /* 헤더 */
+    .app-header       { padding: 0 12px; height: 48px; }
+    .app-header-inner { gap: 6px; }
+
+    /* 레시피 카드 */
+    .recipe-card      { padding: 16px 14px; }
+    .card-stats       { grid-template-columns: repeat(4,1fr); gap: 4px; }
+    .stat             { padding: 6px 2px; }
+    .stat-val         { font-size: 0.9rem; }
+    .stat-lbl         { font-size: 0.6rem; }
+    .card-chips       { flex-wrap: wrap; gap: 4px; }
+
+    /* 섹션 타이틀 */
+    .section-title    { font-size: 1.35rem; }
+
+    /* 베스트 레시피 */
+    .best-row         { padding: 12px 14px; gap: 10px; }
+
+    /* 검색창 */
+    .search-box input { font-size: 0.82rem; height: 34px; }
+
+    /* 버튼 */
+    .btn-new          { padding: 0 12px; height: 34px; font-size: 0.76rem; }
+
+    /* 모달 */
+    .modal            { padding: 22px 16px; border-radius: 12px 12px 0 0; max-height: 95vh; }
+    .modal h2         { font-size: 1.2rem; margin-bottom: 18px; }
+    .modal-grid       { grid-template-columns: 1fr; gap: 10px; }
+    .field.full       { grid-column: 1; }
+
+    /* MY 섹션 */
+    .my-section       { padding: 16px 14px; }
+
+    /* 탭 버튼 */
+    .bookmark-tab-btn { padding: 5px 10px; font-size: 0.75rem; }
+
+    /* 알림 드롭다운 */
+    .notif-dropdown   { width: calc(100vw - 20px); right: -10px; }
+
+    /* 어드민 테이블 */
+    .admin-table      { font-size: 0.74rem; }
+    .admin-table th,
+    .admin-table td   { padding: 7px 6px; }
+
+    /* 빈 화면 */
+    .empty-state      { padding: 40px 20px; }
+
+    /* AI 카드 */
+    .ai-card          { margin: 0 0 16px; border-radius: 12px; }
+
+    /* bean 카드 */
+    .bean-card        { padding: 14px 12px; }
+    .bean-stat-row    { gap: 6px; }
+  }
+
+  @media (max-width: 390px) {
+    .main-wrap        { padding: 8px 10px 60px; }
+    .toolbar          { padding: 0 10px; }
+    .recipe-card      { padding: 14px 10px; }
+    .section-title    { font-size: 1.2rem; }
+    .card-stats       { gap: 3px; }
+  }
   .section-title {
     font-family: 'Playfair Display', serif;
     font-size: 1.75rem;
@@ -638,6 +709,12 @@ const CSS = `
     touch-action: none; overscroll-behavior: none; overflow: hidden;
     -webkit-overflow-scrolling: none;
   }
+  @media (max-width: 600px) {
+    .modal-backdrop {
+      align-items: flex-end;
+      padding: 0;
+    }
+  }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .modal {
     background: var(--foam); border: 1px solid var(--steam); border-radius: var(--r-modal);
@@ -646,6 +723,28 @@ const CSS = `
     text-align: left; box-shadow: var(--shadow-modal);
     touch-action: pan-y; overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+  }
+  @media (max-width: 600px) {
+    .modal {
+      max-width: 100%;
+      border-radius: 18px 18px 0 0;
+      border-bottom: none;
+      max-height: 93vh;
+      padding: 20px 16px 36px;
+      /* 바텀시트 슬라이드 업 */
+      animation: slideUpMobile 0.25s ease;
+    }
+    @keyframes slideUpMobile { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    /* 모달 상단 핸들 */
+    .modal::after {
+      content: '';
+      position: absolute;
+      top: 10px; left: 50%;
+      transform: translateX(-50%);
+      width: 36px; height: 4px;
+      background: var(--steam);
+      border-radius: 2px;
+    }
   }
   @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .modal::before { content: ''; position: absolute; top: 0; left: 2rem; right: 2rem; height: 2px; background: linear-gradient(90deg, transparent, var(--latte), transparent); }
@@ -820,6 +919,10 @@ const CSS = `
   }
   @media (max-width: 600px) {
     .modal-grid { grid-template-columns: 1fr; }
+
+    /* 가로 넘침 완전 차단 */
+    html, body { overflow-x: hidden !important; max-width: 100vw !important; }
+    #root { overflow-x: hidden; max-width: 100vw; }
 
     /* 헤더 */
     .app-header { padding: 0 12px; height: 48px; }
