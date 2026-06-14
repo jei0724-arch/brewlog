@@ -5782,15 +5782,26 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                       </div>` : ""}
                     </div>
 
-                    <!-- 푸터 -->
-                    <div style="background:#F0EFEF;padding:8px 20px;display:flex;align-items:center;justify-content:space-between;">
-                      <span style="font-size:10px;color:#8C8480;">@${recipe.author||""} · brewlog-jade.vercel.app</span>
-                      <svg width="14" height="14" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="#1A1614" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    <!-- 푸터 — QR 코드 포함 -->
+                    <div style="background:#F0EFEF;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                      <div style="display:flex;flex-direction:column;gap:2px;">
+                        <span style="font-size:9px;font-weight:700;color:#5C4033;letter-spacing:0.08em;text-transform:uppercase;">Brewlog Note</span>
+                        <span style="font-size:9px;color:#8C8480;">@${recipe.author||""} · brewlog-jade.vercel.app</span>
+                      </div>
+                      <!-- QR 코드 -->
+                      <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+                          <img src="https://api.qrserver.com/v1/create-qr-code/?size=52x52&data=https://brewlog-jade.vercel.app&bgcolor=F0EFEF&color=3D2B1F&margin=2" width="52" height="52" style="border-radius:4px;display:block;" crossorigin="anonymous"/>
+                          <span style="font-size:7px;color:#B07D54;letter-spacing:0.06em;font-weight:600;">SCAN TO BREW</span>
+                        </div>
+                      </div>
                     </div>
                   `;
 
                   document.body.appendChild(el);
-                  const canvas = await html2canvas(el, { scale: 3, useCORS: true, backgroundColor: null, logging: false });
+                  // QR 이미지 로드 대기 후 캡처
+                  await new Promise(r => setTimeout(r, 800));
+                  const canvas = await html2canvas(el, { scale: 3, useCORS: true, allowTaint: false, backgroundColor: null, logging: false });
                   document.body.removeChild(el);
 
                   canvas.toBlob(async (blob) => {
@@ -6408,17 +6419,27 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
                       <div style="text-align:center;">${radarSVG}</div>
                     </div>` : ""}
 
-                    <!-- 푸터 -->
-                    <div style="background:#ECEAE7;padding:8px 20px;border-radius:0 0 16px 16px;display:flex;align-items:center;justify-content:space-between;">
-                      <span style="font-size:10px;color:#8C8480;">brewlog-jade.vercel.app</span>
-                      <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8" stroke="#1A1614" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    <!-- 푸터 — QR 코드 포함 -->
+                    <div style="background:#ECEAE7;padding:10px 20px;border-radius:0 0 16px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                      <div style="display:flex;flex-direction:column;gap:2px;">
+                        <span style="font-size:9px;font-weight:700;color:#5C4033;letter-spacing:0.08em;text-transform:uppercase;">Brewlog Note</span>
+                        <span style="font-size:9px;color:#8C8480;">brewlog-jade.vercel.app</span>
+                      </div>
+                      <!-- QR 코드 -->
+                      <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+                          <img src="https://api.qrserver.com/v1/create-qr-code/?size=52x52&data=https://brewlog-jade.vercel.app&bgcolor=ECEAE7&color=3D2B1F&margin=2" width="52" height="52" style="border-radius:4px;display:block;" crossorigin="anonymous"/>
+                          <span style="font-size:7px;color:#B07D54;letter-spacing:0.06em;font-weight:600;">SCAN TO BREW</span>
+                        </div>
+                      </div>
                     </div>
                   `;
 
                   document.body.appendChild(el);
-                  await new Promise(r => requestAnimationFrame(r));
+                  // QR 이미지 로드 대기 후 캡처
+                  await new Promise(r => setTimeout(r, 800));
                   const canvas = await html2canvas(el, {
-                    scale: 3, useCORS: true, backgroundColor: "#FBFBFA",
+                    scale: 3, useCORS: true, allowTaint: false, backgroundColor: "#FBFBFA",
                     logging: false, width: 460, windowWidth: 460,
                   });
                   document.body.removeChild(el);
