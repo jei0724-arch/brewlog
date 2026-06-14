@@ -1209,7 +1209,7 @@ function PrivacyModal({ onClose, lang }) {
 }
 
 // ─── AuthScreen ────────────────────────────────────────────────────
-function AuthScreen({ lang, toggleLang, onGuest, defaultTab }) {
+function AuthScreen({ lang, toggleLang, onGuest, defaultTab, darkMode, toggleDark }) {
   // defaultTab 있으면 초기 탭 설정
   const [tab, setTab] = useState(defaultTab || "login");
   const [msg, setMsg] = useState(null);
@@ -3294,7 +3294,15 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             ) : (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 {presets.map(p => {
-                  const compatible = !p.equipType || p.equipType === (isHandDrip ? "handdrip" : "machine");
+                  // ── 프리셋 호환성 체크 수정 ──
+                  // isHandDrip은 초기 마운트 변수라 동적 변경을 못 잡음
+                  // machineType state를 직접 참조해서 실시간 비교
+                  const currentIsHandDrip = machineType === "handdrip";
+                  const compatible = (
+                    !p.equipType ||                                          // 구버전 프리셋 (equipType 없음) → 항상 허용
+                    p.equipType === "machine" && !currentIsHandDrip ||      // 머신 프리셋 + 현재 머신 모드
+                    p.equipType === "handdrip" && currentIsHandDrip         // 핸드드립 프리셋 + 현재 핸드드립 모드
+                  );
                   return (
                     <button key={p.id} type="button"
                       onClick={() => { if (compatible) { applyPreset(p); setActivePresetId(p.id); } }}
@@ -5595,6 +5603,21 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
           <div className="stat"><span className="stat-val">{recipe.espressoMl ? `${recipe.espressoMl}ml` : "—"}</span><span className="stat-label">{t.statMl}</span></div>
           {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang === "en" ? "Temp" : "물온도"}</span></div>}
         </div>
+        {/* 추출 비율 자동 계산 표시 */}
+        {recipe.gram && recipe.espressoMl && (() => {
+          const ratio = (parseFloat(recipe.espressoMl) / parseFloat(recipe.gram)).toFixed(1);
+          const isOk  = ratio >= 1.5 && ratio <= 3.0;
+          const label = ratio < 1.5 ? (lang==="en"?"Ristretto":"리스트레토")
+                      : ratio < 2.2 ? (lang==="en"?"Espresso":"에스프레소")
+                      : ratio < 2.8 ? (lang==="en"?"Lungo":"룽고")
+                      : (lang==="en"?"Over":"과다추출");
+          return (
+            <div style={{ display:"inline-flex", alignItems:"center", gap:"5px", marginBottom:"10px", padding:"3px 9px", background: isOk ? "#eafaf1" : "#fef9e7", borderRadius:"var(--r-chip)", border:`1px solid ${isOk?"#a9dfbf":"#f9e4b7"}` }}>
+              <span style={{ fontSize:"0.72rem", fontWeight:600, color: isOk ? "#27ae60" : "#e67e22", fontFamily:"'DM Sans',sans-serif" }}>1 : {ratio}</span>
+              <span style={{ fontSize:"0.68rem", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif" }}>{label}</span>
+            </div>
+          );
+        })()}
         {recipe.diluteMl && (
           <div className="card-dilution">{recipe.diluteType} {recipe.diluteMl}ml 희석</div>
         )}
@@ -7891,7 +7914,7 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
    MainApp: 피드, 베스트, 알림, 어드민 등 메인 앱 로직
    App (root): onAuthStateChanged, lang 감지, 게스트 모드
    ============================================================ */
-function MainApp({ user, lang, toggleLang, onRequireAuth }) {
+function MainApp({ user, lang, toggleLang, onRequireAuth, darkMode, toggleDark }) {
   const [notifications, setNotifications] = useState([]);
   const [showNotif, setShowNotif] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -8948,6 +8971,15 @@ Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
               @{user?.displayName}{myRecipesOnly ? " ·" : ""}
             </span>
             {isAdmin && <button className="btn-admin-header" onClick={() => setAdminMode(true)}>관리자</button>}
+            {/* 다크 모드 토글 */}
+            <button onClick={toggleDark} title={darkMode ? (lang==="en"?"Light mode":"라이트 모드") : (lang==="en"?"Dark mode":"다크 모드")}
+              style={{ background:"none", border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", width:"32px", height:"32px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"var(--muted)", transition:"border-color var(--transition-base), color var(--transition-base)", flexShrink:0 }}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--espresso)";e.currentTarget.style.color="var(--espresso)";}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--steam)";e.currentTarget.style.color="var(--muted)";}}>
+              {darkMode
+                ? <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="4" stroke="currentColor" strokeWidth="1.4"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M11.89 3.05l-1.06 1.06M4.11 11.89l-1.06 1.06" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                : <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>}
+            </button>
             <button className="btn-lang" onClick={toggleLang}>{lang === "ko" ? "EN" : "KO"}</button>
             <button className="btn-my" onClick={() => openMyModal()}>MY</button>
             {/* 알림 버튼 */}
@@ -10809,6 +10841,20 @@ export default function App() {
   const [guestMode, setGuestMode] = useState(false);
   const [authDefaultTab, setAuthDefaultTab] = useState("login");
 
+  // ── 다크 모드 ──────────────────────────────────────────────────
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("brewlog_theme") === "dark");
+  const toggleDark = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    localStorage.setItem("brewlog_theme", next ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", next ? "dark" : "light");
+  };
+  // 초기 로드 시 저장된 테마 적용
+  useEffect(() => {
+    const saved = localStorage.getItem("brewlog_theme");
+    if (saved) document.documentElement.setAttribute("data-theme", saved);
+  }, []);
+
   const toggleLang = () => {
     const next = lang === "ko" ? "en" : "ko";
     setLang(next);
@@ -10856,10 +10902,10 @@ export default function App() {
     <LangContext.Provider value={lang}>
       <style>{CSS}</style>
       {user
-        ? <MainApp user={user} lang={lang} toggleLang={toggleLang} />
+        ? <MainApp user={user} lang={lang} toggleLang={toggleLang} darkMode={darkMode} toggleDark={toggleDark} />
         : guestMode
-          ? <MainApp user={null} lang={lang} toggleLang={toggleLang} onRequireAuth={requireAuth} />
-          : <AuthScreen lang={lang} toggleLang={toggleLang} defaultTab={authDefaultTab}
+          ? <MainApp user={null} lang={lang} toggleLang={toggleLang} darkMode={darkMode} toggleDark={toggleDark} onRequireAuth={requireAuth} />
+          : <AuthScreen lang={lang} toggleLang={toggleLang} darkMode={darkMode} toggleDark={toggleDark} defaultTab={authDefaultTab}
               onGuest={() => { setGuestMode(true); setAuthDefaultTab("login"); }} />}
     </LangContext.Provider>
   );
