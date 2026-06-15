@@ -9944,83 +9944,202 @@ Output ONLY this JSON on a single line. No explanation, no markdown, no code blo
         const BrewCalendar = () => {
           const today = new Date();
           const year  = today.getFullYear();
+          const isKo  = lang === "ko";
 
-          // 날짜별 기록 수 집계
+          // ── 날짜별 기록 수 집계 ──────────────────────────────────
           const countMap = {};
           mine.forEach(r => {
             const d = r.recordDate || (r.createdAt?.toDate ? r.createdAt.toDate().toISOString().slice(0,10) : null);
             if (d && d.startsWith(String(year))) countMap[d] = (countMap[d]||0)+1;
           });
 
-          // 월별 집계
+          // ── 월별 집계 ────────────────────────────────────────────
           const monthlyCounts = Array.from({ length: 12 }, (_, mi) => {
             const prefix = `${year}-${String(mi+1).padStart(2,"0")}`;
-            return Object.entries(countMap)
-              .filter(([k]) => k.startsWith(prefix))
-              .reduce((sum, [, v]) => sum + v, 0);
+            return Object.entries(countMap).filter(([k]) => k.startsWith(prefix)).reduce((s,[,v])=>s+v,0);
           });
           const maxMonthly   = Math.max(...monthlyCounts, 1);
           const currentMonth = today.getMonth();
 
-          // 통계
-          const totalShots  = Object.values(countMap).reduce((a,b)=>a+b,0);
-          const totalDays   = Object.keys(countMap).length;
-          const avgPerDay   = totalDays ? (totalShots / totalDays).toFixed(1) : "0";
+          // ── 기본 통계 ────────────────────────────────────────────
+          const thisMonthPrefix = `${year}-${String(today.getMonth()+1).padStart(2,"0")}`;
+          const thisMonthRecs   = mine.filter(r => {
+            const d = r.recordDate || (r.createdAt?.toDate ? r.createdAt.toDate().toISOString().slice(0,10) : null);
+            return d && d.startsWith(thisMonthPrefix);
+          });
+          const lastMonthDate   = new Date(today.getFullYear(), today.getMonth()-1, 1);
+          const lastMonthPrefix = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth()+1).padStart(2,"0")}`;
+          const lastMonthCount  = Object.entries(countMap).filter(([k])=>k.startsWith(lastMonthPrefix)).reduce((s,[,v])=>s+v,0);
+          const thisMonthCount  = monthlyCounts[currentMonth];
+          const monthDiff       = thisMonthCount - lastMonthCount;
 
-          // 연속 기록 스트릭
+          // ── 연속 기록 스트릭 ─────────────────────────────────────
           let streak = 0;
-          const checkDate = new Date(today);
+          const chk = new Date(today);
           while (true) {
-            const key = checkDate.toISOString().slice(0,10);
-            if (countMap[key]) { streak++; checkDate.setDate(checkDate.getDate()-1); }
-            else break;
+            const key = chk.toISOString().slice(0,10);
+            if (countMap[key]) { streak++; chk.setDate(chk.getDate()-1); } else break;
           }
 
-          // 이번 달 기록일 수
-          const thisMonthPrefix = `${year}-${String(today.getMonth()+1).padStart(2,"0")}`;
-          const thisMonthDays   = Object.keys(countMap).filter(k=>k.startsWith(thisMonthPrefix)).length;
+          // ── 이달 평균 별점 ───────────────────────────────────────
+          const thisMonthRated  = thisMonthRecs.filter(r => r.rating > 0);
+          const thisMonthAvgRating = thisMonthRated.length
+            ? (thisMonthRated.reduce((s,r)=>s+r.rating,0)/thisMonthRated.length).toFixed(1)
+            : null;
+          // 전체 평균
+          const allRated = mine.filter(r=>r.rating>0);
+          const overallAvgRating = allRated.length
+            ? (allRated.reduce((s,r)=>s+r.rating,0)/allRated.length).toFixed(1)
+            : null;
 
-          const monthLabels = lang === "en"
-            ? ["J","F","M","A","M","J","J","A","S","O","N","D"]
-            : ["1","2","3","4","5","6","7","8","9","10","11","12"];
+          // ── 지난달 대비 추세 ─────────────────────────────────────
+          const trendLabel = monthDiff > 0
+            ? (isKo ? `지난달보다 +${monthDiff}회` : `+${monthDiff} vs last month`)
+            : monthDiff < 0
+            ? (isKo ? `지난달보다 ${monthDiff}회` : `${monthDiff} vs last month`)
+            : (isKo ? "지난달과 동일" : "Same as last month");
+          const trendColor = monthDiff > 0 ? "#27ae60" : monthDiff < 0 ? "#e67e22" : "var(--muted)";
+
+          // ── 최고 별점 원두 TOP 1 ─────────────────────────────────
+          const beanRatingMap = {};
+          mine.forEach(r => {
+            if (!r.bean || !r.rating) return;
+            const key = [r.company, r.bean].filter(Boolean).join(" ");
+            if (!beanRatingMap[key]) beanRatingMap[key] = { total:0, count:0 };
+            beanRatingMap[key].total += r.rating;
+            beanRatingMap[key].count += 1;
+          });
+          const topBean = Object.entries(beanRatingMap)
+            .map(([name,{total,count}]) => ({ name, avg: total/count, count }))
+            .filter(b => b.count >= 2)
+            .sort((a,b) => b.avg - a.avg)[0] || null;
+
+          // ── 요일별 추출 빈도 ─────────────────────────────────────
+          const dowCount = [0,0,0,0,0,0,0]; // 일~토
+          Object.keys(countMap).forEach(d => {
+            const dow = new Date(d).getDay();
+            dowCount[dow] += countMap[d];
+          });
+          const maxDow    = Math.max(...dowCount);
+          const topDowIdx = dowCount.indexOf(maxDow);
+          const dowNames  = isKo
+            ? ["일요일","월요일","화요일","수요일","목요일","금요일","토요일"]
+            : ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+          // ── 추출 비율 정석 달성률 ────────────────────────────────
+          const ratioRecs = mine.filter(r => r.gram && r.espressoMl);
+          const ratioOk   = ratioRecs.filter(r => {
+            const ratio = parseFloat(r.espressoMl) / parseFloat(r.gram);
+            return ratio >= 1.5 && ratio <= 2.8;
+          });
+          const ratioPct  = ratioRecs.length ? Math.round(ratioOk.length / ratioRecs.length * 100) : null;
+
+          // ── 자동 인사이트 문장 생성 ──────────────────────────────
+          const insights = [];
+          if (topDowIdx >= 0 && maxDow > 0)
+            insights.push(isKo
+              ? `가장 많이 추출하는 날은 ${dowNames[topDowIdx]}이에요 (${maxDow}회).`
+              : `Your most active brew day is ${dowNames[topDowIdx]} (${maxDow} shots).`);
+          if (topBean)
+            insights.push(isKo
+              ? `별점이 가장 높은 원두는 ${topBean.name} (평균 ★${topBean.avg.toFixed(1)})이에요.`
+              : `Your top-rated bean is ${topBean.name} (avg ★${topBean.avg.toFixed(1)}).`);
+          if (ratioPct !== null)
+            insights.push(isKo
+              ? `추출 비율 정석 구간(1:1.5~1:2.8) 달성률은 ${ratioPct}%예요.`
+              : `${ratioPct}% of your shots hit the ideal extraction ratio (1:1.5–1:2.8).`);
+          if (streak >= 3)
+            insights.push(isKo
+              ? `${streak}일 연속 추출 중이에요! 이 기세를 유지해보세요.`
+              : `${streak} days in a row! Keep the streak going.`);
+          if (monthDiff > 2)
+            insights.push(isKo
+              ? `이번 달 추출 횟수가 크게 늘었어요. 커피 실력이 성장하고 있는 신호예요.`
+              : `Your brew count jumped this month — you're on a roll!`);
+
+          const monthLabels = isKo
+            ? ["1","2","3","4","5","6","7","8","9","10","11","12"]
+            : ["J","F","M","A","M","J","J","A","S","O","N","D"];
 
           return (
-            <div style={{ background:"var(--foam)", border:"1px solid var(--divider)", borderRadius:"var(--r-card)", padding:"18px 16px 14px", marginBottom:"16px" }}>
+            <div style={{ background:"var(--foam)", border:"1px solid var(--divider)", borderRadius:"var(--r-card)", padding:"18px 16px 16px", marginBottom:"16px" }}>
 
               {/* 헤더 */}
               <div style={{ marginBottom:"14px" }}>
                 <div style={{ display:"flex", alignItems:"baseline", gap:"8px", marginBottom:"3px" }}>
                   <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>
-                    {lang === "en" ? "My Brew Activity" : "나의 추출 활동"}
+                    {isKo ? "나의 추출 활동" : "My Brew Activity"}
                   </span>
                   <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)" }}>{year}</span>
                 </div>
                 <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", lineHeight:1.5, margin:0 }}>
-                  {lang === "en"
-                    ? "How often you've been brewing this year, month by month."
-                    : "올해 월별로 얼마나 자주 커피를 추출했는지 보여줘요."}
+                  {isKo ? "올해 나의 추출 패턴과 실력 변화를 한눈에 확인해요." : "Track your brewing patterns and progress this year."}
                 </p>
               </div>
 
-              {/* 핵심 지표 3개 */}
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"8px", marginBottom:"16px" }}>
+              {/* 핵심 지표 4개 */}
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px", marginBottom:"16px" }}>
                 {[
-                  { icon:"☕", value: totalShots,   label: lang==="en"?"Total Shots":"총 추출 횟수", sub: lang==="en"?"this year":"올해" },
-                  { icon:"🔥", value: streak ? `${streak}일` : "0일", label: lang==="en"?"Streak":"연속 기록", sub: lang==="en"?"days in a row":"연속 추출 중" },
-                  { icon:"📅", value: thisMonthDays, label: lang==="en"?"This Month":"이번 달", sub: lang==="en"?"days brewed":"일 기록됨" },
-                ].map(({ icon, value, label, sub }) => (
-                  <div key={label} style={{ background:"var(--cream)", borderRadius:"var(--r-btn)", padding:"10px 8px", textAlign:"center", border:"1px solid var(--divider)" }}>
-                    <div style={{ fontSize:"1rem", marginBottom:"4px" }}>{icon}</div>
-                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", fontWeight:700, color:"var(--espresso)", lineHeight:1 }}>{value}</div>
-                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", color:"var(--muted)", marginTop:"3px", lineHeight:1.3 }}>{label}</div>
+                  {
+                    svg: (
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                        <path d="M4 8h12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" stroke="var(--latte)" strokeWidth="1.4" strokeLinejoin="round"/>
+                        <path d="M4 8H3a2 2 0 0 0 0 4h1" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/>
+                        <path d="M7.5 5.5c0-1 .8-1.8.8-1.8s.8.8.8 1.8-.8 1.8-.8 1.8S7.5 6.5 7.5 5.5z" stroke="var(--latte)" strokeWidth="1.2" strokeLinecap="round"/>
+                        <path d="M11 4.5c0-.8.7-1.3.7-1.3s.7.5.7 1.3-.7 1.3-.7 1.3S11 5.3 11 4.5z" stroke="var(--latte)" strokeWidth="1.2" strokeLinecap="round"/>
+                      </svg>
+                    ),
+                    value: thisMonthCount,
+                    label: isKo ? "이달 추출" : "This Month",
+                    sub: <span style={{ color: trendColor, fontWeight:600 }}>{trendLabel}</span>,
+                  },
+                  {
+                    svg: (
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 2l1.8 5.5H18l-4.9 3.6 1.9 5.8L10 13.4l-5 3.5 1.9-5.8L2 7.5h6.2z" stroke="var(--latte)" strokeWidth="1.3" strokeLinejoin="round"/>
+                      </svg>
+                    ),
+                    value: thisMonthAvgRating ? `★${thisMonthAvgRating}` : (overallAvgRating ? `★${overallAvgRating}` : "—"),
+                    label: isKo ? "평균 별점" : "Avg Rating",
+                    sub: <span style={{ color:"var(--muted)" }}>{thisMonthRated.length}{isKo?"개 평가":" rated"}</span>,
+                  },
+                  {
+                    svg: (
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                        <rect x="2.5" y="4" width="15" height="13" rx="2" stroke="var(--latte)" strokeWidth="1.4" strokeLinejoin="round"/>
+                        <path d="M6.5 2v4M13.5 2v4M2.5 9h15" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round"/>
+                        <path d="M7 13l2 2 4-4" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    ),
+                    value: streak ? `${streak}일` : "0일",
+                    label: isKo ? "연속 기록" : "Streak",
+                    sub: <span style={{ color:"var(--muted)" }}>{isKo?"연속 추출 중":"days in a row"}</span>,
+                  },
+                  {
+                    svg: (
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="10" r="8" stroke="var(--latte)" strokeWidth="1.4"/>
+                        <path d="M10 6v4.5l3 1.5" stroke="var(--latte)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    ),
+                    value: ratioPct !== null ? `${ratioPct}%` : "—",
+                    label: isKo ? "비율 달성률" : "Ratio Score",
+                    sub: <span style={{ color:"var(--muted)" }}>{isKo?"정석 구간":"ideal range"}</span>,
+                  },
+                ].map(({ svg, value, label, sub }) => (
+                  <div key={label} style={{ background:"var(--cream)", borderRadius:"var(--r-btn)", padding:"10px 6px 8px", textAlign:"center", border:"1px solid var(--divider)" }}>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom:"5px" }}>{svg}</div>
+                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)", lineHeight:1 }}>{value}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.58rem", color:"var(--muted)", marginTop:"3px", lineHeight:1.2 }}>{label}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.58rem", marginTop:"2px", lineHeight:1.2 }}>{sub}</div>
                   </div>
                 ))}
               </div>
 
               {/* 월별 바 차트 */}
-              <div style={{ marginBottom:"6px" }}>
+              <div style={{ marginBottom:"12px" }}>
                 <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:"10px" }}>
-                  {lang === "en" ? "Monthly Brews" : "월별 추출 횟수"}
+                  {isKo ? "월별 추출 횟수" : "Monthly Brews"}
                 </div>
                 <div style={{ display:"flex", alignItems:"flex-end", gap:"4px", height:"72px" }}>
                   {monthlyCounts.map((count, mi) => {
@@ -10031,44 +10150,47 @@ Output ONLY this JSON on a single line. No explanation, no markdown, no code blo
                     return (
                       <div key={mi} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:"4px", height:"72px", justifyContent:"flex-end" }}>
                         {!isFuture && count > 0 && (
-                          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.55rem", color: isNow ? "var(--latte)" : "var(--muted)", fontWeight: isNow ? 700 : 400, lineHeight:1 }}>
-                            {count}
-                          </div>
+                          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.55rem", color: isNow ? "var(--latte)" : "var(--muted)", fontWeight: isNow ? 700 : 400, lineHeight:1 }}>{count}</div>
                         )}
-                        <div style={{
-                          width:"100%",
-                          height: isFuture ? "3px" : isEmpty ? "3px" : `${barH}px`,
-                          borderRadius:"3px 3px 2px 2px",
-                          background: isFuture ? "var(--divider)" : isEmpty ? "var(--steam)" : isNow ? "var(--espresso)" : "var(--latte)",
-                          opacity: isFuture ? 0.3 : 1,
-                          transition:"height 0.3s ease",
-                          flexShrink:0,
-                        }}/>
-                        <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", color: isNow ? "var(--espresso)" : "var(--muted)", fontWeight: isNow ? 700 : 400, lineHeight:1 }}>
-                          {monthLabels[mi]}
-                        </div>
+                        <div style={{ width:"100%", height: isFuture ? "3px" : isEmpty ? "3px" : `${barH}px`, borderRadius:"3px 3px 2px 2px", background: isFuture ? "var(--divider)" : isEmpty ? "var(--steam)" : isNow ? "var(--espresso)" : "var(--latte)", opacity: isFuture ? 0.3 : 1, transition:"height 0.3s ease", flexShrink:0 }}/>
+                        <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", color: isNow ? "var(--espresso)" : "var(--muted)", fontWeight: isNow ? 700 : 400, lineHeight:1 }}>{monthLabels[mi]}</div>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* 범례 + 평균 */}
-              <div style={{ display:"flex", alignItems:"center", gap:"10px", marginTop:"10px", paddingTop:"10px", borderTop:"1px solid var(--divider)", flexWrap:"wrap" }}>
+              {/* 범례 */}
+              <div style={{ display:"flex", alignItems:"center", gap:"10px", paddingTop:"10px", borderTop:"1px solid var(--divider)", flexWrap:"wrap" }}>
                 {[
-                  { color:"var(--espresso)", label: lang==="en"?"This month":"이번 달" },
-                  { color:"var(--latte)",    label: lang==="en"?"Past months":"지난 달" },
-                  { color:"var(--steam)",    label: lang==="en"?"No brew":"기록 없음" },
+                  { color:"var(--espresso)", label: isKo?"이번 달":"This month" },
+                  { color:"var(--latte)",    label: isKo?"지난 달":"Past months" },
+                  { color:"var(--steam)",    label: isKo?"기록 없음":"No brew" },
                 ].map(({ color, label }) => (
                   <div key={label} style={{ display:"flex", alignItems:"center", gap:"4px" }}>
                     <div style={{ width:"9px", height:"9px", borderRadius:"2px", background:color, flexShrink:0 }}/>
                     <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)" }}>{label}</span>
                   </div>
                 ))}
-                <div style={{ marginLeft:"auto", fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)" }}>
-                  {lang === "en" ? `avg ${avgPerDay}/day` : `평균 ${avgPerDay}회/기록일`}
-                </div>
               </div>
+
+              {/* 자동 인사이트 문장 */}
+              {insights.length > 0 && (
+                <div style={{ marginTop:"12px", paddingTop:"12px", borderTop:"1px solid var(--divider)", display:"flex", flexDirection:"column", gap:"7px" }}>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:"2px" }}>
+                    {isKo ? "나의 브루잉 인사이트" : "Brew Insights"}
+                  </div>
+                  {insights.map((text, i) => (
+                    <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:"8px" }}>
+                      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style={{ flexShrink:0, marginTop:"1px" }}>
+                        <circle cx="7" cy="7" r="6" stroke="var(--latte)" strokeWidth="1.2"/>
+                        <path d="M4.5 7l2 2 3-3" stroke="var(--latte)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", color:"var(--espresso)", lineHeight:1.55 }}>{text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         };
