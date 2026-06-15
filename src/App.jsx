@@ -2830,9 +2830,12 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     (isEdit || isCopy) ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : "")
   );
 
-  // 핸드드립 메뉴 선택 시 머신 자동 해제
+  // 핸드드립 메뉴 선택 시 머신 자동 해제 — 프리셋 적용 중에는 스킵
   useEffect(() => {
+    if (applyingPresetRef.current) return; // 프리셋 적용 중이면 리셋 차단
     if (selectedMenu === "hand_drip") {
+      // 핸드드립 메뉴 선택 시 machineType도 동기화
+      setMachineType("handdrip");
       setSelectedEquipIds(prev => {
         if (!prev.machine) return prev;
         const next = { ...prev };
@@ -2840,19 +2843,26 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         return next;
       });
       setMachineBrand(""); setMachineModel(""); setMachineLocked(false);
+    } else if (machineType === "handdrip") {
+      // 핸드드립이 아닌 메뉴로 바꾸면 machineType 복원
+      setMachineType("auto");
     }
   }, [selectedMenu]);
 
   // ── 프리셋 ──────────────────────────────────────────────────────
+  const PRESET_LIMIT = 10; // 프리셋 최대 저장 개수
   const [presets, setPresets] = useState(() => loadPresets(user?.uid));
   const [showPresetSave, setShowPresetSave] = useState(false);
   const [presetName, setPresetName] = useState("");
   const [activePresetId, setActivePresetId] = useState(null);
+  const applyingPresetRef = React.useRef(false); // 프리셋 적용 중 useEffect 리셋 방지
 
   const applyPreset = (preset) => {
+    applyingPresetRef.current = true;
+
+    // 모든 state를 한 번에 배치 업데이트 (React 18 기본 배칭 활용)
     // 메뉴
     if (preset.menuId) setSelectedMenu(preset.menuId);
-    const menu = COFFEE_MENUS.find(m => m.id === preset.menuId);
 
     // 원두 연결
     if (preset.linkedBeanId) {
@@ -2867,7 +2877,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       setLinkedBeanId(null);
     }
 
-    // 머신 — 완전 교체 (이전 값 잔존 방지)
+    // 머신 — 완전 교체
     if (preset.equipType === "handdrip") {
       setMachineType("handdrip");
       setHandDripName(preset.handDripName || "");
@@ -2904,30 +2914,43 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       diluteMl:        preset.diluteMl        ?? "",
       diluteType:      preset.diluteType      ?? "물",
       syrup:           preset.syrup           ?? "",
-      brewPressureBar: preset.brewPressureBar ?? "",   // [신규]
-      continuousMemo:  preset.continuousMemo  ?? "",   // [신규]
+      brewPressureBar: preset.brewPressureBar ?? "",
+      continuousMemo:  preset.continuousMemo  ?? "",
     }));
+
+    // ref 해제 — 충분한 시간 확보 (여러 useEffect 사이클 대기)
+    setTimeout(() => { applyingPresetRef.current = false; }, 300);
   };
 
   const savePreset = () => {
-    if (!presetName.trim()) return;
+    const trimmed = presetName.trim();
+    if (!trimmed) return;
+    // 한글 자음/모음만 입력된 경우 방지 (IME 조합 미완성)
+    if (/^[ㄱ-ㅎㅏ-ㅣ]+$/.test(trimmed)) {
+      alert(lang === "en" ? "Please enter a valid preset name." : "프리셋 이름을 정확히 입력해 주세요.");
+      return;
+    }
+    if (presets.length >= PRESET_LIMIT) {
+      alert(lang === "en"
+        ? `You can save up to ${PRESET_LIMIT} presets. Please delete one first.`
+        : `프리셋은 최대 ${PRESET_LIMIT}개까지 저장할 수 있어요. 기존 프리셋을 먼저 삭제해 주세요.`);
+      return;
+    }
+    const currentIsHandDrip = machineType === "handdrip"; // selectedMenu와 항상 동기화됨
     const newPreset = {
       id: `preset_${Date.now()}`,
       name: presetName.trim(),
-      // 기본 정보
       menuId:          selectedMenu,
       isIced:          form.isIced || false,
       linkedBeanId:    linkedBeanId || null,
-      // 장비 설정
-      equipType:       isHandDrip ? "handdrip" : "machine",
-      handDripName:    isHandDrip ? handDripName : "",
-      machineBrand:    isHandDrip ? "" : machineBrand,
-      machineModel:    isHandDrip ? "" : machineModel,
-      machineType:     isHandDrip ? "" : machineType,
+      equipType:       currentIsHandDrip ? "handdrip" : "machine",
+      handDripName:    currentIsHandDrip ? handDripName : "",
+      machineBrand:    currentIsHandDrip ? "" : machineBrand,
+      machineModel:    currentIsHandDrip ? "" : machineModel,
+      machineType:     currentIsHandDrip ? "" : machineType,
       grinderBrand:    grinderBrand,
       grinderModel:    grinderModel,
       selectedEquipIds: { ...selectedEquipIds },
-      // 추출 파라미터
       gram:            form.gram,
       seconds:         form.seconds,
       infusionSeconds: form.infusionSeconds || "0",
@@ -2939,8 +2962,8 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
       diluteMl:        form.diluteMl,
       diluteType:      form.diluteType,
       syrup:           form.syrup || "",
-      brewPressureBar: form.brewPressureBar || "",   // [신규]
-      continuousMemo:  form.continuousMemo || "",    // [신규]
+      brewPressureBar: form.brewPressureBar || "",
+      continuousMemo:  form.continuousMemo || "",
       createdAt: new Date().toISOString(),
     };
     const updated = [...presets, newPreset];
@@ -2954,6 +2977,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     const updated = presets.filter(p => p.id !== id);
     savePresets(user?.uid, updated);
     setPresets(updated);
+    if (activePresetId === id) setActivePresetId(null);
   };
 
   // 장비 선택 시 머신/그라인더 자동 입력
@@ -3280,9 +3304,13 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         {/* ── 프리셋 (모달 최상단) ── */}
         {(
           <div style={{ marginBottom: "20px", paddingBottom: "20px", borderBottom: "1px solid var(--divider)" }}>
-            <div style={{ marginBottom: "10px" }}>
-              <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+            {/* 프리셋 헤더 — 한도 표시 */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+              <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: "'DM Sans',sans-serif" }}>
                 {lang === "en" ? "Presets" : "프리셋"}
+              </span>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.7rem", color: presets.length >= PRESET_LIMIT ? "#e67e22" : "var(--muted)" }}>
+                {presets.length} / {PRESET_LIMIT}
               </span>
             </div>
             {presets.length === 0 ? (
@@ -3294,33 +3322,32 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             ) : (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 {presets.map(p => {
-                  // ── 프리셋 호환성 체크 수정 ──
-                  // isHandDrip은 초기 마운트 변수라 동적 변경을 못 잡음
-                  // machineType state를 직접 참조해서 실시간 비교
+                  // machineType이 selectedMenu와 항상 동기화되므로 machineType만 확인
                   const currentIsHandDrip = machineType === "handdrip";
                   const compatible = (
-                    !p.equipType ||                                          // 구버전 프리셋 (equipType 없음) → 항상 허용
-                    p.equipType === "machine" && !currentIsHandDrip ||      // 머신 프리셋 + 현재 머신 모드
-                    p.equipType === "handdrip" && currentIsHandDrip         // 핸드드립 프리셋 + 현재 핸드드립 모드
+                    !p.equipType ||
+                    (p.equipType === "handdrip") === currentIsHandDrip
                   );
+                  const isActive = activePresetId === p.id;
                   return (
                     <button key={p.id} type="button"
                       onClick={() => { if (compatible) { applyPreset(p); setActivePresetId(p.id); } }}
                       disabled={!compatible}
-                      title={!compatible ? (lang === "en" ? "Different equipment type" : "기구 타입이 달라요") : ""}
+                      title={!compatible ? (lang === "en" ? "Different equipment type" : "기구 타입이 달라요") : p.name}
                       style={{
                         padding: "6px 14px", borderRadius: "8px",
-                        border: `1px solid ${!compatible ? "var(--steam)" : activePresetId === p.id ? "var(--espresso)" : "var(--latte)"}`,
-                        background: !compatible ? "var(--cream)" : activePresetId === p.id ? "var(--espresso)" : "#FDF6EF",
-                        color: !compatible ? "var(--muted)" : activePresetId === p.id ? "var(--cream)" : "var(--latte)",
+                        border: `1px solid ${!compatible ? "var(--steam)" : isActive ? "var(--espresso)" : "var(--latte)"}`,
+                        background: !compatible ? "var(--cream)" : isActive ? "var(--espresso)" : "#FDF6EF",
+                        color: !compatible ? "var(--muted)" : isActive ? "var(--cream)" : "var(--latte)",
                         fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem",
                         cursor: compatible ? "pointer" : "not-allowed",
                         opacity: compatible ? 1 : 0.45,
-                        fontWeight: 500,
+                        fontWeight: isActive ? 700 : 500,
                         transition: "all 0.15s",
                         display: "flex", alignItems: "center", gap: "5px",
+                        boxShadow: isActive ? "0 0 0 2px var(--espresso)" : "none",
                       }}>
-                      {p.name}
+                      {p.name || (lang === "en" ? "(unnamed)" : "(이름 없음)")}
                     </button>
                   );
                 })}
@@ -4114,14 +4141,22 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         </div>
         {/* 현재 설정을 프리셋으로 저장 — 저장 버튼 바로 위 */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px" }}>
-          <button type="button" onClick={() => setShowPresetSave(true)}
-            style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "8px", padding: "7px 14px", cursor: "pointer", fontSize: "0.78rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", gap: "5px", transition: "all 0.2s" }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--latte)"; e.currentTarget.style.color = "var(--latte)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--steam)"; e.currentTarget.style.color = "var(--muted)"; }}>
+          <button type="button"
+            onClick={() => presets.length < PRESET_LIMIT && setShowPresetSave(true)}
+            disabled={presets.length >= PRESET_LIMIT}
+            title={presets.length >= PRESET_LIMIT
+              ? (lang === "en" ? `Max ${PRESET_LIMIT} presets. Delete one first.` : `최대 ${PRESET_LIMIT}개까지만 저장할 수 있어요`)
+              : ""}
+            style={{ background: "none", border: `1px solid ${presets.length >= PRESET_LIMIT ? "var(--divider)" : "var(--steam)"}`, borderRadius: "8px", padding: "7px 14px", cursor: presets.length >= PRESET_LIMIT ? "not-allowed" : "pointer", fontSize: "0.78rem", color: presets.length >= PRESET_LIMIT ? "var(--muted)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", gap: "5px", transition: "all 0.2s", opacity: presets.length >= PRESET_LIMIT ? 0.5 : 1 }}
+            onMouseEnter={e => { if (presets.length < PRESET_LIMIT) { e.currentTarget.style.borderColor = "var(--latte)"; e.currentTarget.style.color = "var(--latte)"; }}}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = presets.length >= PRESET_LIMIT ? "var(--divider)" : "var(--steam)"; e.currentTarget.style.color = "var(--muted)"; }}>
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
               <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
             {lang === "en" ? "Save as Preset" : "현재 설정 프리셋으로 저장"}
+            {presets.length >= PRESET_LIMIT && (
+              <span style={{ fontSize: "0.68rem", color: "#e67e22", marginLeft: "2px" }}>({PRESET_LIMIT}/{PRESET_LIMIT})</span>
+            )}
           </button>
         </div>
         <div className="modal-actions">
@@ -7918,6 +7953,29 @@ function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setSh
    App (root): onAuthStateChanged, lang 감지, 게스트 모드
    ============================================================ */
 function MainApp({ user, lang, toggleLang, onRequireAuth, darkMode, toggleDark }) {
+  // ── PWA 설치 프롬프트 ─────────────────────────────────────────
+  const [pwaPrompt, setPwaPrompt] = useState(null);
+  const [showPwaBanner, setShowPwaBanner] = useState(false);
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setPwaPrompt(e);
+      const dismissed = localStorage.getItem("brewlog_pwa_dismissed");
+      if (!dismissed) setShowPwaBanner(true);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+  const installPwa = async () => {
+    if (!pwaPrompt) return;
+    pwaPrompt.prompt();
+    const { outcome } = await pwaPrompt.userChoice;
+    if (outcome === "accepted") { setPwaPrompt(null); setShowPwaBanner(false); }
+  };
+  const dismissPwa = () => {
+    setShowPwaBanner(false);
+    localStorage.setItem("brewlog_pwa_dismissed", "1");
+  };
   const [notifications, setNotifications] = useState([]);
   const [showNotif, setShowNotif] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -8946,6 +9004,23 @@ Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
         <button className="notice-banner-close" onClick={() => setNoticeDismissed(true)}>✕</button>
       </div>
     )}
+    {/* PWA 설치 배너 */}
+    {showPwaBanner && (
+      <div style={{ background: "var(--espresso)", color: "var(--cream)", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", fontSize: "0.82rem", fontFamily: "'DM Sans',sans-serif" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+          <span style={{ flexShrink: 0 }}>☕</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {lang === "en" ? "Install Brewlog Note for quick home screen access." : "홈 화면에 앱처럼 설치하면 더 빠르게 접근할 수 있어요."}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+          <button onClick={installPwa} style={{ background: "var(--latte)", color: "var(--cream)", border: "none", borderRadius: "6px", padding: "5px 12px", cursor: "pointer", fontSize: "0.78rem", fontWeight: 600, fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
+            {lang === "en" ? "Install" : "설치"}
+          </button>
+          <button onClick={dismissPwa} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "1rem", padding: "0 4px" }}>✕</button>
+        </div>
+      </div>
+    )}
     {/* ── Fixed 상단 바 (헤더 + 탭바) ── */}
     <div id="top-bar" style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
@@ -9535,6 +9610,116 @@ Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
         const mine = recipes.filter(r => r.uid === user?.uid);
         if (mine.length === 0) return null;
 
+        // ── 기록 캘린더 히트맵 (연간 잔디) ─────────────────────
+        const BrewCalendar = () => {
+          const today = new Date();
+          const year  = today.getFullYear();
+          // 날짜별 기록 수 집계
+          const countMap = {};
+          mine.forEach(r => {
+            const d = r.recordDate || (r.createdAt?.toDate ? r.createdAt.toDate().toISOString().slice(0,10) : null);
+            if (d && d.startsWith(String(year))) countMap[d] = (countMap[d]||0)+1;
+          });
+          const totalDays = Object.keys(countMap).length;
+          const totalShots = mine.filter(r => {
+            const d = r.recordDate || (r.createdAt?.toDate ? r.createdAt.toDate().toISOString().slice(0,10) : null);
+            return d && d.startsWith(String(year));
+          }).length;
+
+          // 올해 1월 1일부터 오늘까지 52주 + 나머지 그리드 생성
+          const startDate = new Date(year, 0, 1);
+          const startDow  = startDate.getDay(); // 0=일
+          // 셀 배경색 (0~4+ 단계)
+          const getColor = (count) => {
+            if (!count) return "var(--steam)";
+            if (count === 1) return "#C8E6C9";
+            if (count === 2) return "#81C784";
+            if (count === 3) return "#4CAF50";
+            return "#2E7D32";
+          };
+          // 53주치 셀 배열 생성
+          const cells = [];
+          const totalCells = 53 * 7;
+          for (let i = 0; i < totalCells; i++) {
+            const offset = i - startDow;
+            const d = new Date(year, 0, 1 + offset);
+            if (d.getFullYear() !== year || d > today) {
+              cells.push({ date: null, count: 0 });
+            } else {
+              const key = d.toISOString().slice(0,10);
+              cells.push({ date: key, count: countMap[key]||0 });
+            }
+          }
+          // 월 레이블 (각 월 첫째 주 위치)
+          const months = lang === "en"
+            ? ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+            : ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+
+          return (
+            <div style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "var(--r-card)", padding: "18px 16px", marginBottom: "16px" }}>
+              {/* 헤더 */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                <div>
+                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 600 }}>
+                    {year} {lang === "en" ? "Brew Log" : "브루 기록"}
+                  </span>
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", marginLeft: "10px" }}>
+                    {lang === "en" ? `${totalShots} shots · ${totalDays} days` : `${totalShots}회 추출 · ${totalDays}일 기록`}
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.65rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif" }}>
+                  <span>{lang === "en" ? "Less" : "적음"}</span>
+                  {["var(--steam)","#C8E6C9","#81C784","#4CAF50","#2E7D32"].map((c,i) => (
+                    <div key={i} style={{ width: "10px", height: "10px", borderRadius: "2px", background: c }}/>
+                  ))}
+                  <span>{lang === "en" ? "More" : "많음"}</span>
+                </div>
+              </div>
+              {/* 월 레이블 */}
+              <div style={{ overflowX: "auto", overflowY: "hidden" }}>
+                <div style={{ minWidth: "700px" }}>
+                  <div style={{ display: "flex", marginBottom: "3px", paddingLeft: "18px" }}>
+                    {Array.from({ length: 53 }, (_, wi) => {
+                      const colDate = new Date(year, 0, 1 - startDow + wi * 7);
+                      if (colDate.getDate() <= 7 && colDate.getFullYear() === year) {
+                        return <div key={wi} style={{ width: "13px", flexShrink: 0, fontSize: "0.6rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", textAlign: "center" }}>{months[colDate.getMonth()]}</div>;
+                      }
+                      return <div key={wi} style={{ width: "13px", flexShrink: 0 }}/>;
+                    })}
+                  </div>
+                  {/* 요일 + 잔디 그리드 */}
+                  <div style={{ display: "flex", gap: "0" }}>
+                    {/* 요일 레이블 */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "2px", marginRight: "3px" }}>
+                      {(lang === "en" ? ["","M","","W","","F",""] : ["","월","","수","","금",""]).map((d,i) => (
+                        <div key={i} style={{ height: "11px", fontSize: "0.58rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", lineHeight: "11px" }}>{d}</div>
+                      ))}
+                    </div>
+                    {/* 잔디 셀 — 열(주) × 행(요일) */}
+                    <div style={{ display: "flex", gap: "2px" }}>
+                      {Array.from({ length: 53 }, (_, wi) => (
+                        <div key={wi} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                          {Array.from({ length: 7 }, (_, di) => {
+                            const cell = cells[wi * 7 + di];
+                            if (!cell?.date) return <div key={di} style={{ width: "11px", height: "11px" }}/>;
+                            return (
+                              <div key={di} title={`${cell.date}: ${cell.count}${lang==="en"?" shot(s)":"회"}`}
+                                style={{ width: "11px", height: "11px", borderRadius: "2px", background: getColor(cell.count), cursor: cell.count ? "default" : "default", transition: "transform 0.1s", flexShrink: 0 }}
+                                onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.4)"; e.currentTarget.style.zIndex = "10"; }}
+                                onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.zIndex = ""; }}
+                              />
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
         const machineRecipes = mine.filter(r => r.machineType !== "handdrip");
         const handDripRecipes = mine.filter(r => r.machineType === "handdrip");
         const statMode = statModeVal;
@@ -9763,6 +9948,9 @@ Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
 
         return (
           <div style={{ marginBottom: "2rem" }}>
+
+            {/* ── 기록 캘린더 히트맵 ────────────────────────── */}
+            <BrewCalendar />
 
             {/* ── 헤더 배너 ─────────────────────────────────── */}
             <div style={{ background:"var(--espresso)", borderRadius:14, padding:"18px 16px 16px", marginBottom:10, position:"relative", overflow:"hidden" }}>

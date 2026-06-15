@@ -1,0 +1,20 @@
+{
+  "name": "Brewlog Note",
+  "short_name": "Brewlog",
+  "description": "나만의 감각적인 홈카페 아카이브 블로그",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBFBFA",
+  "theme_color": "#1A1A1A",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "lifestyle"],
+  "lang": "ko"
+}
