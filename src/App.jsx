@@ -3322,26 +3322,20 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             ) : (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 {presets.map(p => {
-                  // machineType이 selectedMenu와 항상 동기화되므로 machineType만 확인
-                  const currentIsHandDrip = machineType === "handdrip";
-                  const compatible = (
-                    !p.equipType ||
-                    (p.equipType === "handdrip") === currentIsHandDrip
-                  );
+                  // 프리셋은 항상 클릭 가능 — 클릭 시 해당 프리셋의 메뉴/장비 타입으로 전환됨
+                  // (핸드드립 ↔ 머신 전환도 applyPreset이 처리)
+                  const compatible = true;
                   const isActive = activePresetId === p.id;
                   return (
                     <button key={p.id} type="button"
-                      onClick={() => { if (compatible) { applyPreset(p); setActivePresetId(p.id); } }}
-                      disabled={!compatible}
-                      title={!compatible ? (lang === "en" ? "Different equipment type" : "기구 타입이 달라요") : p.name}
+                      onClick={() => { applyPreset(p); setActivePresetId(p.id); }}
                       style={{
                         padding: "6px 14px", borderRadius: "8px",
-                        border: `1px solid ${!compatible ? "var(--steam)" : isActive ? "var(--espresso)" : "var(--latte)"}`,
-                        background: !compatible ? "var(--cream)" : isActive ? "var(--espresso)" : "#FDF6EF",
-                        color: !compatible ? "var(--muted)" : isActive ? "var(--cream)" : "var(--latte)",
+                        border: `1px solid ${isActive ? "var(--espresso)" : "var(--latte)"}`,
+                        background: isActive ? "var(--espresso)" : "#FDF6EF",
+                        color: isActive ? "var(--cream)" : "var(--latte)",
                         fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem",
-                        cursor: compatible ? "pointer" : "not-allowed",
-                        opacity: compatible ? 1 : 0.45,
+                        cursor: "pointer",
                         fontWeight: isActive ? 700 : 500,
                         transition: "all 0.15s",
                         display: "flex", alignItems: "center", gap: "5px",
