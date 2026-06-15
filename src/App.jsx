@@ -8368,121 +8368,444 @@ function MainApp({ user, lang, toggleLang, onRequireAuth, darkMode, toggleDark }
         "breville": {
           // 모델별 세부 스펙
           models: {
-            "bambino":          { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", pressure:"9BAR OPV", preinfusion:"자동 3초", notes:"소형 입문기. 스팀 온도 수동 제어 불가. 추출 온도 93°C 고정." },
-            "bambino plus":     { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", pressure:"9BAR OPV", preinfusion:"자동 3초", notes:"밤비노에 자동 스팀 추가. 우유 온도/질감 자동 조절 가능." },
-            "barista express":  { boiler:"써모코일(단일)", heatup:"30초", portafilter:"54mm", grinder:"내장 60단계 코니컬 버(54mm)", pressure:"9BAR OPV", preinfusion:"자동 8초", notes:"도저 포함. 분쇄량 조절 다이얼로 도징량 세밀 조정 가능." },
-            "barista express impress": { boiler:"써모코일(단일)", heatup:"30초", portafilter:"54mm", grinder:"내장 60단계 코니컬 버(54mm)", pressure:"9BAR OPV", preinfusion:"자동 8초", notes:"어시스트 탬핑 기능 추가(자동 균일 탬핑 10kg). 분쇄-탬핑 일체화." },
-            "barista pro":      { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", grinder:"내장 30단계 코니컬 버(54mm)", pressure:"9BAR OPV", preinfusion:"자동 8초", notes:"LCD 디스플레이 탑재. 추출 온도 3단계(88/92/96°C) 선택 가능. 스팀 즉시 전환." },
-            "barista touch":    { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", grinder:"내장 30단계 코니컬 버(54mm)", pressure:"9BAR OPV", preinfusion:"자동 8초", notes:"터치스크린. 레시피 저장(8개). 자동 스팀. 온도 3단계 선택." },
-            "barista touch impress": { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", grinder:"내장 30단계 코니컬 버(54mm)", pressure:"9BAR OPV", preinfusion:"자동 8초", notes:"바리스타 터치 + 어시스트 탬핑 결합 최상위 올인원." },
-            "dual boiler":      { boiler:"듀얼 보일러(독립 에스프레소/스팀)", heatup:"25초", portafilter:"58mm", pressure:"9BAR OPV(조절 가능 0-12BAR)", preinfusion:"수동/자동 0-10초", notes:"추출 온도 PID 1°C 단위 조절(67~104°C). 유량 제어. 오버프레셔 밸브 조절 가능. 반자동 플래그십." },
-            "oracle":           { boiler:"듀얼 보일러", heatup:"25초", portafilter:"58mm", grinder:"내장 코니컬 버", pressure:"9BAR OPV", preinfusion:"자동", notes:"분쇄~탬핑~추출 완전 자동. 밀크 자동 스팀. 오라클 터치는 터치스크린 추가." },
-            "oracle touch":     { boiler:"듀얼 보일러", heatup:"25초", portafilter:"58mm", grinder:"내장 코니컬 버", pressure:"9BAR OPV", preinfusion:"자동", notes:"오라클 + 터치스크린. 레시피 프로그래밍. 완전자동 워크플로우." },
-            "the barista":      { boiler:"단일 보일러", heatup:"45초", portafilter:"54mm", pressure:"15BAR 펌프(9BAR OPV)", preinfusion:"없음", notes:"입문형. 압력 게이지 내장. 스팀 기능 포함." },
-            "duo temp pro":     { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", pressure:"9BAR OPV", preinfusion:"없음", notes:"PID 없음. 아날로그 압력 게이지. 입문 반자동." },
-            "infuser":          { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", pressure:"9BAR OPV", preinfusion:"수동/자동 0-10초", notes:"프리인퓨전 수동 조절 가능. 볼륨 프로그래밍. 중급 반자동." },
-            "985":              { boiler:"써모코일(단일)", heatup:"3초", portafilter:"54mm", pressure:"9BAR", preinfusion:"자동", notes:"밤비노 플러스 한국 유통 모델명(BES500). 자동 스팀 기능." },
+            
+              "BES450 (bambino)": {
+                "boiler": "써모젯(ThermoJet 단일)",
+                "heatup": "3초",
+                "portafilter": "54mm",
+                "pressure": "9BAR OPV",
+                "preinfusion": "자동 3초(수동 제어 가능)",
+                "notes": "초소형 입문기. 밤비노 미니. 우유 스팀 온도 및 폼 두께 수동 제어만 가능. 추출 온도 93°C 고정."
+              },
+              "BES500 (bambino plus)": {
+                "boiler": "써모젯(ThermoJet 단일)",
+                "heatup": "3초",
+                "portafilter": "54mm",
+                "pressure": "9BAR OPV",
+                "preinfusion": "자동 3초(수동 제어 가능)",
+                "notes": "밤비노 플러스. 오토 밀크 스팀 기능 추가(우유 온도 3단계 및 거품 질감 3단계 자동 조절)."
+              },
+              "BES810 (duo temp pro)": {
+                "boiler": "써모코일(단일)",
+                "heatup": "약 30초~1분",
+                "portafilter": "54mm",
+                "pressure": "15BAR 펌프 (OPV 미탑재로 높은 압력 성향)",
+                "preinfusion": "자동 저압 프리인퓨전",
+                "notes": "듀오템프 프로. PID 온도 제어가 내장된 아날로그 입문기. 추출 직후 스팀 잔열을 자동 배출하는 오토 퍼지 기능 탑재."
+              },
+              "BES840 (infuser)": {
+                "boiler": "써모코일(단일)",
+                "heatup": "약 30초~1분",
+                "portafilter": "54mm",
+                "pressure": "9BAR OPV 안정화",
+                "preinfusion": "수동/자동 조절 가능 (0-10초)",
+                "notes": "인퓨저(이미지 리스트에는 빠져있으나 기존 데이터 보완용). 아날로그 압력 게이지 탑재, 정밀 PID 제어 및 볼륨 프로그래밍 가능."
+              },
+              "BES860 (barista express 구형)": {
+                "boiler": "써모코일(단일)",
+                "heatup": "약 1분",
+                "portafilter": "54mm",
+                "grinder": "내장 코니컬 버 (구형 매커니즘)",
+                "pressure": "15BAR 펌프",
+                "preinfusion": "자동 8초",
+                "notes": "바리스타 익스프레스 초창기/구형 모델. 분쇄도 조절 단계가 신형(870)보다 적음."
+              },
+              "BES870 (barista express 신형)": {
+                "boiler": "써모코일(단일)",
+                "heatup": "약 30초~1분",
+                "portafilter": "54mm",
+                "grinder": "내장 16단계 코니컬 버",
+                "pressure": "15BAR 펌프 (추출 시 원두 저항에 따라 압력 변동)",
+                "preinfusion": "자동 8초(버튼 수동 제어 가능)",
+                "notes": "바리스타 익스프레스. 전 세계적인 스테디셀러 올인원 머신. 아날로그 압력계 내장."
+              },
+              "BES876 (barista express impress)": {
+                "boiler": "써모코일(단일)",
+                "heatup": "약 30초~1분",
+                "portafilter": "54mm",
+                "grinder": "내장 25단계 코니컬 버",
+                "pressure": "9BAR OPV 과압 방지 밸브 안정화",
+                "preinfusion": "자동 8초",
+                "notes": "바리스타 익스프레스 임프레스. 10kg 균일 탬핑을 돕는 어시스트 탬핑 레버 및 지능형 도징 시스템 결합."
+              },
+              "BES878 (barista pro)": {
+                "boiler": "써모젯(ThermoJet 단일)",
+                "heatup": "3초",
+                "portafilter": "54mm",
+                "grinder": "내장 30단계 코니컬 버 (바라짜 버 업그레이드)",
+                "pressure": "9BAR OPV",
+                "preinfusion": "자동 8초(수동 설정 가능)",
+                "notes": "바리스타 프로. LCD 디스플레이 탑재. 추출 온도 5단계 설정 가능. 써모젯 적용으로 스팀 전환 속도가 획기적으로 빠름."
+              },
+              "BES880 (barista touch)": {
+                "boiler": "써모젯(ThermoJet 단일)",
+                "heatup": "3초",
+                "portafilter": "54mm",
+                "grinder": "내장 30단계 코니컬 버",
+                "pressure": "9BAR OPV",
+                "preinfusion": "자동 8초(레시피 고정)",
+                "notes": "바리스타 터치. 컬러 터치스크린 탑재. 8가지 커스텀 레시피 저장 가능. 자동 밀크 텍스처링."
+              },
+              "BES881 (barista touch impress)": {
+                "boiler": "써모젯(ThermoJet 단일)",
+                "heatup": "3초",
+                "portafilter": "54mm",
+                "grinder": "내장 30단계 코니컬 버 (바라짜 M2 버 탑재)",
+                "pressure": "9BAR OPV",
+                "preinfusion": "자동 8초",
+                "notes": "바리스타 터치 임프레스. 터치스크린 편의성에 스마트 도징, 오토 탬핑(임프레스 퍽) 시스템이 결합된 최상위 올인원."
+              },
+              "BES900 (dual boiler 구형)": {
+                "boiler": "듀얼 보일러 (추출/스팀 독립)",
+                "heatup": "약 10분 (그룹헤드 예열 필요)",
+                "portafilter": "58mm 상업용 규격",
+                "pressure": "9BAR (내부 OPV 조절)",
+                "preinfusion": "수동/자동 조절 가능",
+                "notes": "듀얼 보일러 초기 모델. BES920의 전신으로 디스케일링 기능 등 일부 편의 기능이 없음."
+              },
+              "BES920 (dual boiler 신형)": {
+                "boiler": "듀얼 보일러 (추출용 PID 보일러 + 스팀용 독립 보일러)",
+                "heatup": "약 10분 (정밀 온도를 위한 그룹헤드 예열 시간 필요)",
+                "portafilter": "58mm 상업용 규격",
+                "pressure": "9BAR (과압 방지 OPV)",
+                "preinfusion": "수동/자동 조절 가능 (시간 및 내부 펌프 출력 압력 % 조절 가능)",
+                "notes": "듀얼 보일러. 반자동 하이엔드 플래그십. 0.1°C 단위 온도 제어. 추출과 스팀 동시 가능. 사용자가 직접 디스케일링 가능."
+              },
+              "BES980 (oracle)": {
+                "boiler": "듀얼 보일러 (추출/스팀 독립)",
+                "heatup": "약 10분",
+                "portafilter": "58mm 상업용 규격",
+                "grinder": "내장 코니컬 버 (그라인딩 및 오토 도징&탬핑 일체형)",
+                "pressure": "9BAR OPV",
+                "preinfusion": "자동 (프로그래밍 가능)",
+                "notes": "오라클. 상업용 내부 스펙(58mm 듀얼보일러)을 갖추고 도징, 탬핑, 밀크 스팀까지 완전 자동화한 하이브리드 머신."
+              },
+              "BES985 (oracle 플러스 / 스페셜 에디션 계열)": {
+                "boiler": "듀얼 보일러 (추출/스팀 독립)",
+                "heatup": "약 10분",
+                "portafilter": "58mm 상업용 규격",
+                "grinder": "내장 코니컬 버 (오토 도징&탬핑)",
+                "pressure": "9BAR OPV",
+                "preinfusion": "자동 (프로그래밍 가능)",
+                "notes": "오라클(BES980)의 글로벌 특정 국가(혹은 특정 유통 채널/컬러 에디션) 전용 파생 모델명. 기본 기능 및 스펙은 BES980과 동일."
+              },
+              "BES990 (oracle touch)": {
+                "boiler": "듀얼 보일러 (추출/스팀 독립)",
+                "heatup": "약 10분",
+                "portafilter": "58mm 상업용 규격",
+                "grinder": "내장 코니컬 버 (오토 도징&탬핑)",
+                "pressure": "9BAR OPV",
+                "preinfusion": "자동 (프로그래밍 가능)",
+                "notes": "오라클 터치. 오라클 스펙에 전면 컬러 터치스크린을 결합하여 가이드 워크플로우 및 메뉴 저장 기능을 제공하는 최고가 플래그십."
+              },
+              "BES995 (oracle touch 에디션)": {
+                "boiler": "듀얼 보일러 (추출/스팀 독립)",
+                "heatup": "약 10분",
+                "portafilter": "58mm 상업용 규격",
+                "grinder": "내장 코니컬 버 (오토 도징&탬핑)",
+                "pressure": "9BAR OPV",
+                "preinfusion": "자동",
+                "notes": "오라클 터치(BES990)의 글로벌 특정 유통 채널 혹은 컬러 에디션(예: 블랙 트러플 등) 파생 모델명. 스펙은 BES990과 동일."
+              },
+              "BDC455 (the precision brewer)": {
+                "boiler": "써모코일 / 정밀 가열 시스템",
+                "heatup": "즉시 가열",
+                "portafilter": "해당 없음 (드립커피 가공 필터 바스켓 사용)",
+                "pressure": "대기압 (드립/브루잉 머신)",
+                "notes": "프레시전 브루어. 에스프레소 머신이 아닌 **최고급 전자동 드립 가전(커피메이커)**. PID 온도 제어, 유량 조절, 콜드브루 모드 및 SCA(미국스페셜티커피협회) 골드컵 기준 충족 머신."
+              }
+            
           },
           // 브랜드 공통 팁
           commonTips: lang === "ko"
-            ? [
-                "브레빌 54mm 포터필터 기준 권장 도징: 18~20g (더블샷 기준)",
-                "분쇄도 변경 시 0.5단계씩 조정 후 2~3샷 안정화 추출 필요",
-                "채널링 방지: WDT 툴로 분쇄 원두 분산 후 탬핑",
-                "추출 비율 목표: 1:2 (도징 18g → 에스프레소 36ml, 25~30초)",
-                "OPV 9BAR 기준 — 압력이 높다면 분쇄도를 굵게, 낮다면 가늘게",
-                "서드파티 바스켓(IMS/VST 58mm→54mm 어댑터) 사용 시 추출 향상 가능",
-              ]
-            : [
-                "Breville 54mm portafilter: recommended dose 18-20g (double shot)",
-                "Adjust grind by 0.5 steps at a time; allow 2-3 shots to stabilize",
-                "Prevent channeling: distribute grounds with WDT tool before tamping",
-                "Target extraction ratio 1:2 (18g in → 36ml out, 25-30s)",
-                "OPV set at 9BAR — if pressure high, grind coarser; if low, finer",
-                "Aftermarket baskets (IMS/VST with 54mm adapter) can improve extraction",
-              ],
+          ? [
+              "브레빌 54mm 기준 권장 도징량은 16~18g, 58mm 플래그십(9시리즈)은 18~20g입니다.",
+              "분쇄도 변경 시 그라인더 내 잔류 원두 배출을 위해 2~3g을 갈아낸(Purge) 후 추출하세요.",
+              "채널링(물길 현상) 방지: 탬핑 전 WDT 툴을 사용해 분쇄 원두의 뭉침을 풀고 고르게 분산시킵니다.",
+              "추출 비율(Ratio) 목표는 1:2 무게 기준입니다. (예: 원두 18g 도징 ➔ 에스프레소 36g 추출, 25~30초).",
+              "압력 게이지가 너무 높다면 분쇄도를 굵게(Coarser), 낮다면 가늘게(Finer) 조정하세요.",
+              "IMS 등 브레빌 54mm/58mm 전용 서드파티 정밀 바스켓을 사용하면 추출 수율을 높일 수 있습니다."
+            ]
+          : [
+              "Recommended dose: 16-18g for Breville 54mm, and 18-20g for 58mm flagship models (9-series).",
+              "When adjusting grind size, purge 2-3g of coffee to clear retained grounds before your next shot.",
+              "Prevent channeling: Use a WDT tool to declump and evenly distribute grounds before tamping.",
+              "Target extraction ratio is 1:2 by weight (e.g., 18g dose in ➔ 36g liquid out, in 25-30 seconds).",
+              "If the pressure is too high, grind coarser; if the pressure is too low, grind finer.",
+              "Upgrading to precision aftermarket baskets (like IMS formulated for Breville) can significantly improve extraction."
+            ]
         },
 
         // ── 드롱기 (De'Longhi) ─────────────────────────────────────
         "delonghi": {
           models: {
-            "magnifica":     { type:"전자동", grinder:"내장 13단계 버 그라인더", notes:"LatteCrema 우유 시스템. 분쇄도 조절은 원두 갈리는 중에만 가능." },
-            "magnifica evo":  { type:"전자동", grinder:"내장 13단계", notes:"My Latte 아트 기능. 터치 디스플레이." },
-            "eletta":        { type:"전자동", grinder:"내장 13단계", notes:"LatteCrema Cool 시스템(냉장 우유). 아이스 커피 기능." },
-            "dinamica":      { type:"전자동", grinder:"내장 13단계", notes:"MyMenu 기능. 트루 브루 시스템." },
-            "la specialista": { type:"반자동", portafilter:"51mm", notes:"내장 센서 그라인딩. 어시스트 탬핑. 스마트 워터 시스템." },
+            
+              "magnifica (ECAM 22.110 / 구형 시리즈)": {
+                "type": "전자동",
+                "boiler": "싱글 써모블록",
+                "grinder": "내장 13단계 코니컬 버 그라인더",
+                "milk_system": "수동 카푸치노 시스템 (스팀 노즐)",
+                "notes": "드롱기의 전설적인 베스트셀러 입문기. 아날로그 다이얼 제어. 분쇄도 조절은 반드시 그라인더가 작동 중일 때만 변경 가능."
+              },
+              "magnifica evo (ECAM 290.xx)": {
+                "type": "전자동",
+                "boiler": "싱글 써모블록",
+                "grinder": "내장 13단계 코니컬 버 그라인더",
+                "milk_system": "모델별 상이 (수동 노즐형 또는 라떼크레마 원터치 자동)",
+                "notes": "마그니피카의 직관적 현대화 버전. 컬러 아이콘 터치 패널. 'My Latte' 기능으로 우유 잔량을 감지해 남김없이 밀크 폼 제조 가능."
+              },
+              "magnifica plus (ECAM 320.xx)": {
+                "type": "전자동",
+                "boiler": "싱글 써모블록",
+                "grinder": "내장 13단계 코니컬 버 그라인더",
+                "milk_system": "라떼크레마 핫 (LatteCrema Hot) 자동 시스템",
+                "notes": "마그니피카 라인의 최신 상위 모델. 3.5인치 풀 컬러 터치 디스플레이 탑재. 최대 4개의 사용자 프로필 저장 지원."
+              },
+              "dinamica (ECAM 350.xx)": {
+                "type": "전자동",
+                "boiler": "싱글 써모블록 (일부 상위 모델 듀얼)",
+                "grinder": "내장 13단계 코니컬 버 그라인더",
+                "milk_system": "모델별 상이 (350.15 수동 노즐 / 350.55 라떼크레마 자동)",
+                "notes": "중급형 라인업. 'My Menu' 기능을 통한 개인 맞춤형 레시피 세팅. 얼음이 녹지 않도록 저온 고압 추출하는 오리지널 아이스커피(TrueBrew Over Ice) 메뉴 탑재."
+              },
+              "dinamica plus (ECAM 370.xx)": {
+                "type": "전자동",
+                "boiler": "듀얼 써모블록 (커피/스팀 독립 가열)",
+                "grinder": "내장 13단계 코니컬 버 그라인더",
+                "milk_system": "라떼크레마 시스템 (앱 연동 자동 제어)",
+                "notes": "디나미카의 하이엔드 버전. 3.5인치 컬러 터치스크린. 스마트 원터치(자주 마시는 메뉴 자동 배치). 드롱기 Coffee Link 앱을 통한 원격 커스텀 가능."
+              },
+              "eletta cappuccino / explore (ECAM 450.xx)": {
+                "type": "전자동",
+                "boiler": "듀얼 써모블록",
+                "grinder": "내장 13단계 코니컬 버 그라인더",
+                "milk_system": "라떼크레마 핫 & 쿨 (LatteCrema Hot & Cool) 듀얼 시스템",
+                "notes": "엘레타 익스플로어 기준. 핫 밀크폼 뿐만 아니라 차가운 우유 거품을 만들어주는 Cool 시스템 최초 탑재. 콜드브루 추출 기술(Cold Extraction) 내장으로 5분 만에 콜드브루 제조 가능."
+              },
+              "primadonna soul / elite (ECAM 610.xx / 650.xx)": {
+                "type": "전자동",
+                "boiler": "듀얼 써모블록",
+                "grinder": "전자식 자동 조절 그라인더 (Bean Adapt 기술)",
+                "milk_system": "라떼크레마 최상위 시스템 (밀크 폼 밀도 다이얼 조절)",
+                "notes": "드롱기 전자동 최고급 플래그십 라인업. 원두 종류에 맞춰 그라인더 분쇄도와 추출 온도를 머신이 스스로 자동 매칭(Bean Adapt). 초콜릿 전용 카라페가 포함되어 핫초코 자동 제조 가능(일부 모델)."
+              },
+              "la specialista arte (EC9155)": {
+                "type": "하이브리드 반자동",
+                "boiler": "싱글 써모블록 (예열 20초)",
+                "portafilter": "51mm 규격",
+                "grinder": "내장 8단계 코니컬 버 그라인더",
+                "notes": "라 스페셜리스타 입문형. 도징 가이드를 꽂고 사용자가 직접 탬퍼로 탬핑하는 구조. 수동 마이카푸치노 스팀 노즐 탑재."
+              },
+              "la specialista prestigio (EC9355)": {
+                "type": "하이브리드 반자동",
+                "boiler": "듀얼 써모블록 (추출/스팀 독립 및 즉시 전환)",
+                "portafilter": "53mm 규격",
+                "grinder": "내장 8단계 센서 그라인딩 (센서가 원두 량을 감지하여 자동 정지)",
+                "notes": "중급형 모델. 스마트 탬핑 스테이션 탑재(측면 레버를 내리면 먼지 날림 없이 내부에서 15~20kg 정밀 탬핑 완성). 아날로그 압력계 장착."
+              },
+              "la specialista maestro (EC9665)": {
+                "type": "하이브리드 반자동",
+                "boiler": "듀얼 써모블록",
+                "portafilter": "53mm 규격",
+                "grinder": "내장 8단계 센서 그라인딩",
+                "milk_system": "듀얼 스팀 (수동 상업용 노즐 + 오토 라떼크레마 시스템 카라페 포함)",
+                "notes": "라 스페셜리스타 최상위 플래그십 반자동. 반자동 형태이지만 라떼크레마 자동 우유통 장착 가능. 5단계 추출 온도 제어 및 정밀 프리인퓨전(원두 밀도별 자동 조절) 기술 적용."
+              },
+              "dedica (EC685 / EC885)": {
+                "type": "반자동 (그라인더 미내장)",
+                "boiler": "싱글 써모블록 (예열 40초)",
+                "portafilter": "51mm 규격",
+                "notes": "데디카. 가로폭 15cm의 극단적 초소형 반자동 머신. 홈카페 입문용 가성비 모델. EC885(데디카 아르떼)는 상업용 스타일의 수동 스팀 노즐로 업그레이드됨."
+              }
+            
           },
           commonTips: lang === "ko"
-            ? [
-                "전자동 분쇄도 조절: 반드시 그라인딩 중에만 조절(정지 중 조절 시 버 손상)",
-                "커피 강도 설정: 분쇄 굵기보다 도징량(강도 다이얼)으로 먼저 조절",
-                "주 1회 커피 오일 세척 권장(리나 클리너 사용)",
-                "원두 교체 시 2~3샷 희생샷 추출 후 사용",
-              ]
-            : [
-                "Grind adjustment: only change while grinding is in progress (prevents burr damage)",
-                "Adjust strength via dose dial before changing grind size",
-                "Weekly cleaning cycle recommended (use Urnex or De'Longhi cleaner)",
-                "When changing beans, discard 2-3 shots to flush old grounds",
-              ],
+  ? [
+      "그라인더 분쇄도 조절: 칼날(Burr) 손상 및 기어 파손을 막기 위해, 반드시 원두가 갈리는 도중에만 다이얼을 돌려 조절하십시오.",
+      "진한 커피를 원할 때: 분쇄도를 무조건 가늘게 바꾸기보다, 전면 다이얼/버튼을 통해 원두 도징량(커피 강도)을 먼저 높여 조절하는 것이 좋습니다.",
+      "추출기(Brew Unit) 관리: 주 1회 화학 세제 없이 흐르는 미온수로만 물 세척을 권장하며, 완전히 건조한 후 장착해야 곰팡이를 예방할 수 있습니다.",
+      "커피 오일 세척 주기: 커피 찌든 때와 기름때 제거를 위한 전자동 전용 세정제(알약) 세척은 매일 쓰더라도 1~2개월에 1회 주기가 적당합니다.",
+      "원두 교체 시 팁: 그라인더 내부 잔류 원두 비우기를 위해, 원두 교체 직후에는 연한 농도로 1샷만 추출하여 비워내거나 롱(Long) 커피를 한 번 뽑아내면 좋습니다.",
+      "디스케일링(석회 제거): 머신에 주황색 경고등이 뜨면 내부 보일러(써모블록) 막힘과 온도 저하를 막기 위해 드롱기 정품 디스케일러(EcoDecalk)로 즉시 청소하십시오."
+    ]
+  : [
+      "Grinder Adjustment: To prevent burr damage and gear failure, ONLY adjust the grind size dial while the grinder is actively operating.",
+      "Adjusting Coffee Strength: For a stronger taste, increase the coffee bean dosage (strength dial/button) first before making the grind size finer.",
+      "Brew Unit Maintenance: Rinse the removable brew unit with lukewarm water once a week WITHOUT detergent. Ensure it is completely dry before reinserting to prevent mold.",
+      "Coffee Oil Cleaning: Using specialized espresso cleaning tablets to remove coffee oil buildup is recommended once every 1-2 months (or every 200-300 cups).",
+      "Switching Beans: To clear retained grounds from the previous beans, purge the system by brewing a single shot at the lowest strength or running a 'Long' coffee cycle once.",
+      "Descaling Alert: When the descaling light turns on, immediately run the descaling cycle using De'Longhi EcoDecalk to prevent thermoblock clogging and temperature drops."
+    ],
         },
 
         // ── 가찌아 (Gaggia) ───────────────────────────────────────
         "gaggia": {
-          models: {
-            "classic pro": { boiler:"단일 보일러(스테인리스)", portafilter:"58mm", pressure:"9BAR OPV", notes:"OPV 9BAR 사전 조정됨(구형 클래식은 15BAR). 상업용 58mm 포터필터. 스팀 온도 수동." },
-            "classic evo":  { boiler:"단일 보일러", portafilter:"58mm", pressure:"9BAR OPV", notes:"클래식 프로 업그레이드. 개선된 스팀 완드." },
-            "babila":       { boiler:"듀얼 보일러", portafilter:"58mm", pressure:"9BAR", notes:"독립 추출/스팀 보일러. PID 온도 제어." },
-          },
+          
+            "models": {
+              "classic pro (RI9380)": {
+                "boiler": "전통 가찌아 알루미늄 싱글 보일러",
+                "portafilter": "58mm 상업용 황동 포타필터",
+                "pressure": "12~15BAR 펌프 (순정 압력이 높아 홈카페 유저들은 스프링 튜닝 권장)",
+                "notes": "홈카페 반자동의 교과서. 3way 솔레노이드 밸브 탑재로 추출 후 퍽이 단단하게 건조됨. 상업용 2구 스팀 완드 장착."
+              },
+              "classic evo pro (RI9385)": {
+                "boiler": "에코프라소 코팅 알루미늄 싱글 보일러",
+                "portafilter": "58mm 상업용 스테인리스 포타필터",
+                "pressure": "공장 출고 규격 (모델 및 연식에 따라 9BAR 스프링 기본 장착 버전 존재)",
+                "notes": "클래식 프로의 완성형 후속작. 보일러 내부 헬스케어 코팅으로 스케일 및 부식 방지. 크롬 도금 황동 그룹헤드를 상업용 통황동으로 변경하여 열보존력 극대화."
+              },
+              "babila": {
+                "type": "전자동",
+                "boiler": "듀얼 가열 시스템 (커피 써모블록 + 스팀 보일러 독립)",
+                "grinder": "내장 15단계 세라믹 코니컬 버 그라인더",
+                "notes": "가찌아 최고급 전자동 머신. 원터치 우유 카라페(자동 밀크폼)와 수동 스팀 노즐이 동시에 존재. 전면 유량 조절 다이얼(Espresso Plus System)로 크레마 두께 조절 가능."
+              },
+              "anima": {
+                "type": "전자동",
+                "boiler": "싱글 써모블록",
+                "grinder": "내장 5단계 세라믹 버 그라인더",
+                "notes": "가찌아의 실속형 전자동 라인업(아니마 디럭스/클래스 등). 탈착식 추출기(Brew Unit)로 관리가 용이하며 원두 바이패스(분쇄 원두 투입) 기능 지원."
+              }
+            },
           commonTips: lang === "ko"
-            ? [
-                "58mm 포터필터: 도징 18~21g, 탬핑 15~20kg 균일 압력",
-                "단일 보일러: 추출→스팀 전환 시 30초 대기 필요",
-                "클래식 프로 OPV 조절: 기본 9BAR, 스프링 교체로 8BAR 다운 가능",
-              ]
-            : [
-                "58mm portafilter: dose 18-21g, tamp 15-20kg consistent pressure",
-                "Single boiler: 30s wait required when switching espresso→steam",
-                "Classic Pro OPV: stock 9BAR, spring swap can reduce to 8BAR",
-              ],
+ ? [
+      "58mm 상업용 포타필터: 원두 특성에 따라 18~20g 도징을 권장하며, 채널링 방지를 위해 평평하고 균일한 탬핑이 필수적입니다.",
+      "싱글 보일러 온도 서핑: 에스프레소 추출 후 스팀으로 전환할 때 보일러 가열을 위해 약 30~45초 대기가 필요하며, 반대로 스팀 후 다시 추출할 때는 보일러 내부 뜨거운 물을 빼주는 '쿨링 플러싱'이 필수입니다.",
+      "클래식 프로 OPV 스프링 튜닝: 순정 압력이 높을 경우 과추출 및 채널링이 발생하기 쉽습니다. 서드파티 9BAR 또는 6BAR 스프링으로 교체하면 에스프레소의 맛이 훨씬 부드러워집니다.",
+      "알루미늄 보일러 관리: 가찌아 클래식 계열은 알루미늄 보일러 특성상 부식에 취약하므로, 정기적인 디스케일링 시 알루미늄 전용 세정제를 사용해야 내부 손상을 막을 수 있습니다."
+    ]
+  : [
+      "58mm Commercial Portafilter: Recommended dose is 18-20g depending on the bean. Flat and consistent tamping is required to avoid channeling.",
+      "Single Boiler Temperature Surfing: Wait about 30-45 seconds for the boiler to heat up when switching from brewing to steaming. Conversely, run a cooling flush after steaming to lower the grouphead temperature before brewing again.",
+      "Classic Pro OPV Spring Modification: Stock pressure can be higher than ideal, causing harsh extraction. Swapping to an aftermarket 9BAR or 6BAR OPV spring significantly improves espresso flavor extraction.",
+      "Aluminum Boiler Care: Since Gaggia Classic models feature an aluminum boiler, it is highly recommended to use an aluminum-safe descaling solution to prevent internal corrosion and pitting."
+    ],
         },
 
         // ── 유라 (Jura) ───────────────────────────────────────────
         "jura": {
-          models: {
-            "e6":  { type:"전자동", grinder:"Aroma G3(5단계)", notes:"IPBAS. P.E.P(맥동 추출). 중급 전자동." },
-            "e8":  { type:"전자동", grinder:"Aroma G3(6단계)", notes:"E6 + 카푸치노 시스템. 15가지 음료." },
-            "s8":  { type:"전자동", grinder:"Aroma G3(6단계)", notes:"E8 + 터치 디스플레이. 3D Brewing." },
-            "z10": { type:"전자동", grinder:"Aroma G3(6단계)", notes:"콜드 브루 기능. 최상위 라인업. 듀얼 스페셜티." },
+          "models": {
+            "ena 4": {
+              "type": "전자동 (블랙커피 전용)",
+              "grinder": "Professional Aroma Grinder (P.A.G.)",
+              "features": "P.E.P (맥동 추출), 기하학적 원두 가이드",
+              "notes": "콤팩트 입문형 모델. 밀크 스팀 기능이 완전히 배제된 블랙커피(에스프레소/카페루고) 전용 머신. 공간 효율성이 뛰어남."
+            },
+            "ena 8": {
+              "type": "전자동 (원터치 밀크)",
+              "grinder": "Professional Aroma Grinder (P.A.G.)",
+              "features": "TFT 컬러 디스플레이, VC 컴팩트 추출 장치",
+              "notes": "ENA 라인의 상위 모델. 원터치 밀크 시스템 장착으로 카푸치노, 라떼 마키아토 제조 가능. 미니멀한 프리미엄 디자인."
+            },
+            "e6": {
+              "type": "전자동",
+              "grinder": "Professional Aroma Grinder (P.A.G. 1세대)",
+              "features": "P.E.P, IPBAS, 2.8인치 컬러 디스플레이",
+              "notes": "유라의 정석이라 불리는 중급형 베스트셀러. 에스프레소 추출력이 매우 뛰어나며, 스팀은 수동 다이얼 제어 방식을 채택."
+            },
+            "e8": {
+              "type": "전자동",
+              "grinder": "Professional Aroma Grinder (P.A.G. 2세대 고도화)",
+              "features": "원터치 카푸치노 시스템, 인텔리전트 워터 시스템(I.W.S)",
+              "notes": "E6 기반에 완전 자동 밀크 폼 추출 시스템 결합. 플랫 화이트를 포함한 총 17가지 원터치 음료 메뉴 레시피 제공."
+            },
+            "j8": {
+              "type": "전자동 (스위트 폼 기능)",
+              "grinder": "P.A.G.2+ (잔류 원두 방지 및 분쇄도 모니터링 기능)",
+              "features": "Sweet Foam 기능, Coffee Eye (컵 인식 센서)",
+              "notes": "최신 트렌드 반영 중상급 모델. 스팀 시 시럽을 함께 섞어 달콤한 밀크폼을 만들어주는 전용 카라페 시스템 탑재. 잔 위치를 감지해 메뉴 스크린이 자동 전환됨."
+            },
+            "s8": {
+              "type": "전자동",
+              "grinder": "Professional Aroma Grinder (P.A.G.)",
+              "features": "4.3인치 고해상도 터치 디스플레이, 3D 브루잉 기술",
+              "notes": "준플래그십 라인업. 물을 원두 퍽 전체에 3차원으로 고르게 분사하는 3D Brewing 기술 적용. 정밀한 밀크 폼 미세 조절 다이얼 탑재."
+            },
+            "z10": {
+              "type": "전자동 (하이엔드 플래그십)",
+              "grinder": "P.R.G. (메뉴 맞춤형 전자식 자동 조절 그라인더)",
+              "features": "Cold Extraction Process (세계 최초 고압 콜드브루), 3D 브루잉",
+              "notes": "유라 기술력의 결정체. 핫 스페셜티와 세계 최초 고압 진공 콜드브루를 원터치로 교대 추출 가능. 메뉴를 고르면 모터가 알아서 최적의 분쇄도로 칼날 간격을 미세 제어함."
+            }
           },
-          commonTips: lang === "ko"
-            ? [
-                "분쇄도 조절: 반드시 머신 가동 중(그라인딩 중)에만 변경",
-                "P.E.P(맥동 추출 공정): 추출 압력을 펄스로 조절해 향미 극대화",
-                "IPBAS: 원두 종류 감지 후 사전 우림(프리브루잉) 자동 최적화",
-                "탈석회화 주기: 수질 경도 설정에 따라 JURA Claris 필터 교체",
-              ]
-            : [
-                "Grind adjustment: ONLY while machine is actively grinding",
-                "P.E.P (Pulse Extraction Process): pulsed pressure maximizes aroma",
-                "IPBAS auto-optimizes pre-brewing based on bean type detection",
-                "Descaling interval depends on water hardness setting and Claris filter",
-              ],
+        commonTips: lang === "ko"
+        ? [
+            "분쇄도 조절 타이밍: 원두 칼날과 모터 손상을 방지하기 위해, 반드시 그라인더가 회전하며 원두를 갈고 있는 시점에만 분쇄도 다이얼을 변경하십시오.",
+            "P.E.P.(맥동 추출 공정): 에스프레소(짧은 음료) 추출 시 물을 짧은 주기로 끊어서 분사하여 원두의 아로마와 크레마를 극대화하는 유라만의 핵심 기술입니다.",
+            "IPBAS(사전 우림): 원두 종류가 아닌, 분쇄되어 담긴 '원두의 양'을 머신이 스스로 측정하여 최적의 물 양으로 사전 적심을 진행하는 기능입니다.",
+            "일체형 추출기 관리: 유라 머신은 추출기(Brew Unit)가 내부 일체형으로 분리가 불가능합니다. 따라서 매일 전원을 끄고 켤 때 진행되는 자동 헹굼(Rinsing) 외에, 주기적으로 유라 정품 세정 알약을 투입하는 가이드 프로그램을 반드시 수행해야 내부에 곰팡이가 피지 않습니다.",
+            "Claris 스마트 필터와 탈석회화: 유라 정품 클라리스(Claris) 스마트 필터를 장착하면 머신이 이를 자동으로 인식하여 석회질 축적을 방지합니다. 필터 교체 주기를 제때 맞춰주면 번거로운 디스케일링(석회 제거) 작업을 생략할 수 있습니다."
+          ]
+        : [
+            "Grinder Adjustment: To avoid damaging the motor and burrs, ONLY adjust the grind size setting while the grinder is actively operating.",
+            "P.E.P. (Pulse Extraction Process): JURA's signature technology that pulses water through the ground coffee in short intervals to optimize extraction time and maximize aroma for short coffees.",
+            "IPBAS (Intelligent Pre-Brew Aroma System): A feature where the machine automatically adjusts the pre-brewing water amount and time based on the 'amount of ground coffee' in the chamber, not the bean type.",
+            "Non-Removable Brew Unit Care: Since JURA features a built-in, non-removable brew unit, users cannot rinse it manually. You must regularly run the automated cleaning cycle using official JURA cleaning tablets to prevent mold and oil buildup.",
+            "Claris Smart Filter & Descaling: Using the JURA Claris Smart filter prevents limescale buildup. Replacing the filter promptly when prompted allows you to bypass the manual chemical descaling process completely."
+          ]
+        
         },
-
+        
         // ── 사에코 (Saeco) ────────────────────────────────────────
         "saeco": {
+          "models": {
+          "picobaristo": {
+            "type": "전자동 (중상급형)",
+            "grinder": "내장 세라믹 코니컬 버 그라인더",
+            "features": "AquaClean 필터 호환, 퀵 히트 보일러",
+            "notes": "사에코의 핵심 미들클래스 라인업. 컴팩트한 크기에 자동 밀크 카라페를 탑재하여 다양한 밀크 베리에이션 메뉴 원터치 지원."
+          },
+          "xelsis": {
+            "type": "전자동 (최상위 하이엔드)",
+            "grinder": "내장 12단계 세라믹 버 그라인더",
+            "features": "CoffeeEqualizer™ (터치 커스텀 시스템), 이퀄라이저 프로필",
+            "notes": "사에코의 플래그십 모델. 터치스크린을 통해 원두 도징량, 추출량, 우유 거품 양, 추출 온도 및 순서까지 바리스타처럼 미세 이퀄라이징 조절 가능."
+          }
+          },
+
           commonTips: lang === "ko"
-            ? ["세라믹 버 그라인더 탑재 모델 다수. 세라믹은 내열성 우수하나 단단한 원두에 취약.", "AquaClean 필터 사용 시 탈석회화 없이 5000잔 가능."]
-            : ["Many models use ceramic burr grinders. Ceramic excels in heat resistance but can chip on very hard beans.", "AquaClean filter enables up to 5000 cups without descaling."],
+           ? [
+              "세라믹 버 그라인더 관리: 사에코는 열 발생이 적어 원두 탄내를 방지하는 세라믹 버를 다수 채택하고 있습니다. 다만 스테인리스에 비해 충격에 약하므로 돌이나 이물질(결점두)이 그라인더에 들어가지 않도록 주의하십시오.",
+              "AquaClean 필터 시스템: 아쿠아클린 필터를 가이드에 맞춰 주기적으로 교체해 줄 경우, 최대 5,000잔까지 번거로운 석회질 제거(디스케일링) 작업 없이 연속 사용이 가능합니다."
+            ]
+          : [
+              "Ceramic Burr Care: Many Saeco models feature ceramic grinders which minimize heat transfer and protect the coffee's flavor profile. However, they are more brittle than steel, so ensure no stones or hard foreign objects enter the hopper.",
+              "AquaClean Filter System: By replacing the AquaClean filter promptly when prompted by the machine, you can brew up to 5,000 cups without needing to run a chemical descaling cycle."
+            ]
         },
 
         // ── 필립스 (Philips) ─────────────────────────────────────
-        "philips": {
-          commonTips: lang === "ko"
-            ? ["LatteGo 우유 시스템: 청소가 쉬운 분리형 우유 용기.", "분쇄도 12단계. 원두 경도에 따라 하드빈 설정 변경 가능."]
-            : ["LatteGo milk system: easy-clean detachable milk container.", "12-step grind adjustment. Enable hard bean setting for dense roasts."],
+       "philips": {
+        "models": {
+          "1200 series": {
+            "type": "전자동 (기본 입문형)",
+            "grinder": "내장 12단계 세라믹 버 그라인더",
+            "features": "클래식 우유 거품기 (수동 스팀 완드)",
+            "notes": "필립스의 초가성비 에스프레소 머신. 수동 스팀 노즐이 장착되어 기본 블랙커피 추출 및 스팀 연습용으로 적합."
+          },
+          "2200 / 3200 lattego": {
+            "type": "전자동 (밀크 자동화)",
+            "grinder": "내장 12단계 세라믹 버 그라인더",
+            "features": "LatteGo 특허 밀크 시스템, 직관적 터치 디스플레이",
+            "notes": "필립스 최고의 히트작. 라떼고(LatteGo) 시스템이 탑재되어 우유관(튜브) 없이 원터치로 카푸치노와 라떼 추출 가능."
+          },
+          "5400 lattego": {
+            "type": "전자동 (필립스 최상위)",
+            "grinder": "내장 12단계 세라믹 버 그라인더",
+            "features": "컬러 디스플레이, 엑스트라 샷 기능, 4개 프로필 저장",
+            "notes": "필립스 라인업 중 가장 많은 12가지 음료 레시피 지원. 원두 맛을 진하게 해주는 리스트레토 엑스트라 샷 추가 기능 제공."
+          }
         },
+        commonTips: lang === "ko"
+          ? [
+              "LatteGo 우유 시스템 청소: 라떼고 우유 커넥터는 복잡한 내부 튜브(빨대)가 없는 구조입니다. 사용 후 흐르는 물에 10초만 헹구거나 식기세척기에 넣으면 간편하게 유지관리가 됩니다.",
+              "그라인더 및 원두 세팅: 기본 12단계 세라믹 그라인더가 장착되어 있으며, 로스팅이 강하고 단단한 원두(하드빈/인텐스 로스트)의 경우 분쇄도를 조금 더 여유 있게 넓혀 기어 부담을 줄여주는 것이 좋습니다."
+            ]
+          : [
+              "LatteGo Milk System: The LatteGo storage has no hidden tubes or multi-part valves. Simply rinse the two detached pieces under the tap for 10 seconds or place them in the dishwasher after use.",
+              "Grinder Calibration: Equipped with a durable 12-step ceramic grinder. When using dense, light-to-medium roasts or extra-hard beans, avoid setting the dial to the absolute finest steps straight away to minimize motor strain."
+            ]
+      }
       };
 
       // ── 그라인더 지식 DB ──────────────────────────────────────────
@@ -8630,6 +8953,11 @@ function MainApp({ user, lang, toggleLang, onRequireAuth, darkMode, toggleDark }
             : `※ ${grinderName} is not in our local DB. Apply your own knowledge of this grinder's characteristics and espresso grind range.`)
         : "";
 
+      // 프롬프트 토큰 초과 방지 — 장비 지식 600자로 제한
+      const trimKB = (str, max=600) => str && str.length > max ? str.slice(0, max) + "…" : (str || "");
+      const machineKB = trimKB(machineKnowledge || unknownMachineNote);
+      const grinderKB = trimKB(grinderKnowledge || unknownGrinderNote, 300);
+
       const isKo = lang === "ko";
 
       const prompt = isKo
@@ -8642,8 +8970,8 @@ ${pressureVal ? `- 최근 추출 압력: ${pressureVal}` : ""}
 - 주요 사용 원두: ${beanBrands || topBeanLabel}
 
 ## 장비 지식 (내부 DB)
-${machineKnowledge || unknownMachineNote}
-${grinderKnowledge ? "\n" + grinderKnowledge : unknownGrinderNote}
+${machineKB}
+${grinderKB ? "\n" + grinderKB : ""}
 ${beanKnowledge    ? "\n[원두 로스터리 정보]\n" + beanKnowledge : ""}
 
 ## 원두 신선도
@@ -8680,8 +9008,8 @@ ${recentSummary}
 4. 추출 비율(최근 1:${latestRatio?.ratio||"?"})이 적정한지 판단하고 개선 방향 제시
 5. 맛 노트 텍스트에서 향미 특성을 파악해 원두 특성 반영
 
-반드시 아래 JSON만 출력하세요. gram/temp/seconds는 숫자만(단위 없이):
-{"tip":"장비명·신선도·날씨·비율을 모두 반영한 구체적 개선 팁 2-3문장","recipeTitle":"오늘 시도해볼 레시피명","recipeDesc":"원두+장비+컨디션 반영한 추천 이유 1-2문장","gram":"숫자만","temp":"숫자만","seconds":"숫자만"}`
+반드시 아래 JSON 형식 **한 줄**로만 출력하세요. 설명, 마크다운, 코드블록 절대 금지. gram/temp/seconds는 숫자만:
+{"tip":"2-3문장 팁","recipeTitle":"레시피명","recipeDesc":"1-2문장 추천이유","gram":"숫자","temp":"숫자","seconds":"숫자"}`
         : `You are a professional barista and coffee equipment specialist. Analyze the comprehensive data below to recommend the optimal extraction recipe.
 
 ## Brewer Equipment Profile
@@ -8691,8 +9019,8 @@ ${pressureVal ? `- Recent brew pressure: ${pressureVal}` : ""}
 - Primary beans: ${beanBrands || topBeanLabel}
 
 ## Equipment Knowledge (Internal DB)
-${machineKnowledge || unknownMachineNote}
-${grinderKnowledge ? "\n" + grinderKnowledge : unknownGrinderNote}
+${machineKB}
+${grinderKB ? "\n" + grinderKB : ""}
 ${beanKnowledge    ? "\n[Bean Roastery Info]\n" + beanKnowledge : ""}
 
 ## Bean Freshness
@@ -8729,8 +9057,8 @@ ${recentSummary}
 4. Evaluate extraction ratio (latest 1:${latestRatio?.ratio||"?"}) and suggest improvement direction
 5. Extract flavor characteristics from tasting notes and match to bean profile
 
-Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
-{"tip":"specific 2-3 sentence tip referencing machine/freshness/weather/ratio","recipeTitle":"recipe name to try today","recipeDesc":"1-2 sentence recommendation reflecting bean+equipment+conditions","gram":"numberonly","temp":"numberonly","seconds":"numberonly"}`;
+Output ONLY this JSON on a single line. No explanation, no markdown, no code blocks. gram/temp/seconds = numbers only:
+{"tip":"2-3 sentence tip","recipeTitle":"recipe name","recipeDesc":"1-2 sentence reason","gram":"number","temp":"number","seconds":"number"}`;
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`,
         {
@@ -8738,7 +9066,7 @@ Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.8, maxOutputTokens: 2048 },
+            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
           }),
         }
       );
@@ -8813,6 +9141,14 @@ Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
       if (!parsed.temp)    parsed.temp    = String(latestR.waterTemp || "93");
       if (!parsed.seconds) parsed.seconds = String(latestR.seconds  || "28");
 
+      if (!parsed.tip && raw.trim().length > 20) {
+        parsed.tip = raw.trim().slice(0, 300);
+        parsed.recipeTitle = isKo ? "오늘의 추천" : "Today's Pick";
+        parsed.recipeDesc  = "";
+        parsed.gram    = parsed.gram    || String(latestR.gram    || "18");
+        parsed.temp    = parsed.temp    || String(latestR.waterTemp || "93");
+        parsed.seconds = parsed.seconds || String(latestR.seconds  || "28");
+      }
       if (!parsed.tip) throw new Error("No tip in response: " + raw.slice(0, 80));
       // 언어별로 별도 캐시 키 사용 — ko/en 응답이 섞이지 않도록
       const adviceData = { ...parsed, fetchedAt: today, lang };
@@ -9604,110 +9940,133 @@ Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
         const mine = recipes.filter(r => r.uid === user?.uid);
         if (mine.length === 0) return null;
 
-        // ── 기록 캘린더 히트맵 (연간 잔디) ─────────────────────
+        // ── 브루 활동 카드 (월별 바 차트 + 스트릭) ─────────────
         const BrewCalendar = () => {
           const today = new Date();
           const year  = today.getFullYear();
+
           // 날짜별 기록 수 집계
           const countMap = {};
           mine.forEach(r => {
             const d = r.recordDate || (r.createdAt?.toDate ? r.createdAt.toDate().toISOString().slice(0,10) : null);
             if (d && d.startsWith(String(year))) countMap[d] = (countMap[d]||0)+1;
           });
-          const totalDays = Object.keys(countMap).length;
-          const totalShots = mine.filter(r => {
-            const d = r.recordDate || (r.createdAt?.toDate ? r.createdAt.toDate().toISOString().slice(0,10) : null);
-            return d && d.startsWith(String(year));
-          }).length;
 
-          // 올해 1월 1일부터 오늘까지 52주 + 나머지 그리드 생성
-          const startDate = new Date(year, 0, 1);
-          const startDow  = startDate.getDay(); // 0=일
-          // 셀 배경색 (0~4+ 단계)
-          const getColor = (count) => {
-            if (!count) return "var(--steam)";
-            if (count === 1) return "#C8E6C9";
-            if (count === 2) return "#81C784";
-            if (count === 3) return "#4CAF50";
-            return "#2E7D32";
-          };
-          // 53주치 셀 배열 생성
-          const cells = [];
-          const totalCells = 53 * 7;
-          for (let i = 0; i < totalCells; i++) {
-            const offset = i - startDow;
-            const d = new Date(year, 0, 1 + offset);
-            if (d.getFullYear() !== year || d > today) {
-              cells.push({ date: null, count: 0 });
-            } else {
-              const key = d.toISOString().slice(0,10);
-              cells.push({ date: key, count: countMap[key]||0 });
-            }
+          // 월별 집계
+          const monthlyCounts = Array.from({ length: 12 }, (_, mi) => {
+            const prefix = `${year}-${String(mi+1).padStart(2,"0")}`;
+            return Object.entries(countMap)
+              .filter(([k]) => k.startsWith(prefix))
+              .reduce((sum, [, v]) => sum + v, 0);
+          });
+          const maxMonthly   = Math.max(...monthlyCounts, 1);
+          const currentMonth = today.getMonth();
+
+          // 통계
+          const totalShots  = Object.values(countMap).reduce((a,b)=>a+b,0);
+          const totalDays   = Object.keys(countMap).length;
+          const avgPerDay   = totalDays ? (totalShots / totalDays).toFixed(1) : "0";
+
+          // 연속 기록 스트릭
+          let streak = 0;
+          const checkDate = new Date(today);
+          while (true) {
+            const key = checkDate.toISOString().slice(0,10);
+            if (countMap[key]) { streak++; checkDate.setDate(checkDate.getDate()-1); }
+            else break;
           }
-          // 월 레이블 (각 월 첫째 주 위치)
-          const months = lang === "en"
-            ? ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-            : ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+
+          // 이번 달 기록일 수
+          const thisMonthPrefix = `${year}-${String(today.getMonth()+1).padStart(2,"0")}`;
+          const thisMonthDays   = Object.keys(countMap).filter(k=>k.startsWith(thisMonthPrefix)).length;
+
+          const monthLabels = lang === "en"
+            ? ["J","F","M","A","M","J","J","A","S","O","N","D"]
+            : ["1","2","3","4","5","6","7","8","9","10","11","12"];
 
           return (
-            <div style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "var(--r-card)", padding: "18px 16px", marginBottom: "16px" }}>
+            <div style={{ background:"var(--foam)", border:"1px solid var(--divider)", borderRadius:"var(--r-card)", padding:"18px 16px 14px", marginBottom:"16px" }}>
+
               {/* 헤더 */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                <div>
-                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 600 }}>
-                    {year} {lang === "en" ? "Brew Log" : "브루 기록"}
+              <div style={{ marginBottom:"14px" }}>
+                <div style={{ display:"flex", alignItems:"baseline", gap:"8px", marginBottom:"3px" }}>
+                  <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>
+                    {lang === "en" ? "My Brew Activity" : "나의 추출 활동"}
                   </span>
-                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", marginLeft: "10px" }}>
-                    {lang === "en" ? `${totalShots} shots · ${totalDays} days` : `${totalShots}회 추출 · ${totalDays}일 기록`}
-                  </span>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)" }}>{year}</span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.65rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif" }}>
-                  <span>{lang === "en" ? "Less" : "적음"}</span>
-                  {["var(--steam)","#C8E6C9","#81C784","#4CAF50","#2E7D32"].map((c,i) => (
-                    <div key={i} style={{ width: "10px", height: "10px", borderRadius: "2px", background: c }}/>
-                  ))}
-                  <span>{lang === "en" ? "More" : "많음"}</span>
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", lineHeight:1.5, margin:0 }}>
+                  {lang === "en"
+                    ? "How often you've been brewing this year, month by month."
+                    : "올해 월별로 얼마나 자주 커피를 추출했는지 보여줘요."}
+                </p>
+              </div>
+
+              {/* 핵심 지표 3개 */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"8px", marginBottom:"16px" }}>
+                {[
+                  { icon:"☕", value: totalShots,   label: lang==="en"?"Total Shots":"총 추출 횟수", sub: lang==="en"?"this year":"올해" },
+                  { icon:"🔥", value: streak ? `${streak}일` : "0일", label: lang==="en"?"Streak":"연속 기록", sub: lang==="en"?"days in a row":"연속 추출 중" },
+                  { icon:"📅", value: thisMonthDays, label: lang==="en"?"This Month":"이번 달", sub: lang==="en"?"days brewed":"일 기록됨" },
+                ].map(({ icon, value, label, sub }) => (
+                  <div key={label} style={{ background:"var(--cream)", borderRadius:"var(--r-btn)", padding:"10px 8px", textAlign:"center", border:"1px solid var(--divider)" }}>
+                    <div style={{ fontSize:"1rem", marginBottom:"4px" }}>{icon}</div>
+                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", fontWeight:700, color:"var(--espresso)", lineHeight:1 }}>{value}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", color:"var(--muted)", marginTop:"3px", lineHeight:1.3 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 월별 바 차트 */}
+              <div style={{ marginBottom:"6px" }}>
+                <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:"10px" }}>
+                  {lang === "en" ? "Monthly Brews" : "월별 추출 횟수"}
+                </div>
+                <div style={{ display:"flex", alignItems:"flex-end", gap:"4px", height:"72px" }}>
+                  {monthlyCounts.map((count, mi) => {
+                    const isFuture = mi > currentMonth;
+                    const isEmpty  = count === 0;
+                    const barH     = isFuture ? 0 : Math.max(count / maxMonthly * 52, isEmpty ? 0 : 4);
+                    const isNow    = mi === currentMonth;
+                    return (
+                      <div key={mi} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:"4px", height:"72px", justifyContent:"flex-end" }}>
+                        {!isFuture && count > 0 && (
+                          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.55rem", color: isNow ? "var(--latte)" : "var(--muted)", fontWeight: isNow ? 700 : 400, lineHeight:1 }}>
+                            {count}
+                          </div>
+                        )}
+                        <div style={{
+                          width:"100%",
+                          height: isFuture ? "3px" : isEmpty ? "3px" : `${barH}px`,
+                          borderRadius:"3px 3px 2px 2px",
+                          background: isFuture ? "var(--divider)" : isEmpty ? "var(--steam)" : isNow ? "var(--espresso)" : "var(--latte)",
+                          opacity: isFuture ? 0.3 : 1,
+                          transition:"height 0.3s ease",
+                          flexShrink:0,
+                        }}/>
+                        <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", color: isNow ? "var(--espresso)" : "var(--muted)", fontWeight: isNow ? 700 : 400, lineHeight:1 }}>
+                          {monthLabels[mi]}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              {/* 월 레이블 */}
-              <div style={{ overflowX: "auto", overflowY: "hidden" }}>
-                <div style={{ minWidth: "700px" }}>
-                  <div style={{ display: "flex", marginBottom: "3px", paddingLeft: "18px" }}>
-                    {Array.from({ length: 53 }, (_, wi) => {
-                      const colDate = new Date(year, 0, 1 - startDow + wi * 7);
-                      if (colDate.getDate() <= 7 && colDate.getFullYear() === year) {
-                        return <div key={wi} style={{ width: "13px", flexShrink: 0, fontSize: "0.6rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", textAlign: "center" }}>{months[colDate.getMonth()]}</div>;
-                      }
-                      return <div key={wi} style={{ width: "13px", flexShrink: 0 }}/>;
-                    })}
+
+              {/* 범례 + 평균 */}
+              <div style={{ display:"flex", alignItems:"center", gap:"10px", marginTop:"10px", paddingTop:"10px", borderTop:"1px solid var(--divider)", flexWrap:"wrap" }}>
+                {[
+                  { color:"var(--espresso)", label: lang==="en"?"This month":"이번 달" },
+                  { color:"var(--latte)",    label: lang==="en"?"Past months":"지난 달" },
+                  { color:"var(--steam)",    label: lang==="en"?"No brew":"기록 없음" },
+                ].map(({ color, label }) => (
+                  <div key={label} style={{ display:"flex", alignItems:"center", gap:"4px" }}>
+                    <div style={{ width:"9px", height:"9px", borderRadius:"2px", background:color, flexShrink:0 }}/>
+                    <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)" }}>{label}</span>
                   </div>
-                  {/* 요일 + 잔디 그리드 */}
-                  <div style={{ display: "flex", gap: "0" }}>
-                    {/* 요일 레이블 */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px", marginRight: "3px" }}>
-                      {(lang === "en" ? ["","M","","W","","F",""] : ["","월","","수","","금",""]).map((d,i) => (
-                        <div key={i} style={{ height: "11px", fontSize: "0.58rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", lineHeight: "11px" }}>{d}</div>
-                      ))}
-                    </div>
-                    {/* 잔디 셀 — 열(주) × 행(요일) */}
-                    <div style={{ display: "flex", gap: "2px" }}>
-                      {Array.from({ length: 53 }, (_, wi) => (
-                        <div key={wi} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                          {Array.from({ length: 7 }, (_, di) => {
-                            const cell = cells[wi * 7 + di];
-                            if (!cell?.date) return <div key={di} style={{ width: "11px", height: "11px" }}/>;
-                            return (
-                              <div key={di} title={`${cell.date}: ${cell.count}${lang==="en"?" shot(s)":"회"}`}
-                                style={{ width: "11px", height: "11px", borderRadius: "2px", background: getColor(cell.count), cursor: cell.count ? "default" : "default", transition: "transform 0.1s", flexShrink: 0 }}
-                                onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.4)"; e.currentTarget.style.zIndex = "10"; }}
-                                onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.zIndex = ""; }}
-                              />
-                            );
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                ))}
+                <div style={{ marginLeft:"auto", fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)" }}>
+                  {lang === "en" ? `avg ${avgPerDay}/day` : `평균 ${avgPerDay}회/기록일`}
                 </div>
               </div>
             </div>
@@ -9929,7 +10288,7 @@ Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
 
         // ── 내부 비주얼 컴포넌트 ──────────────────────────────────────
         const DCard = ({ children, style }) => (
-          <div style={{ background: "#fff", borderRadius: 14, padding: "16px", boxShadow: "0 2px 12px rgba(26,26,26,0.06)", marginBottom: 10, ...style }}>
+          <div style={{ background:"var(--foam)", borderRadius:"var(--r-card)", padding:"16px", border:"1px solid var(--divider)", marginBottom:10, ...style }}>
             {children}
           </div>
         );
@@ -9947,40 +10306,42 @@ Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
             <BrewCalendar />
 
             {/* ── 헤더 배너 ─────────────────────────────────── */}
-            <div style={{ background:"var(--espresso)", borderRadius:14, padding:"18px 16px 16px", marginBottom:10, position:"relative", overflow:"hidden" }}>
+            <div style={{ background:"linear-gradient(135deg, #1A1614 0%, #2C1F18 100%)", borderRadius:"var(--r-card)", padding:"18px 16px 16px", marginBottom:10, position:"relative", overflow:"hidden" }}>
               {/* 장식 원 */}
-              <div style={{ position:"absolute", right:-20, top:-20, width:90, height:90, borderRadius:"50%", background:"rgba(176,125,84,0.18)", pointerEvents:"none" }} />
-              <div style={{ position:"absolute", right:20, bottom:-30, width:60, height:60, borderRadius:"50%", background:"rgba(176,125,84,0.10)", pointerEvents:"none" }} />
+              <div style={{ position:"absolute", right:-20, top:-20, width:90, height:90, borderRadius:"50%", background:"rgba(176,125,84,0.12)", pointerEvents:"none" }} />
+              <div style={{ position:"absolute", right:20, bottom:-30, width:60, height:60, borderRadius:"50%", background:"rgba(176,125,84,0.07)", pointerEvents:"none" }} />
 
-              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", color:"var(--latte)", marginBottom:5 }}>
+              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", fontWeight:700, letterSpacing:"0.14em", textTransform:"uppercase", color:"rgba(176,125,84,0.85)", marginBottom:5 }}>
                 {lang === "en" ? "My Brew Report" : "나의 브루 리포트"}
               </div>
-              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.2rem", fontWeight:700, color:"#fff", marginBottom:4 }}>
+              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.2rem", fontWeight:700, color:"var(--cream)", marginBottom:4 }}>
                 {lang === "en" ? "Extraction Stats" : "추출 통계 & 분석"}
               </div>
-              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"rgba(255,255,255,0.45)", marginBottom:14 }}>
+              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"rgba(255,255,255,0.38)", marginBottom:14 }}>
                 {lang === "en" ? `${mine.length} recipes recorded` : `총 ${mine.length}개 레시피 기록됨`}
               </div>
 
-              {/* 머신/핸드드립 탭 */}
+              {/* 머신/핸드드립 탭 — 다크 배경 위 세련된 필 스타일 */}
               {machineRecipes.length > 0 && handDripRecipes.length > 0 && (
-                <div style={{ display:"flex", gap:6, background:"rgba(255,255,255,0.08)", borderRadius:10, padding:3 }}>
+                <div style={{ display:"flex", gap:4, background:"rgba(255,255,255,0.07)", borderRadius:10, padding:3 }}>
                   {machineRecipes.length > 0 && (
                     <button onClick={() => setStatModeVal("machine")} style={{
                       flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer",
                       fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", fontWeight:700,
-                      background: statMode !== "handdrip" ? "var(--latte)" : "transparent",
-                      color: statMode !== "handdrip" ? "#fff" : "rgba(255,255,255,0.5)",
-                      transition:"all 0.18s"
+                      background: statMode !== "handdrip" ? "rgba(255,255,255,0.15)" : "transparent",
+                      color: statMode !== "handdrip" ? "var(--cream)" : "rgba(255,255,255,0.38)",
+                      boxShadow: statMode !== "handdrip" ? "inset 0 1px 0 rgba(255,255,255,0.12)" : "none",
+                      transition:"all 0.18s", letterSpacing:"0.01em"
                     }}>{lang === "en" ? "Machine" : "머신"} ({machineRecipes.length})</button>
                   )}
                   {handDripRecipes.length > 0 && (
                     <button onClick={() => setStatModeVal("handdrip")} style={{
                       flex:1, padding:"7px 0", borderRadius:8, border:"none", cursor:"pointer",
                       fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", fontWeight:700,
-                      background: statMode === "handdrip" ? "var(--latte)" : "transparent",
-                      color: statMode === "handdrip" ? "#fff" : "rgba(255,255,255,0.5)",
-                      transition:"all 0.18s"
+                      background: statMode === "handdrip" ? "rgba(255,255,255,0.15)" : "transparent",
+                      color: statMode === "handdrip" ? "var(--cream)" : "rgba(255,255,255,0.38)",
+                      boxShadow: statMode === "handdrip" ? "inset 0 1px 0 rgba(255,255,255,0.12)" : "none",
+                      transition:"all 0.18s", letterSpacing:"0.01em"
                     }}>{lang === "en" ? "Hand Drip" : "핸드드립"} ({handDripRecipes.length})</button>
                   )}
                 </div>
@@ -9990,12 +10351,12 @@ Output ONLY the JSON below. gram/temp/seconds must be numbers only (no units):
             {/* ── 요약 지표 4개 ─────────────────────────────── */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:10 }}>
               {[
-                { label: lang==="en"?"Recipes":"총 레시피", value: curList.length, sub: lang==="en"?"brewed":"회 추출", color:"var(--espresso)" },
-                { label: lang==="en"?"Public":"공개율",     value: `${publicPct}%`, sub: `${publicCnt}${lang==="en"?" shared":"개 공개"}`, color:"var(--latte)" },
+                { label: lang==="en"?"Recipes":"총 레시피", value: curList.length,         sub: lang==="en"?"brewed":"회 추출",         color:"var(--espresso)" },
+                { label: lang==="en"?"Public":"공개율",     value: `${publicPct}%`,        sub: `${publicCnt}${lang==="en"?" shared":"개 공개"}`, color:"var(--espresso)" },
                 { label: lang==="en"?"Avg ★":"평균 별점",   value: avgRating ? `${avgRating}★` : "—", sub: avgRating ? `${rated.length}${lang==="en"?" rated":"개 평가"}` : "—", color:"var(--latte)" },
-                { label: lang==="en"?"Likes":"좋아요",      value: totalLikes, sub: lang==="en"?"total":"개 누적", color:"#C0625A" },
+                { label: lang==="en"?"Likes":"좋아요",      value: totalLikes,             sub: lang==="en"?"total":"개 누적",          color:"var(--latte)" },
               ].map(({ label, value, sub, color }) => (
-                <div key={label} style={{ background:"#fff", borderRadius:12, padding:"10px 8px", boxShadow:"0 1px 8px rgba(26,26,26,0.05)", textAlign:"center", minWidth:0 }}>
+                <div key={label} style={{ background:"var(--foam)", borderRadius:"var(--r-card)", padding:"10px 8px", border:"1px solid var(--divider)", textAlign:"center", minWidth:0 }}>
                   <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.58rem", color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4, lineHeight:1.2 }}>{label}</div>
                   <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", fontWeight:700, color, lineHeight:1, marginBottom:2 }}>{value}</div>
                   <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", color:"var(--muted)" }}>{sub}</div>
