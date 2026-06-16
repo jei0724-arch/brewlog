@@ -703,7 +703,7 @@ const CSS = `
   }
 
   .modal-backdrop {
-    position: fixed; inset: 0; background: #1A1A1ACC; z-index: 200;
+    position: fixed; inset: 0; background: rgba(26,22,20,0.55); z-index: 200;
     display: flex; align-items: center; justify-content: center; padding: 16px;
     backdrop-filter: blur(4px); animation: fadeIn 0.15s ease;
     touch-action: none; overscroll-behavior: none; overflow: hidden;
@@ -713,12 +713,8 @@ const CSS = `
     .modal-backdrop {
       align-items: flex-end;
       padding: 0;
-      background: linear-gradient(
-        to bottom,
-        rgba(26,22,20,0) 0%,
-        rgba(26,22,20,0.35) 12%,
-        rgba(26,22,20,0.55) 100%
-      );
+      background: transparent; /* 모바일 풀스크린 — 오버레이 제거 */
+      backdrop-filter: none;
     }
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -732,35 +728,31 @@ const CSS = `
   }
   @media (max-width: 600px) {
     .modal {
+      position: fixed;
+      inset: 0;
       max-width: 100%;
       width: 100%;
-      border-radius: 20px 20px 0 0;
-      border-bottom: none;
-      border-left: none;
-      border-right: none;
-      max-height: 92vh;
-      min-height: 60vh;
-      height: auto;
-      padding: 28px 16px 40px;
+      height: 100%;
+      max-height: 100%;
+      min-height: 100%;
+      border-radius: 0;
+      border: none;
+      padding: 56px 16px 40px; /* 상단 상태바 여백 + 하단 여백 */
+      padding-top: max(56px, env(safe-area-inset-top, 56px));
       padding-bottom: max(40px, env(safe-area-inset-bottom, 40px));
-      animation: slideUpMobile 0.28s cubic-bezier(0.32, 0.72, 0, 1);
-      box-shadow: 0 -4px 32px rgba(26,22,20,0.18);
+      animation: slideUpFull 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+      box-shadow: none;
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
-    @keyframes slideUpMobile {
-      from { transform: translateY(100%); opacity: 0.8; }
-      to   { transform: translateY(0);    opacity: 1; }
+    @keyframes slideUpFull {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
     }
-    /* 모달 상단 핸들 — 더 명확하게 */
-    .modal::before {
-      content: '';
-      position: absolute;
-      top: 10px; left: 50%;
-      transform: translateX(-50%);
-      width: 40px; height: 4px;
-      background: var(--steam);
-      border-radius: 2px;
-      pointer-events: none;
-    }
+    /* 핸들 제거 (풀스크린에선 불필요) */
+    .modal::before { display: none; }
+    /* 모달 상단 라인도 제거 */
+    .modal::after  { display: none; }
   }
   @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .modal::before { content: ''; position: absolute; top: 0; left: 2rem; right: 2rem; height: 2px; background: linear-gradient(90deg, transparent, var(--latte), transparent); }
