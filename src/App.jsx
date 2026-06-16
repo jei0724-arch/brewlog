@@ -6771,20 +6771,20 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
                       : `<div style="font-size:11px;color:#DDD;">＝</div>`;
                     return `
                       <tr style="border-top:1px solid #F0EFEF;">
-                        <td style="width:185px;padding:10px 16px 10px 20px;font-size:13px;font-weight:${aWeight};color:${aColor};text-align:right;">${av?`${av}${f.unit}`:"—"}</td>
-                        <td style="width:70px;padding:10px 0;text-align:center;">
-                          <div style="font-size:9px;color:#BBB;margin-bottom:3px;">${f.label}</div>
+                        <td style="width:50%;padding:10px 16px 10px 20px;font-size:13px;font-weight:${aWeight};color:${aColor};text-align:right;">${av?`${av}${f.unit}`:"—"}</td>
+                        <td style="width:0;padding:10px 0;text-align:center;">
+                          <div style="font-size:9px;color:#BBB;margin-bottom:3px;white-space:nowrap;">${f.label}</div>
                           ${midHtml}
                         </td>
-                        <td style="width:185px;padding:10px 20px 10px 16px;font-size:13px;font-weight:${bWeight};color:${bColor};text-align:left;">${bv?`${bv}${f.unit}`:"—"}</td>
+                        <td style="width:50%;padding:10px 20px 10px 16px;font-size:13px;font-weight:${bWeight};color:${bColor};text-align:left;">${bv?`${bv}${f.unit}`:"—"}</td>
                       </tr>`;
                   }).join("");
 
                   const el = document.createElement("div");
-                  el.style.cssText = "position:absolute;left:-9999px;top:0;font-family:'DM Sans',Arial,sans-serif;width:460px;background:#FBFBFA;border-radius:16px;";
+                  el.style.cssText = "position:absolute;left:-9999px;top:0;font-family:'DM Sans',Arial,sans-serif;width:420px;background:#FBFBFA;border-radius:16px;box-sizing:border-box;";
                   el.innerHTML = `
                     <!-- 헤더 -->
-                    <div style="background:#1A1614;padding:18px 20px 16px;border-radius:16px 16px 0 0;">
+                    <div style="background:#1A1614;padding:18px 20px 16px;border-radius:16px 16px 0 0;box-sizing:border-box;">
                       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
                         <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="9" r="8" stroke="#FBFBFA" stroke-width="1.5"/><path d="M5 9.5c1-2 3-3 4-2s3 3 4 1" stroke="#B07D54" stroke-width="1.5" stroke-linecap="round"/></svg>
                         <span style="font-size:11px;color:#FBFBFA80;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;">Brewlog Note — Recipe Compare</span>
@@ -6809,28 +6809,28 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
                     </div>
 
                     <!-- 컬럼 레이블 -->
-                    <table style="width:100%;border-collapse:collapse;background:#ECEAE7;">
+                    <table style="width:100%;border-collapse:collapse;background:#ECEAE7;table-layout:fixed;">
                       <tr>
-                        <td style="width:160px;padding:7px 14px 7px 20px;font-size:9px;font-weight:700;color:#B07D54;text-align:right;">레시피 A</td>
-                        <td style="width:90px;"></td>
-                        <td style="width:160px;padding:7px 20px 7px 14px;font-size:9px;font-weight:700;color:#2980b9;text-align:left;">레시피 B</td>
+                        <td style="width:50%;padding:7px 14px 7px 20px;font-size:9px;font-weight:700;color:#B07D54;text-align:right;">레시피 A</td>
+                        <td style="width:0;"></td>
+                        <td style="width:50%;padding:7px 20px 7px 14px;font-size:9px;font-weight:700;color:#2980b9;text-align:left;">레시피 B</td>
                       </tr>
                     </table>
 
                     <!-- 수치 비교 -->
-                    <table style="width:100%;border-collapse:collapse;background:#FAFAF9;">
+                    <table style="width:100%;border-collapse:collapse;background:#FAFAF9;table-layout:fixed;">
                       ${rowsHtml}
                     </table>
 
                     <!-- 플레이버 레이더 -->
                     ${hasRadar ? `
-                    <div style="background:#FAFAF9;padding:16px 20px 8px;border-top:1px solid #ECEAE7;">
-                      <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;">
+                    <div style="background:#FAFAF9;padding:16px 0 8px;border-top:1px solid #ECEAE7;">
+                      <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;padding:0 20px;">
                         <span style="font-size:9px;font-weight:700;color:#BBB;text-transform:uppercase;letter-spacing:0.1em;">Flavor</span>
                         <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#B07D54;display:inline-block;border-radius:2px;"></span><span style="font-size:9px;color:#AAA;">A</span></span>
                         <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#2980b9;display:inline-block;border-radius:2px;"></span><span style="font-size:9px;color:#AAA;">B</span></span>
                       </div>
-                      <div style="text-align:center;display:flex;justify-content:center;overflow:visible;">${radarSVG}</div>
+                      <div style="width:100%;display:flex;justify-content:center;overflow:visible;">${radarSVG}</div>
                     </div>` : ""}
 
                     <!-- 푸터 — QR 코드 포함 -->
@@ -6839,7 +6839,6 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
                         <span style="font-size:9px;font-weight:700;color:#5C4033;letter-spacing:0.08em;text-transform:uppercase;">Brewlog Note</span>
                         <span style="font-size:9px;color:#8C8480;">brewlog-jade.vercel.app</span>
                       </div>
-                      <!-- QR 코드 -->
                       <div style="display:flex;align-items:center;gap:8px;">
                         <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
                           <img src="https://api.qrserver.com/v1/create-qr-code/?size=52x52&data=https://brewlog-jade.vercel.app&bgcolor=ECEAE7&color=3D2B1F&margin=2" width="52" height="52" style="border-radius:4px;display:block;" crossorigin="anonymous"/>
@@ -6854,7 +6853,7 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
                   await new Promise(r => setTimeout(r, 900));
                   const canvas = await html2canvas(el, {
                     scale: 2, useCORS: true, allowTaint: false, backgroundColor: "#FBFBFA",
-                    logging: false, width: 460, windowWidth: 460,
+                    logging: false, width: 420, windowWidth: 420,
                   });
                   document.body.removeChild(el);
 
