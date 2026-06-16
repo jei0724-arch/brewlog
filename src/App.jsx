@@ -1379,13 +1379,17 @@ function AuthScreen({ lang, toggleLang, onGuest, defaultTab, darkMode, toggleDar
               // 성공하면 updatePassword로 실제 비밀번호 변경
               await updatePassword(cred.user, newPw);
               await deleteDoc(doc(db, "pwReset", uid));
+              // 최종 접속일 업데이트
+              await updateDoc(doc(db, "users", uid), { lastLogin: serverTimestamp() });
               setLoading(false);
               return;
             } catch {}
           }
         } catch {}
       }
-      await signInWithEmailAndPassword(auth, email, loginPw);
+      const cred = await signInWithEmailAndPassword(auth, email, loginPw);
+      // 최종 접속일 업데이트
+      await updateDoc(doc(db, "users", cred.user.uid), { lastLogin: serverTimestamp() });
     } catch {
       setMsg({ type: "error", text: lang === "en" ? "Incorrect nickname or password." : "닉네임 또는 비밀번호가 맞지 않습니다." });
     }
@@ -4393,6 +4397,46 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
   const [currency, setCurrencyState] = useState(loadCurrency());
   const handleCurrency = (c) => { setCurrencyState(c); saveCurrency(c); };
 
+  // 프로필 공개/비공개
+  const [profilePublicMy, setProfilePublicMy] = useState(true);
+  const [bio, setBio]           = useState("");
+  const [bioSaving, setBioSaving] = useState(false);
+  const [bioMsg, setBioMsg]     = useState(null);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    getDoc(doc(db, "users", user.uid)).then(snap => {
+      if (snap.exists()) {
+        const d = snap.data();
+        setProfilePublicMy(d.profilePublic !== false);
+        setBio(d.bio || "");
+      }
+    }).catch(()=>{});
+  }, [user?.uid]);
+
+  const toggleMyProfilePublic = async () => {
+    const next = !profilePublicMy;
+    setProfilePublicMy(next);
+    try { await updateDoc(doc(db, "users", user.uid), { profilePublic: next }); } catch {}
+  };
+
+  const saveBio = async () => {
+    if (bio.length > 100) {
+      setBioMsg({ type:"error", text: lang==="en"?"Max 100 characters.":"최대 100자까지 입력할 수 있어요." });
+      return;
+    }
+    setBioSaving(true);
+    setBioMsg(null);
+    try {
+      await updateDoc(doc(db, "users", user.uid), { bio: bio.trim() });
+      setBioMsg({ type:"ok", text: lang==="en"?"Saved ✓":"저장됐어요 ✓" });
+      setTimeout(() => setBioMsg(null), 2000);
+    } catch {
+      setBioMsg({ type:"error", text: lang==="en"?"Save failed.":"저장에 실패했어요." });
+    }
+    setBioSaving(false);
+  };
+
   // 프리셋 관리
   const [myPresets, setMyPresets] = useState(() => loadPresets(user?.uid));
   const [editingPreset, setEditingPreset] = useState(null); // 수정 중인 프리셋 전체 객체
@@ -4792,6 +4836,67 @@ function MyModal({ onClose, user, lang = 'ko', onLogout }) {
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <h2>{lang === "en" ? "My Settings" : "MY 설정"}</h2>
+
+        {/* ── 한 줄 소개 ── */}
+        <div className="my-section">
+          <div className="my-section-title" style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            {lang === "en" ? "Bio" : "한 줄 소개"}
+          </div>
+          <div style={{ position:"relative" }}>
+            <textarea
+              value={bio}
+              onChange={e => setBio(e.target.value)}
+              placeholder={lang === "en" ? "e.g. Espresso purist ☕ Single-origin explorer" : "예) 에스프레소 순수주의자 · 싱글오리진 탐험가"}
+              maxLength={100}
+              rows={2}
+              style={{ width:"100%", padding:"0.75rem 1rem", border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.9rem", color:"var(--espresso)", outline:"none", resize:"none", lineHeight:1.55, transition:"border-color 0.2s, box-shadow 0.2s", boxSizing:"border-box" }}
+              onFocus={e => { e.target.style.borderColor="var(--latte)"; e.target.style.boxShadow="0 0 0 3px rgba(176,125,84,0.12)"; }}
+              onBlur={e  => { e.target.style.borderColor="var(--steam)";  e.target.style.boxShadow="none"; }}
+            />
+            <span style={{ position:"absolute", bottom:"8px", right:"10px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color: bio.length > 90 ? "#e67e22" : "var(--muted)", pointerEvents:"none" }}>
+              {bio.length}/100
+            </span>
+          </div>
+          {bioMsg && (
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", marginTop:"6px", color: bioMsg.type==="ok" ? "#27ae60" : "#c0392b" }}>
+              {bioMsg.text}
+            </p>
+          )}
+          <div className="save-row">
+            <button className="btn-save-sm" onClick={saveBio} disabled={bioSaving}>
+              {bioSaving ? (lang==="en"?"Saving…":"저장 중…") : (lang==="en"?"Save":"저장")}
+            </button>
+          </div>
+        </div>
+
+        {/* ── 프로필 공개/비공개 ── */}
+        <div className="my-section">
+          <div className="my-section-title" style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="5" r="3" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            {lang === "en" ? "Profile Visibility" : "프로필 공개 설정"}
+          </div>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 14px", background:"var(--cream)", borderRadius:"var(--r-btn)", border:"1px solid var(--divider)" }}>
+            <div>
+              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:500, color:"var(--espresso)", marginBottom:"2px" }}>
+                {profilePublicMy ? (lang==="en"?"Public Profile":"공개 프로필") : (lang==="en"?"Private Profile":"비공개 프로필")}
+              </div>
+              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", lineHeight:1.4 }}>
+                {profilePublicMy
+                  ? (lang==="en"?"Anyone can view your profile and stats.":"누구나 내 프로필과 통계를 볼 수 있어요.")
+                  : (lang==="en"?"Only you can see your profile details.":"나만 내 프로필 상세를 볼 수 있어요.")}
+              </div>
+            </div>
+            <div onClick={toggleMyProfilePublic} style={{ width:"44px", height:"24px", borderRadius:"12px", background: profilePublicMy ? "var(--latte)" : "var(--steam)", position:"relative", cursor:"pointer", transition:"background 0.2s", flexShrink:0, marginLeft:"12px" }}>
+              <div style={{ position:"absolute", top:"3px", left: profilePublicMy ? "23px" : "3px", width:"18px", height:"18px", borderRadius:"50%", background:"white", boxShadow:"0 1px 4px rgba(0,0,0,0.2)", transition:"left 0.2s" }}/>
+            </div>
+          </div>
+        </div>
 
         {/* ── 비밀번호 변경 ── */}
         {!user?.providerData?.some(p => p.providerId === "google.com") && (
@@ -8160,6 +8265,13 @@ function MainApp({ user, lang, toggleLang, onRequireAuth, darkMode, toggleDark }
   const [filterAuthor, setFilterAuthor] = useState(null); // { uid, name } | null
   const [isAdmin, setIsAdmin] = useState(false);
   const [feedTab, setFeedTab] = useState("all"); // "all" | "bookmarks" | "following"
+  const [profileModal, setProfileModal] = useState(null); // { uid, name } | null — 브루어 프로필
+
+  // 닉네임 클릭 핸들러 — 프로필 모달 오픈
+  const handleAuthorClick = (author) => {
+    if (!author?.uid) return;
+    setProfileModal(author);
+  };
 
   // 탭 순서 — user 여부에 따라 동적 (스와이프 핸들러 내부에서 직접 사용)
 
@@ -10800,7 +10912,7 @@ Output ONLY this JSON on a single line. No explanation, no markdown, no code blo
             onCardClick={() => openDetail(rec)}
             onCompare={user?.uid ? () => setCompareTarget(rec) : null}
             onCopy={user?.uid ? () => handleCopyRecipe(rec) : null}
-            onAuthorClick={a => { setFilterAuthor(a); setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }} />
+            onAuthorClick={a => handleAuthorClick(a)} />
         ))}
       </div>}
     </div>}
@@ -10838,7 +10950,7 @@ Output ONLY this JSON on a single line. No explanation, no markdown, no code blo
           setDetailRecipeWrapped(null);
           handleCopyRecipe(r);
         } : null}
-        onAuthorClick={a => { setDetailRecipeWrapped(null); setFilterAuthor(a); setFeedTab("all"); setMyRecipesOnly(false); setShowRanking(false); }}
+        onAuthorClick={a => { setDetailRecipeWrapped(null); handleAuthorClick(a); }}
       />
     )}
     {showModal && (
@@ -10846,7 +10958,234 @@ Output ONLY this JSON on a single line. No explanation, no markdown, no code blo
         onClose={() => { setShowModal(false); setEditTarget(null); }}
         onSave={() => { loadRecipes(); setShowModal(false); setEditTarget(null); }} />
     )}
+
+    {/* ── 브루어 프로필 모달 ── */}
+    {profileModal && (
+      <BrewerProfileModal
+        uid={profileModal.uid}
+        name={profileModal.name}
+        currentUid={user?.uid}
+        allRecipes={recipes}
+        lang={lang}
+        isFollowing={following.includes(profileModal.uid)}
+        onFollow={() => toggleFollow(profileModal.uid)}
+        onClose={() => setProfileModal(null)}
+        onFilterRecipes={() => { setFilterAuthor(profileModal); setFeedTab("all"); setProfileModal(null); }}
+      />
+    )}
   </>);
+}
+
+// ── BrewerProfileModal ─────────────────────────────────────────────
+function BrewerProfileModal({ uid, name, currentUid, allRecipes, lang, isFollowing, onFollow, onClose, onFilterRecipes }) {
+  const isKo = lang === "ko";
+  const [profileData, setProfileData]     = useState(null);
+  const [loading, setLoading]             = useState(true);
+  const [profilePublic, setProfilePublic] = useState(true);
+  const isMyProfile = uid === currentUid;
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        // Firestore users 문서 조회
+        const snap = await getDoc(doc(db, "users", uid));
+        if (snap.exists()) {
+          const d = snap.data();
+          setProfileData(d);
+          setProfilePublic(d.profilePublic !== false); // 기본 공개
+        }
+      } catch (e) { console.error(e); }
+      setLoading(false);
+    };
+    load();
+  }, [uid]);
+
+  // 내 프로필 공개/비공개 토글
+  const toggleProfilePublic = async () => {
+    const next = !profilePublic;
+    setProfilePublic(next);
+    try {
+      await updateDoc(doc(db, "users", uid), { profilePublic: next });
+    } catch {}
+  };
+
+  // 이 브루어의 공개 레시피
+  const userRecipes = allRecipes.filter(r => r.uid === uid && r.isPublic !== false);
+  const totalRecipes = userRecipes.length;
+  const avgRating = (() => {
+    const rated = userRecipes.filter(r => r.rating > 0);
+    return rated.length ? (rated.reduce((s,r)=>s+r.rating,0)/rated.length).toFixed(1) : null;
+  })();
+  const totalLikes = userRecipes.reduce((s,r)=>s+(r.likedBy?.length||0),0);
+
+  // 주력 머신
+  const machineMap = {};
+  userRecipes.forEach(r => { if (r.machine) machineMap[r.machine] = (machineMap[r.machine]||0)+1; });
+  const topMachine = Object.entries(machineMap).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
+
+  // 선호 메뉴 TOP 3
+  const menuMap = {};
+  userRecipes.forEach(r => { if (r.menuLabel) menuMap[r.menuLabel] = (menuMap[r.menuLabel]||0)+1; });
+  const topMenus = Object.entries(menuMap).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([m])=>m);
+
+  // 최근 레시피 3개
+  const recentRecipes = [...userRecipes]
+    .sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0))
+    .slice(0,3);
+
+  // 팔로워 수 (followedBy 필드가 있으면 사용, 없으면 allRecipes에서 추산)
+  const followerCount = profileData?.followerCount || 0;
+  const joinDate = profileData?.createdAt?.toDate
+    ? profileData.createdAt.toDate().toLocaleDateString(isKo?"ko-KR":"en-US", { year:"numeric", month:"long" })
+    : null;
+
+  const isPrivate = !profilePublic && !isMyProfile;
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth:"440px" }} onClick={e=>e.stopPropagation()}>
+        {/* 닫기 */}
+        <button onClick={onClose} style={{ position:"absolute", top:"16px", right:"16px", background:"none", border:"none", cursor:"pointer", color:"var(--muted)", fontSize:"1.2rem", lineHeight:1, padding:"4px" }}>✕</button>
+
+        {loading ? (
+          <div style={{ textAlign:"center", padding:"40px 0", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem" }}>
+            {isKo ? "불러오는 중…" : "Loading…"}
+          </div>
+        ) : (
+          <>
+            {/* ── 프로필 헤더 ── */}
+            <div style={{ display:"flex", alignItems:"center", gap:"16px", marginBottom:"20px", paddingBottom:"20px", borderBottom:"1px solid var(--divider)" }}>
+              {/* 아바타 */}
+              <div style={{ width:"56px", height:"56px", borderRadius:"50%", background:"var(--espresso)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.4rem", color:"var(--cream)", fontWeight:700 }}>
+                  {(name||"?")[0].toUpperCase()}
+                </span>
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.15rem", fontWeight:700, color:"var(--espresso)", marginBottom:"2px" }}>
+                  @{name}
+                </div>
+                {profileData?.bio && (
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", color:"var(--espresso)", marginBottom:"3px", lineHeight:1.45 }}>
+                    {profileData.bio}
+                  </div>
+                )}
+                {joinDate && (
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)" }}>
+                    {isKo ? `${joinDate}부터 브루잉` : `Brewing since ${joinDate}`}
+                  </div>
+                )}
+              </div>
+              {/* 내 프로필: 공개/비공개 토글 */}
+              {isMyProfile && (
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"4px" }}>
+                  <div onClick={toggleProfilePublic} style={{ width:"40px", height:"22px", borderRadius:"11px", background: profilePublic ? "var(--latte)" : "var(--steam)", position:"relative", cursor:"pointer", transition:"background 0.2s", flexShrink:0 }}>
+                    <div style={{ position:"absolute", top:"3px", left: profilePublic ? "21px" : "3px", width:"16px", height:"16px", borderRadius:"50%", background:"white", boxShadow:"0 1px 3px rgba(0,0,0,0.2)", transition:"left 0.2s" }}/>
+                  </div>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", color:"var(--muted)" }}>
+                    {profilePublic ? (isKo?"공개":"Public") : (isKo?"비공개":"Private")}
+                  </span>
+                </div>
+              )}
+              {/* 다른 유저: 구독 버튼 */}
+              {!isMyProfile && currentUid && (
+                <button onClick={onFollow} style={{ padding:"6px 16px", borderRadius:"var(--r-btn)", border:`1px solid ${isFollowing?"var(--steam)":"var(--espresso)"}`, background: isFollowing ? "none" : "var(--espresso)", color: isFollowing ? "var(--muted)" : "var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:500, cursor:"pointer", whiteSpace:"nowrap", transition:"all 0.15s" }}>
+                  {isFollowing ? (isKo?"구독 중":"Following") : (isKo?"구독":"Follow")}
+                </button>
+              )}
+            </div>
+
+            {isPrivate ? (
+              /* 비공개 프로필 */
+              <div style={{ textAlign:"center", padding:"32px 0", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif" }}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" style={{ marginBottom:"12px", opacity:0.4 }}>
+                  <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <div style={{ fontSize:"0.85rem" }}>{isKo?"비공개 프로필이에요.":"This profile is private."}</div>
+              </div>
+            ) : (
+              <>
+                {/* ── 핵심 지표 ── */}
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px", marginBottom:"20px" }}>
+                  {[
+                    { label: isKo?"레시피":"Recipes",  value: totalRecipes },
+                    { label: isKo?"평균 별점":"Avg ★",  value: avgRating ? `★${avgRating}` : "—" },
+                    { label: isKo?"받은 하트":"Likes",   value: totalLikes },
+                    { label: isKo?"구독자":"Followers", value: followerCount },
+                  ].map(({label,value})=>(
+                    <div key={label} style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"var(--r-btn)", padding:"10px 6px", textAlign:"center" }}>
+                      <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", fontWeight:700, color:"var(--espresso)", lineHeight:1 }}>{value}</div>
+                      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", color:"var(--muted)", marginTop:"3px" }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── 주력 머신 + 선호 메뉴 ── */}
+                {(topMachine || topMenus.length > 0) && (
+                  <div style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"var(--r-card)", padding:"12px 14px", marginBottom:"16px" }}>
+                    {topMachine && (
+                      <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom: topMenus.length?"10px":"0" }}>
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="5" width="12" height="9" rx="1.5" stroke="var(--latte)" strokeWidth="1.3"/><path d="M5 5V4a3 3 0 0 1 6 0v1" stroke="var(--latte)" strokeWidth="1.3" strokeLinecap="round"/><circle cx="8" cy="9.5" r="1.5" fill="var(--latte)"/></svg>
+                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--espresso)" }}>
+                          <span style={{ color:"var(--muted)", marginRight:"4px" }}>{isKo?"주력 머신":"Main machine"}</span>
+                          {topMachine}
+                        </span>
+                      </div>
+                    )}
+                    {topMenus.length > 0 && (
+                      <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 7h10v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" stroke="var(--latte)" strokeWidth="1.3" strokeLinejoin="round"/><path d="M3 7H2a1.5 1.5 0 0 0 0 3h1" stroke="var(--latte)" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--espresso)" }}>
+                          <span style={{ color:"var(--muted)", marginRight:"4px" }}>{isKo?"즐겨 마시는":"Favorites"}</span>
+                          {topMenus.join(" · ")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── 최근 레시피 ── */}
+                {recentRecipes.length > 0 && (
+                  <div style={{ marginBottom:"16px" }}>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:"10px" }}>
+                      {isKo ? "최근 기록" : "Recent Brews"}
+                    </div>
+                    {recentRecipes.map(r => (
+                      <div key={r.id} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"9px 0", borderBottom:"1px solid var(--divider)" }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", fontWeight:600, color:"var(--espresso)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                            {r.bean || r.menuLabel || "—"}
+                          </div>
+                          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)" }}>
+                            {r.menuLabel}{r.machine ? ` · ${r.machine}` : ""}
+                          </div>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:"6px", flexShrink:0 }}>
+                          {r.rating > 0 && <span style={{ fontSize:"0.75rem", color:"var(--latte)" }}>★{r.rating}</span>}
+                          <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"var(--muted)" }}>
+                            {r.recordDate || r.createdAt?.toDate?.()?.toLocaleDateString(isKo?"ko-KR":"en-US",{month:"short",day:"numeric"}) || ""}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── 전체 레시피 보기 버튼 ── */}
+                <button onClick={onFilterRecipes} style={{ width:"100%", padding:"10px", background:"none", border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--muted)", cursor:"pointer", transition:"border-color 0.15s, color 0.15s" }}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--espresso)";e.currentTarget.style.color="var(--espresso)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--steam)";e.currentTarget.style.color="var(--muted)";}}>
+                  {isKo ? `@${name}의 레시피 전체 보기 →` : `View all recipes by @${name} →`}
+                </button>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── AdminApp ──────────────────────────────────────────────────────
@@ -11545,7 +11884,22 @@ export default function App() {
 
   useEffect(() => {
     loadBrandsFromDB();
-    const unsub = onAuthStateChanged(auth, u => setUser(u ?? null));
+    const unsub = onAuthStateChanged(auth, async u => {
+      setUser(u ?? null);
+      // 자동 로그인 시에도 최종 접속일 업데이트 (하루 1회 제한)
+      if (u) {
+        try {
+          const userDoc = await getDoc(doc(db, "users", u.uid));
+          if (userDoc.exists()) {
+            const last = userDoc.data().lastLogin?.toDate?.();
+            const today = new Date().toDateString();
+            if (!last || last.toDateString() !== today) {
+              await updateDoc(doc(db, "users", u.uid), { lastLogin: serverTimestamp() });
+            }
+          }
+        } catch {}
+      }
+    });
     // 최초 방문 시(localStorage에 언어 설정 없을 때)만 IP 기반 언어 감지
     if (!localStorage.getItem("brewlog_lang")) {
       fetch("https://ipapi.co/json/")
