@@ -6705,29 +6705,52 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
                   const hasRadar = FKEYS.some(k => recipeA[`flavor${k}`]>0 || recipeB[`flavor${k}`]>0);
                   const radarSVG = (() => {
                     if (!hasRadar) return "";
-                    const SIZE=280, cx=140, cy=140, R=96, n=FKEYS.length;
+                    const PAD  = 44;
+                    const LPAD = 42; // 좌측 text-anchor=end 라벨(밸런스 등) 여백
+                    const R    = 90, cx = 140, cy = 140;
+                    const n    = FKEYS.length;
                     const pt = (i,r) => { const a=-Math.PI/2+2*Math.PI*i/n; return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; };
+
                     const gridLines = [1,2,3,4,5].map(l => {
                       const r=R*l/5;
                       const pts=FKEYS.map((_,i)=>pt(i,r).join(",")).join(" ");
                       return `<polygon points="${pts}" fill="${l%2===0?"#F5F3F0":"none"}" stroke="${l===5?"#D5CFC8":"#E8E4DF"}" stroke-width="${l===5?1.2:0.7}"/>`;
                     }).join("");
-                    const axes = FKEYS.map((_,i) => { const [x,y]=pt(i,R); return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#DDD9D3" stroke-width="0.8"/>`; }).join("");
+
+                    const axes = FKEYS.map((_,i) => {
+                      const [x,y]=pt(i,R);
+                      return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#DDD9D3" stroke-width="0.8"/>`;
+                    }).join("");
+
                     const aVals = FKEYS.map(k=>(parseInt(recipeA[`flavor${k}`])||0)/5);
                     const bVals = FKEYS.map(k=>(parseInt(recipeB[`flavor${k}`])||0)/5);
                     const aPts = FKEYS.map((_,i)=>pt(i,Math.max(aVals[i],0.04)*R).join(",")).join(" ");
                     const bPts = FKEYS.map((_,i)=>pt(i,Math.max(bVals[i],0.04)*R).join(",")).join(" ");
+
                     const dots = FKEYS.map((k,i) => {
                       const [ax,ay]=pt(i,aVals[i]*R), [bx,by]=pt(i,bVals[i]*R);
                       return `${aVals[i]>0?`<circle cx="${ax}" cy="${ay}" r="4" fill="#B07D54" stroke="white" stroke-width="1.2"/>`:""}`
                            + `${bVals[i]>0?`<circle cx="${bx}" cy="${by}" r="4" fill="#2980b9" stroke="white" stroke-width="1.2"/>`:""}`; 
                     }).join("");
+
                     const labels = FKEYS.map((k,i) => {
-                      const [x,y]=pt(i,R+22);
-                      const anchor=x<cx-8?"end":x>cx+8?"start":"middle";
-                      return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="middle" font-size="10" fill="#8C8480" font-family="DM Sans,sans-serif">${FLBLS[k]}</text>`;
+                      const [x,y]=pt(i, R + PAD);
+                      const isLeft  = x < cx - 10;
+                      const isRight = x > cx + 10;
+                      const anchor   = isLeft ? "end" : isRight ? "start" : "middle";
+                      const baseline = y < cy - 10 ? "auto" : y > cy + 10 ? "hanging" : "middle";
+                      return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="${baseline}" font-size="11" fill="#8C8480" font-family="DM Sans,sans-serif">${FLBLS[k]}</text>`;
                     }).join("");
-                    return `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">
+
+                    // viewBox: 좌측에 LPAD 추가 확보
+                    const vbX = cx - R - PAD - LPAD;
+                    const vbY = cy - R - PAD - 14;
+                    const vbW = (R + PAD + 10) * 2 + LPAD;
+                    const vbH = (R + PAD + 14) * 2;
+                    const svgW = cx * 2 + LPAD;
+                    const svgH = cy * 2;
+
+                    return `<svg width="${svgW}" height="${svgH}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" xmlns="http://www.w3.org/2000/svg">
                       ${gridLines}${axes}
                       <polygon points="${aPts}" fill="#B07D54" fill-opacity="0.18" stroke="#B07D54" stroke-width="2" stroke-linejoin="round"/>
                       <polygon points="${bPts}" fill="#2980b9" fill-opacity="0.15" stroke="#2980b9" stroke-width="2" stroke-linejoin="round"/>
@@ -6748,12 +6771,12 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
                       : `<div style="font-size:11px;color:#DDD;">＝</div>`;
                     return `
                       <tr style="border-top:1px solid #F0EFEF;">
-                        <td style="width:160px;padding:10px 14px 10px 20px;font-size:13px;font-weight:${aWeight};color:${aColor};text-align:right;">${av?`${av}${f.unit}`:"—"}</td>
-                        <td style="width:90px;padding:10px 0;text-align:center;">
+                        <td style="width:185px;padding:10px 16px 10px 20px;font-size:13px;font-weight:${aWeight};color:${aColor};text-align:right;">${av?`${av}${f.unit}`:"—"}</td>
+                        <td style="width:70px;padding:10px 0;text-align:center;">
                           <div style="font-size:9px;color:#BBB;margin-bottom:3px;">${f.label}</div>
                           ${midHtml}
                         </td>
-                        <td style="width:160px;padding:10px 20px 10px 14px;font-size:13px;font-weight:${bWeight};color:${bColor};text-align:left;">${bv?`${bv}${f.unit}`:"—"}</td>
+                        <td style="width:185px;padding:10px 20px 10px 16px;font-size:13px;font-weight:${bWeight};color:${bColor};text-align:left;">${bv?`${bv}${f.unit}`:"—"}</td>
                       </tr>`;
                   }).join("");
 
@@ -6807,7 +6830,7 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
                         <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#B07D54;display:inline-block;border-radius:2px;"></span><span style="font-size:9px;color:#AAA;">A</span></span>
                         <span style="display:flex;align-items:center;gap:5px;"><span style="width:14px;height:3px;background:#2980b9;display:inline-block;border-radius:2px;"></span><span style="font-size:9px;color:#AAA;">B</span></span>
                       </div>
-                      <div style="text-align:center;">${radarSVG}</div>
+                      <div style="text-align:center;display:flex;justify-content:center;overflow:visible;">${radarSVG}</div>
                     </div>` : ""}
 
                     <!-- 푸터 — QR 코드 포함 -->
