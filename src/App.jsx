@@ -6034,12 +6034,12 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                   const hasRadar = flavors.length > 0;
 
                   const radarSVG = hasRadar ? (() => {
-                    // 크기를 넉넉하게 — 라벨 잘림 방지
-                    const PAD = 44;          // 라벨 여백
-                    const R   = 88;          // 차트 반지름
-                    const cx  = 150, cy = 150;
-                    const SIZE = cx * 2;     // 300
-                    const n   = flavorKeys.length;
+                    const PAD  = 44;   // 라벨 위치 오프셋
+                    const LPAD = 40;   // 왼쪽 추가 여백 (text-anchor=end 라벨 너비 보정)
+                    const R    = 88;
+                    const cx   = 150, cy = 150;
+                    const SIZE = cx * 2; // 300
+                    const n    = flavorKeys.length;
 
                     const pt = (i, r) => {
                       const a = -Math.PI/2 + (2*Math.PI*i/n);
@@ -6069,22 +6069,21 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
 
                     const lbls = flavorKeys.map((k,i) => {
                       const [x,y] = pt(i, R + PAD);
-                      // text-anchor: 좌측은 end, 우측은 start, 상하는 middle
-                      const anchor = x < cx - 10 ? "end" : x > cx + 10 ? "start" : "middle";
-                      // 세로 정렬: 상단은 auto, 하단은 hanging
+                      const isLeft   = x < cx - 10;
+                      const isRight  = x > cx + 10;
+                      const anchor   = isLeft ? "end" : isRight ? "start" : "middle";
                       const baseline = y < cy - 10 ? "auto" : y > cy + 10 ? "hanging" : "middle";
                       const v = parseInt(recipe[`flavor${k}`])||0;
-                      // 긴 라벨은 두 줄로 (필요시)
                       return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="${baseline}" font-size="11" fill="${v>0?"#5C4033":"#C0BBBA"}" font-family="DM Sans,sans-serif" font-weight="${v>0?600:400}">${flavorLabels[k]}</text>`;
                     }).join("");
 
-                    // viewBox를 PAD만큼 더 크게 잡아서 라벨이 잘리지 않도록
-                    const vbX = cx - R - PAD - 10;
-                    const vbY = cy - R - PAD - 10;
-                    const vbW = (R + PAD + 10) * 2;
-                    const vbH = (R + PAD + 10) * 2;
+                    // viewBox: 좌측은 text-anchor=end 라벨 너비(LPAD) 추가 확보
+                    const vbX = cx - R - PAD - LPAD;
+                    const vbY = cy - R - PAD - 14;
+                    const vbW = (R + PAD + 10) * 2 + LPAD;
+                    const vbH = (R + PAD + 14) * 2;
 
-                    return `<svg width="${SIZE}" height="${SIZE}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" xmlns="http://www.w3.org/2000/svg">
+                    return `<svg width="${SIZE + LPAD}" height="${SIZE}" viewBox="${vbX} ${vbY} ${vbW} ${vbH}" xmlns="http://www.w3.org/2000/svg">
                       ${grid}${axes}
                       <polygon points="${dataPts}" fill="#B07D54" fill-opacity="0.15" stroke="#B07D54" stroke-width="2" stroke-linejoin="round"/>
                       ${dots}${lbls}
