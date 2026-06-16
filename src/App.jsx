@@ -713,6 +713,12 @@ const CSS = `
     .modal-backdrop {
       align-items: flex-end;
       padding: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(26,22,20,0) 0%,
+        rgba(26,22,20,0.35) 12%,
+        rgba(26,22,20,0.55) 100%
+      );
     }
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -727,23 +733,33 @@ const CSS = `
   @media (max-width: 600px) {
     .modal {
       max-width: 100%;
-      border-radius: 18px 18px 0 0;
+      width: 100%;
+      border-radius: 20px 20px 0 0;
       border-bottom: none;
-      max-height: 93vh;
-      padding: 20px 16px 36px;
-      /* 바텀시트 슬라이드 업 */
-      animation: slideUpMobile 0.25s ease;
+      border-left: none;
+      border-right: none;
+      max-height: 92vh;
+      min-height: 60vh;
+      height: auto;
+      padding: 28px 16px 40px;
+      padding-bottom: max(40px, env(safe-area-inset-bottom, 40px));
+      animation: slideUpMobile 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+      box-shadow: 0 -4px 32px rgba(26,22,20,0.18);
     }
-    @keyframes slideUpMobile { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    /* 모달 상단 핸들 */
-    .modal::after {
+    @keyframes slideUpMobile {
+      from { transform: translateY(100%); opacity: 0.8; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    /* 모달 상단 핸들 — 더 명확하게 */
+    .modal::before {
       content: '';
       position: absolute;
       top: 10px; left: 50%;
       transform: translateX(-50%);
-      width: 36px; height: 4px;
+      width: 40px; height: 4px;
       background: var(--steam);
       border-radius: 2px;
+      pointer-events: none;
     }
   }
   @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
