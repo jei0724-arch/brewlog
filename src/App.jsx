@@ -2412,7 +2412,63 @@ function calcPressure(espressoMl, seconds) {
   };
 }
 
-/* 5-4. TimerField — setInterval은 내부 state만 업데이트, 폼 재렌더 완전 격리 */
+/* 5-4. TagInput — 태그 입력 컴포넌트 (#해시태그 방식) */
+function TagInput({ tags, onChange, lang }) {
+  const [input, setInput] = useState("");
+  const isKo = lang === "ko";
+  const MAX_TAGS = 10;
+  const MAX_LEN  = 20;
+
+  // 태그 추가 (Enter / 스페이스 / 쉼표)
+  const addTag = (raw) => {
+    const val = raw.replace(/^#+/, "").trim().replace(/\s+/g, "_");
+    if (!val || val.length > MAX_LEN) return;
+    if (tags.includes(val)) return;
+    if (tags.length >= MAX_TAGS) return;
+    onChange([...tags, val]);
+  };
+
+  const handleKey = (e) => {
+    if (e.key === "Enter" || e.key === " " || e.key === ",") {
+      e.preventDefault();
+      addTag(input);
+      setInput("");
+    } else if (e.key === "Backspace" && !input && tags.length > 0) {
+      onChange(tags.slice(0, -1));
+    }
+  };
+
+  const removeTag = (t) => onChange(tags.filter(x => x !== t));
+
+  return (
+    <div style={{ border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", padding:"8px 10px", background:"var(--cream)", cursor:"text", transition:"border-color 0.2s" }}
+      onFocus={() => {}} onClick={e => e.currentTarget.querySelector("input")?.focus()}>
+      <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", alignItems:"center" }}>
+        {tags.map(t => (
+          <span key={t} style={{ display:"inline-flex", alignItems:"center", gap:"4px", background:"var(--espresso)", color:"var(--cream)", borderRadius:"var(--r-chip)", padding:"3px 8px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", fontWeight:500 }}>
+            #{t}
+            <button type="button" onClick={() => removeTag(t)} style={{ background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.6)", padding:"0", lineHeight:1, fontSize:"0.8rem", display:"flex", alignItems:"center" }}>✕</button>
+          </span>
+        ))}
+        {tags.length < MAX_TAGS && (
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value.replace(/\s/g,""))}
+            onKeyDown={handleKey}
+            onBlur={() => { if (input) { addTag(input); setInput(""); }}}
+            placeholder={tags.length === 0 ? (isKo ? "#에티오피아 #내추럴 (Enter로 추가)" : "#ethiopia #natural (press Enter)") : ""}
+            style={{ border:"none", outline:"none", background:"transparent", fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", color:"var(--espresso)", minWidth:"120px", flex:1, padding:"2px 0" }}
+          />
+        )}
+      </div>
+      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)", marginTop:"5px" }}>
+        {isKo ? `Enter · 스페이스 · 쉼표로 추가 · 최대 ${MAX_TAGS}개` : `Press Enter, space, or comma to add · max ${MAX_TAGS} tags`}
+      </div>
+    </div>
+  );
+}
+
+/* 5-5. TimerField — setInterval은 내부 state만 업데이트, 폼 재렌더 완전 격리 */
 // ─── TimerField ────────────────────────────────────────────────────
 function TimerField({ value, infusionValue, onChange, onInfusionChange, lang, t }) {
   // phase: idle | infusing | extracting | done
@@ -2791,6 +2847,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     diluteCustom: editTarget.diluteCustom || "",
     brewPressureBar: editTarget.brewPressureBar || "",    // [신규] 하위 호환
     continuousMemo: editTarget.continuousMemo || "",     // [신규] 하위 호환
+    tags: editTarget.tags || [],
     // 복사 시 기록 날짜는 오늘로 초기화
     recordDate: isCopy ? new Date().toISOString().split("T")[0] : (editTarget.recordDate || new Date().toISOString().split("T")[0]),
     // 복사 시 공개 여부는 기본 공개로
@@ -2817,8 +2874,9 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     isPublic: true,
     isIced: false,
     syrup: "", note: "",
-    brewPressureBar: "",   // [신규] 추출 압력 세부 기록 (BAR, 직접 측정값)
-    continuousMemo: "",    // [신규] 연속 추출 메모
+    brewPressureBar: "",
+    continuousMemo: "",
+    tags: [],
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [saving, setSaving] = useState(false);
@@ -3122,8 +3180,9 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
         grindSize: form.grindSize,
         isPublic: form.isPublic !== false,
         linkedBeanId: linkedBeanId || null,
-        brewPressureBar: form.brewPressureBar || null,   // [신규] 직접 측정 압력값
-        continuousMemo: form.continuousMemo || "",       // [신규] 연속 추출 메모
+        brewPressureBar: form.brewPressureBar || null,
+        continuousMemo:  form.continuousMemo  || "",
+        tags: (form.tags || []).filter(Boolean),
       };
       if (isEdit) {
         const { id, ...rest } = payload;
@@ -4051,6 +4110,23 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
           })()}
           <div className="field full"><label>{t ? t.note : "맛 노트 · 메모"}</label>
             <textarea value={form.note} onChange={e => set("note", e.target.value)} placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"} />
+          </div>
+
+          {/* ── 태그 ── */}
+          <div className="field full">
+            <label style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                <path d="M2 2h6l6 6-6 6-6-6V2z" stroke="var(--latte)" strokeWidth="1.3" strokeLinejoin="round"/>
+                <circle cx="5.5" cy="5.5" r="1" fill="var(--latte)"/>
+              </svg>
+              {lang === "en" ? "Tags" : "태그"}
+            </label>
+            {/* 입력창 */}
+            <TagInput
+              tags={form.tags || []}
+              onChange={tags => set("tags", tags)}
+              lang={lang}
+            />
           </div>
 
           {/* ── [신규] 추출 압력 세부 기록 (BAR) + 연속 추출 메모 ── */}
@@ -5776,7 +5852,18 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
         </div>
       )}
       {recipe.note && <div className="card-note">"{recipe.note}"</div>}
-      {/* [신규] 추출 압력 세부 기록 표시 */}
+      {/* 태그 */}
+      {(recipe.tags || []).length > 0 && (
+        <div style={{ display:"flex", flexWrap:"wrap", gap:"5px", marginBottom:"8px" }}>
+          {(recipe.tags || []).map(tag => (
+            <button key={tag} type="button"
+              onClick={e => { e.stopPropagation(); onTagClick?.(tag); }}
+              style={{ display:"inline-flex", alignItems:"center", background: activeTag === tag ? "var(--espresso)" : "var(--cream)", color: activeTag === tag ? "var(--cream)" : "var(--latte)", border:`1px solid ${activeTag === tag ? "var(--espresso)" : "var(--latte)"}`, borderRadius:"var(--r-chip)", padding:"2px 9px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", fontWeight:500, cursor:"pointer", transition:"all 0.15s" }}>
+              #{tag}
+            </button>
+          ))}
+        </div>
+      )}
       {recipe.brewPressureBar && (
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", padding: "8px 12px", background: "var(--cream)", borderRadius: "var(--r-chip)", border: "1px solid var(--divider)" }}>
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
@@ -5983,7 +6070,7 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
                   })() : "";
 
                   const el = document.createElement("div");
-                  el.style.cssText = `position:fixed;left:-9999px;top:-9999px;width:380px;background:#FBFBFA;font-family:'DM Sans',sans-serif;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.12);`;
+                  el.style.cssText = `position:absolute;left:-9999px;top:0;width:380px;background:#FBFBFA;font-family:'DM Sans',sans-serif;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.12);`;
 
                   el.innerHTML = `
                     <div style="padding:20px;">
@@ -6071,23 +6158,35 @@ function RecipeDetailModal({ recipe, onClose, currentUid, currentUser, onLike, o
 
                   document.body.appendChild(el);
                   // QR 이미지 로드 대기 후 캡처
-                  await new Promise(r => setTimeout(r, 800));
-                  const canvas = await html2canvas(el, { scale: 3, useCORS: true, allowTaint: false, backgroundColor: null, logging: false });
+                  await new Promise(r => setTimeout(r, 900));
+                  const canvas = await html2canvas(el, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: false,
+                    backgroundColor: "#FBFBFA",
+                    logging: false,
+                    // 모바일: fixed 대신 실제 위치 기반 캡처
+                    x: 0, y: 0,
+                    scrollX: 0, scrollY: 0,
+                  });
                   document.body.removeChild(el);
 
-                  canvas.toBlob(async (blob) => {
-                    const file = new File([blob], `${recipe.bean||"recipe"}.png`, { type: "image/png" });
-                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                      await navigator.share({ files: [file], title: `${recipe.bean} 레시피`, text: "Brewlog Note에서 기록한 레시피예요." })
-                        .catch(e => { if (e.name !== "AbortError") console.warn(e); });
-                    } else {
-                      const a = document.createElement("a");
-                      a.href = URL.createObjectURL(blob);
-                      a.download = `${recipe.bean||"recipe"}_brewlog.png`;
-                      a.click();
-                      URL.revokeObjectURL(a.href);
-                    }
-                  }, "image/png");
+                  // toBlob을 Promise로 변환 (모바일 사용자 제스처 체인 유지)
+                  const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+                  const file = new File([blob], `${recipe.bean||"recipe"}_brewlog.png`, { type:"image/png" });
+
+                  if (navigator.share && navigator.canShare?.({ files:[file] })) {
+                    try {
+                      await navigator.share({ files:[file], title:`${recipe.bean||""} 레시피`, text:"Brewlog Note에서 기록한 레시피예요.\nhttps://brewlog-jade.vercel.app" });
+                    } catch(e) { if (e.name !== "AbortError") throw e; }
+                  } else {
+                    // fallback: 다운로드
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `${recipe.bean||"recipe"}_brewlog.png`;
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+                  }
                 } catch(e) {
                   console.error("[share]", e);
                   alert(lang === "en" ? "Share failed." : "공유에 실패했어요.");
@@ -6708,27 +6807,29 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
 
                   document.body.appendChild(el);
                   // QR 이미지 로드 대기 후 캡처
-                  await new Promise(r => setTimeout(r, 800));
+                  await new Promise(r => setTimeout(r, 900));
                   const canvas = await html2canvas(el, {
-                    scale: 3, useCORS: true, allowTaint: false, backgroundColor: "#FBFBFA",
+                    scale: 2, useCORS: true, allowTaint: false, backgroundColor: "#FBFBFA",
                     logging: false, width: 460, windowWidth: 460,
                   });
                   document.body.removeChild(el);
 
-                  canvas.toBlob(async (blob) => {
-                    const fileName = `${recipeA.bean||"A"}_vs_${recipeB.bean||"B"}_brewlog.png`;
-                    const file = new File([blob], fileName, { type:"image/png" });
-                    if (navigator.share && navigator.canShare && navigator.canShare({ files:[file] })) {
-                      await navigator.share({ files:[file], title:"레시피 비교", text:"Brewlog Note 레시피 비교 결과예요." })
-                        .catch(e => { if (e.name !== "AbortError") console.warn(e); });
-                    } else {
-                      const a = document.createElement("a");
-                      a.href = URL.createObjectURL(blob);
-                      a.download = fileName;
-                      a.click();
-                      URL.revokeObjectURL(a.href);
-                    }
-                  }, "image/png");
+                  // toBlob을 Promise로 변환 (모바일 사용자 제스처 체인 유지)
+                  const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+                  const fileName = `${recipeA.bean||"A"}_vs_${recipeB.bean||"B"}_brewlog.png`;
+                  const file = new File([blob], fileName, { type:"image/png" });
+
+                  if (navigator.share && navigator.canShare?.({ files:[file] })) {
+                    try {
+                      await navigator.share({ files:[file], title:"레시피 비교", text:"Brewlog Note 레시피 비교 결과예요.\nhttps://brewlog-jade.vercel.app" });
+                    } catch(e) { if (e.name !== "AbortError") throw e; }
+                  } else {
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = fileName;
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+                  }
                 } catch(e) {
                   console.error("[compare-share]", e);
                   alert("공유에 실패했어요.");
@@ -6761,7 +6862,7 @@ function CompareModal({ targetRecipe, myRecipes, onClose, lang = "ko" }) {
 }
 
 
-function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, onCardClick, onCompare, onCopy, onAuthorClick, lang = "ko" }) {
+function RecipeCard({ recipe, currentUid, onDelete, onEdit, onLike, onBookmark, isBookmarked, onFollow, isFollowing, onCardClick, onCompare, onCopy, onAuthorClick, onTagClick, activeTag, lang = "ko" }) {
   const t = I18N[lang];
   const date = recipe.createdAt?.toDate?.()?.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR") || "";
   const liked = (recipe.likedBy || []).includes(currentUid);
@@ -8261,6 +8362,7 @@ function MainApp({ user, lang, toggleLang, onRequireAuth, darkMode, toggleDark }
 
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState("");
+  const [activeTag, setActiveTag] = useState(null); // 태그 필터
   const [myRecipesOnly, setMyRecipesOnly] = useState(false);
   const [filterAuthor, setFilterAuthor] = useState(null); // { uid, name } | null
   const [isAdmin, setIsAdmin] = useState(false);
@@ -9420,11 +9522,8 @@ Output ONLY this JSON on a single line. No explanation, no markdown, no code blo
   }, [user?.uid]);
 
   const filtered = recipes.filter(r => {
-    // 비공개 레시피는 본인만 볼 수 있음
     if (r.isPublic === false && r.uid !== user?.uid) return false;
-    // 차단된 유저 레시피 숨김
     if (blocked.includes(r.uid)) return false;
-    // 작성자 필터 (닉네임 클릭 시)
     if (filterAuthor) {
       if (filterAuthor.uid ? r.uid !== filterAuthor.uid : r.author !== filterAuthor.name) return false;
     }
@@ -9432,6 +9531,8 @@ Output ONLY this JSON on a single line. No explanation, no markdown, no code blo
     if (feedTab === "bookmarks" && !bookmarks.includes(r.id)) return false;
     if (feedTab === "following" && !following.includes(r.uid) && !following.includes(r.author)) return false;
     if (feedTab === "mine" && r.uid !== user?.uid) return false;
+    // 태그 필터
+    if (activeTag && !(r.tags || []).includes(activeTag)) return false;
     const q = search.toLowerCase().trim();
     if (!q) return true;
     return (
@@ -9441,7 +9542,8 @@ Output ONLY this JSON on a single line. No explanation, no markdown, no code blo
       (r.company || "").toLowerCase().includes(q) ||
       (r.bean || "").toLowerCase().includes(q) ||
       (r.author || "").toLowerCase().includes(q) ||
-      (r.note || "").toLowerCase().includes(q)
+      (r.note || "").toLowerCase().includes(q) ||
+      (r.tags || []).some(t => t.toLowerCase().includes(q))
     );
   });
 
@@ -9722,26 +9824,30 @@ Output ONLY this JSON on a single line. No explanation, no markdown, no code blo
       {/* 작성자 필터 배지 */}
       {filterAuthor && (
         <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "8px 0 12px" }}>
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: "6px",
-            padding: "5px 10px 5px 12px", background: "var(--espresso)", color: "var(--cream)",
-            borderRadius: "20px", fontSize: "0.78rem", fontWeight: 600,
-            fontFamily: "'DM Sans', sans-serif",
-          }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "5px 10px 5px 12px", background: "var(--espresso)", color: "var(--cream)", borderRadius: "20px", fontSize: "0.78rem", fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
               <circle cx="6" cy="4" r="2.5" stroke="currentColor" strokeWidth="1.3"/>
               <path d="M1.5 10.5c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
             </svg>
             @{filterAuthor.name}
-            <button
-              onClick={() => setFilterAuthor(null)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--cream)", opacity: 0.7, padding: "0 0 0 2px", lineHeight: 1, fontSize: "1rem", display: "flex", alignItems: "center" }}
-              title={lang === "en" ? "Clear filter" : "필터 해제"}
-            >×</button>
+            <button onClick={() => setFilterAuthor(null)} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--cream)", opacity:0.7, padding:"0 0 0 2px", lineHeight:1, fontSize:"1rem", display:"flex", alignItems:"center" }} title={lang === "en" ? "Clear filter" : "필터 해제"}>×</button>
           </div>
-          <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontFamily: "'DM Sans', sans-serif" }}>
-            {filtered.length}{lang === "en" ? " recipes" : "개"}
-          </span>
+          <span style={{ fontSize:"0.72rem", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif" }}>{filtered.length}{lang==="en"?" recipes":"개"}</span>
+        </div>
+      )}
+
+      {/* 태그 필터 배너 */}
+      {activeTag && (
+        <div style={{ display:"flex", alignItems:"center", gap:"8px", margin:"8px 0 12px" }}>
+          <div style={{ display:"inline-flex", alignItems:"center", gap:"6px", padding:"5px 10px 5px 12px", background:"var(--latte)", color:"var(--cream)", borderRadius:"20px", fontSize:"0.78rem", fontWeight:600, fontFamily:"'DM Sans',sans-serif" }}>
+            <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+              <path d="M2 2h5l5 5-5 5-5-5V2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+              <circle cx="4.5" cy="4.5" r="0.8" fill="currentColor"/>
+            </svg>
+            #{activeTag}
+            <button onClick={() => setActiveTag(null)} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--cream)", opacity:0.7, padding:"0 0 0 2px", lineHeight:1, fontSize:"1rem", display:"flex", alignItems:"center" }}>×</button>
+          </div>
+          <span style={{ fontSize:"0.72rem", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif" }}>{filtered.length}{lang==="en"?" recipes":"개"}</span>
         </div>
       )}
       <div className="divider" style={{ marginBottom: "1.5rem" }} />
@@ -10912,7 +11018,9 @@ Output ONLY this JSON on a single line. No explanation, no markdown, no code blo
             onCardClick={() => openDetail(rec)}
             onCompare={user?.uid ? () => setCompareTarget(rec) : null}
             onCopy={user?.uid ? () => handleCopyRecipe(rec) : null}
-            onAuthorClick={a => handleAuthorClick(a)} />
+            onAuthorClick={a => handleAuthorClick(a)}
+            onTagClick={tag => setActiveTag(prev => prev === tag ? null : tag)}
+            activeTag={activeTag} />
         ))}
       </div>}
     </div>}
