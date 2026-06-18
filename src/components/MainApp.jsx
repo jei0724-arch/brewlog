@@ -238,7 +238,11 @@ export default function MainApp({
   const setDetailRecipeWrapped = (r)=> { detailRecipeRef.current=r; setDetailRecipe(r); };
   const setShowModalWrapped    = (v)=> { showModalRef.current=v; setShowModal(v); };
   const setShowMyModalWrapped  = (v)=> { showMyModalRef.current=v; setShowMyModal(v); };
-  const setCompareTargetState  = (v)=> { compareTargetRef.current=v; setCompareTarget(v); };
+  const setCompareTargetState  = (v)=> {
+    compareTargetRef.current=v;
+    setCompareTarget(v);
+    if (v) window.history.pushState({modal:true},"");
+  };
 
   const openModal  = ()  => { window.history.pushState({modal:true},""); setShowModalWrapped(true); };
   const openMyModal= ()  => { window.history.pushState({modal:true},""); setShowMyModalWrapped(true); };
@@ -246,7 +250,11 @@ export default function MainApp({
 
   // 뒤로가기 → 모달 닫기
   useEffect(() => {
-    const onPop = () => {
+    // 앱 진입 시 베이스 히스토리 엔트리 1개 확보 (뒤로가기가 앱 밖으로 나가는 것 방지)
+    window.history.replaceState({base:true}, "");
+
+    const onPop = (e) => {
+      // 열린 모달이 있으면 닫고, 히스토리는 소비된 것으로 처리
       if (compareTargetRef.current)  { setCompareTargetState(null); return; }
       if (detailRecipeRef.current)   { setDetailRecipeWrapped(null); return; }
       if (showModalRef.current) {
@@ -260,6 +268,12 @@ export default function MainApp({
       if (showMyModalRef.current)  { setShowMyModalWrapped(false); return; }
       if (beanShowModalRef.current){ setBeanShowModal(false); return; }
       if (equipShowModalRef.current){ setEquipShowModal(false); return; }
+
+      // 모달이 하나도 없는데 popstate가 발생하면 (히스토리 소진)
+      // 베이스 엔트리로 되돌려서 앱 밖으로 나가는 것을 방지
+      if (e.state?.base) {
+        window.history.pushState({base:true}, "");
+      }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -808,10 +822,10 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
 
       {/* ── 모달들 ── */}
       {showMyModal && (
-        <MyModal user={user} lang={lang} onClose={()=>setShowMyModalWrapped(false)} onLogout={()=>{ setShowMyModalWrapped(false); signOut(auth); }}/>
+        <MyModal user={user} lang={lang} onClose={()=>{ window.history.go(-1); setShowMyModalWrapped(false); }} onLogout={()=>{ setShowMyModalWrapped(false); signOut(auth); }}/>
       )}
       {compareTarget && (
-        <CompareModal targetRecipe={compareTarget} myRecipes={recipes.filter(r=>r.id!==compareTarget.id)} onClose={()=>setCompareTargetState(null)} lang={lang}/>
+        <CompareModal targetRecipe={compareTarget} myRecipes={recipes.filter(r=>r.id!==compareTarget.id)} onClose={()=>{ window.history.go(-1); setCompareTargetState(null); }} lang={lang}/>
       )}
       {detailRecipe && (
         <RecipeDetailModal
@@ -820,7 +834,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
           currentUser={user}
           onRequireAuth={onRequireAuth}
           lang={lang}
-          onClose={()=>setDetailRecipeWrapped(null)}
+          onClose={()=>{ window.history.go(-1); setDetailRecipeWrapped(null); }}
           onLike={r=>{ handleLike(r); }}
           onEdit={r=>{ setEditTarget(r); openModal(); setDetailRecipeWrapped(null); }}
           onDelete={id=>{ handleDelete(id); setDetailRecipeWrapped(null); }}
@@ -837,7 +851,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
       )}
       {showModal && (
         <RecipeModal user={user} editTarget={editTarget} lang={lang}
-          onClose={()=>{ setShowModalWrapped(false); setEditTarget(null); }}
+          onClose={()=>{ window.history.go(-1); setShowModalWrapped(false); setEditTarget(null); }}
           onSave={()=>{ loadRecipes(); setShowModalWrapped(false); setEditTarget(null); }}/>
       )}
       {profileModal && (
