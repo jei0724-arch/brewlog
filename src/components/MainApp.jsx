@@ -328,9 +328,13 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
         { method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({
             contents:[{ parts:[{ text:prompt }] }],
-            generationConfig:{ temperature:0.7, maxOutputTokens:2048 },
-            // thinking 비활성화 — parts[0]이 thought가 되는 문제 방지
-            thinkingConfig:{ thinkingBudget:0 },
+            generationConfig:{
+              temperature:0.7,
+              maxOutputTokens:2048,
+              // thinkingConfig는 generationConfig 안에 있어야 함
+              // gemini-3.5-flash(3.x)는 thinking 완전 비활성화 불가 → minimal로 최소화
+              thinkingConfig:{ thinkingLevel:"minimal" },
+            },
           }) }
       );
       const data = await res.json();
