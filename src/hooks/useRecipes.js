@@ -23,6 +23,7 @@ import {
   orderBy,
   where,
   serverTimestamp,
+  setDoc,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 
@@ -51,14 +52,34 @@ export function useRecipes(user, { onRequireAuth } = {}) {
     } catch { return []; }
   });
 
-  // ── bookmarks (localStorage 캐시) ────────────────────────────────
-  const [bookmarks, setBookmarks] = useState(() => {
+  // ── collections (컬렉션/폴더별 북마크) ─────────────────────────
+  // 구조: { folderName: { color, ids: [recipeId, ...] }, ... }
+  // "_default" = 기본 즐겨찾기 폴더
+  const COLL_KEY = user?.uid ? "brewlog_collections_" + user.uid : null;
+
+  const [collections, setCollections] = useState(() => {
     try {
-      return user?.uid
-        ? JSON.parse(localStorage.getItem("brewlog_bookmarks_" + user.uid) || "[]")
-        : [];
-    } catch { return []; }
+      if (!user?.uid) return {};
+      const saved = JSON.parse(localStorage.getItem("brewlog_collections_" + user.uid) || "null");
+      if (saved) return saved;
+      // 기존 bookmarks 마이그레이션
+      const oldIds = JSON.parse(localStorage.getItem("brewlog_bookmarks_" + user.uid) || "[]");
+      return oldIds.length ? { "_default": { color:"#B07D54", ids: oldIds } } : {};
+    } catch { return {}; }
   });
+
+  // 전체 북마크 id 목록 (하위 호환용)
+  const bookmarks = useMemo(() =>
+    Object.values(collections).flatMap(c => c.ids || []),
+  [collections]);
+
+  // 컬렉션 저장 헬퍼
+  const saveCollections = useCallback((next) => {
+    if (!user?.uid) return;
+    try { localStorage.setItem("brewlog_collections_" + user.uid, JSON.stringify(next)); } catch {}
+    // Firestore 백업 (실패해도 무시)
+    setDoc(doc(db, "users", user.uid), { collections: next }, { merge: true }).catch(() => {});
+  }, [user?.uid]);
 
   // ── blocked (localStorage, 읽기 전용) ───────────────────────────
   const blocked = useMemo(() => {
@@ -120,13 +141,20 @@ export function useRecipes(user, { onRequireAuth } = {}) {
 
   // ── following 동기화 (user 변경 시 localStorage에서 재로드) ──────
   useEffect(() => {
-    if (!user?.uid) { setFollowing([]); setBookmarks([]); return; }
+    if (!user?.uid) { setFollowing([]); setCollections({}); return; }
     try {
       setFollowing(JSON.parse(localStorage.getItem("brewlog_following_" + user.uid) || "[]"));
-      setBookmarks(JSON.parse(localStorage.getItem("brewlog_bookmarks_" + user.uid) || "[]"));
+      const saved = JSON.parse(localStorage.getItem("brewlog_collections_" + user.uid) || "null");
+      if (saved) {
+        setCollections(saved);
+      } else {
+        // 기존 bookmarks 마이그레이션
+        const oldIds = JSON.parse(localStorage.getItem("brewlog_bookmarks_" + user.uid) || "[]");
+        if (oldIds.length) setCollections({ "_default": { color:"#B07D54", ids: oldIds } });
+      }
     } catch {
       setFollowing([]);
-      setBookmarks([]);
+      setCollections({});
     }
   }, [user?.uid]);
 
@@ -144,17 +172,78 @@ export function useRecipes(user, { onRequireAuth } = {}) {
     });
   }, [user, onRequireAuth]);
 
-  // ── toggleBookmark ──────────────────────────────────────────────
+  // ── toggleBookmark — 기본 폴더(_default) 토글 ────────────────────
   const toggleBookmark = useCallback((recipeId) => {
     if (!user) { onRequireAuth?.(); return; }
-    setBookmarks((prev) => {
-      const next = prev.includes(recipeId)
-        ? prev.filter((id) => id !== recipeId)
-        : [...prev, recipeId];
-      try { localStorage.setItem("brewlog_bookmarks_" + user.uid, JSON.stringify(next)); } catch {}
+    setCollections((prev) => {
+      const folder = prev["_default"] || { color:"#B07D54", ids:[] };
+      const ids    = folder.ids.includes(recipeId)
+        ? folder.ids.filter(id => id !== recipeId)
+        : [...folder.ids, recipeId];
+      // 폴더가 비어도 폴더 자체는 유지
+      const next = { ...prev, "_default": { ...folder, ids } };
+      saveCollections(next);
       return next;
     });
-  }, [user, onRequireAuth]);
+  }, [user, onRequireAuth, saveCollections]);
+
+  // ── addToCollection — 특정 폴더에 추가/제거 ───────────────────────
+  const addToCollection = useCallback((recipeId, folderName) => {
+    if (!user) { onRequireAuth?.(); return; }
+    setCollections((prev) => {
+      const folder  = prev[folderName] || { color:"#B07D54", ids:[] };
+      const hasId   = folder.ids.includes(recipeId);
+      const ids     = hasId ? folder.ids.filter(id => id !== recipeId) : [...folder.ids, recipeId];
+      // 폴더가 비어도 폴더 자체는 유지 (삭제는 deleteCollection으로만)
+      const next = { ...prev, [folderName]: { ...folder, ids } };
+      saveCollections(next);
+      return next;
+    });
+  }, [user, onRequireAuth, saveCollections]);
+
+  // ── createCollection — 새 폴더 생성 ──────────────────────────────
+  const createCollection = useCallback((name, color = "#B07D54") => {
+    if (!user || !name.trim()) return false;
+    if (collections[name]) return false; // 중복
+    setCollections((prev) => {
+      const next = { ...prev, [name]: { color, ids:[] } };
+      saveCollections(next);
+      return next;
+    });
+    return true;
+  }, [user, collections, saveCollections]);
+
+  // ── renameCollection ──────────────────────────────────────────────
+  const renameCollection = useCallback((oldName, newName) => {
+    if (!user || !newName.trim() || oldName === newName) return;
+    setCollections((prev) => {
+      if (prev[newName]) return prev; // 중복
+      const { [oldName]: folder, ...rest } = prev;
+      const next = { ...rest, [newName]: folder };
+      saveCollections(next);
+      return next;
+    });
+  }, [user, saveCollections]);
+
+  // ── deleteCollection ──────────────────────────────────────────────
+  const deleteCollection = useCallback((name) => {
+    if (!user) return;
+    setCollections((prev) => {
+      const { [name]: _, ...next } = prev;
+      saveCollections(next);
+      return next;
+    });
+  }, [user, saveCollections]);
+
+  // ── updateCollectionColor ─────────────────────────────────────────
+  const updateCollectionColor = useCallback((name, color) => {
+    if (!user) return;
+    setCollections((prev) => {
+      const next = { ...prev, [name]: { ...prev[name], color } };
+      saveCollections(next);
+      return next;
+    });
+  }, [user, saveCollections]);
 
   // ── handleLike ──────────────────────────────────────────────────
   const handleLike = useCallback(async (recipe) => {
@@ -215,8 +304,16 @@ export function useRecipes(user, { onRequireAuth } = {}) {
       if (feedTab === "bookmarks" && !bookmarks.includes(r.id))   return false;
       if (feedTab === "following" && !following.includes(r.uid) && !following.includes(r.author)) return false;
       if (feedTab === "mine"     && r.uid !== user?.uid)           return false;
-      // 태그 필터
-      if (activeTag && !(r.tags || []).includes(activeTag)) return false;
+      // 태그 필터 + 폴더 필터 (__folder__xxx 형태)
+      if (activeTag) {
+        if (activeTag.startsWith("__folder__")) {
+          const folderName = activeTag.replace("__folder__", "");
+          const folder = collections[folderName];
+          if (!folder || !(folder.ids || []).includes(r.id)) return false;
+        } else {
+          if (!(r.tags || []).includes(activeTag)) return false;
+        }
+      }
       // 텍스트 검색
       const q = search.toLowerCase().trim();
       if (!q) return true;
@@ -231,7 +328,7 @@ export function useRecipes(user, { onRequireAuth } = {}) {
         (r.tags       || []).some((t) => t.toLowerCase().includes(q))
       );
     });
-  }, [recipes, user?.uid, blocked, filterAuthor, myRecipesOnly, feedTab, bookmarks, following, activeTag, search]);
+  }, [recipes, user?.uid, blocked, filterAuthor, myRecipesOnly, feedTab, bookmarks, collections, following, activeTag, search]);
 
   return {
     // 원시 데이터
@@ -240,6 +337,7 @@ export function useRecipes(user, { onRequireAuth } = {}) {
     filtered,
     following,
     bookmarks,
+    collections,
     blocked,
     isAdmin,
     notices,
@@ -255,6 +353,11 @@ export function useRecipes(user, { onRequireAuth } = {}) {
     handleDelete,
     toggleFollow,
     toggleBookmark,
+    addToCollection,
+    createCollection,
+    renameCollection,
+    deleteCollection,
+    updateCollectionColor,
     buildCopyPayload,
   };
 }

@@ -37,6 +37,7 @@ import BrewerProfileModal from "./profile/BrewerProfileModal";
 import RecipeModal        from "./modals/RecipeModal";
 import MyModal            from "./modals/MyModal";
 import CompareModal       from "./modals/CompareModal";
+import CollectionModal    from "./modals/CollectionModal";
 import { BeanVault, EquipmentVault } from "./vault/BeanVault";
 import AdminApp           from "../admin/AdminApp";
 
@@ -49,7 +50,7 @@ export default function MainApp({
   // ── useRecipes 훅 ───────────────────────────────────────────────
   const {
     recipes, filtered,
-    following, bookmarks,
+    following, bookmarks, collections,
     isAdmin, notices,
     search, setSearch,
     activeTag, setActiveTag,
@@ -59,6 +60,8 @@ export default function MainApp({
     loadRecipes,
     handleLike, handleDelete,
     toggleFollow, toggleBookmark,
+    addToCollection, createCollection,
+    renameCollection, deleteCollection, updateCollectionColor,
     buildCopyPayload,
   } = useRecipes(user, { onRequireAuth });
 
@@ -223,6 +226,8 @@ export default function MainApp({
   const [showMyModal,  setShowMyModal]  = useState(false);
   const [detailRecipe, setDetailRecipe] = useState(null);
   const [compareTarget,setCompareTarget]= useState(null);
+  const [collectionTarget, setCollectionTarget] = useState(null); // recipeId | "manage"
+  const collectionTargetRef = useRef(null);
   const [beanShowModal,setBeanShowModal]= useState(false);
   const [equipShowModal,setEquipShowModal]= useState(false);
   const [beanEditTarget,setBeanEditTarget]= useState(null);
@@ -530,7 +535,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
           <div style={{ maxWidth:"900px", margin:"0 auto", display:"flex", flexDirection:"column", gap:"6px" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:"8px", flexWrap:"wrap" }}>
               <div style={{ display:"flex", gap:"4px", flexShrink:0 }}>
-                {[["all",t.allRecipes],["following",`${t.followingFeed}${following.length>0?` (${following.length})`:""}`],["bookmarks",`${t.myBookmarks}${bookmarks.length>0?` (${bookmarks.length})`:""}`]].map(([v,lbl])=>(
+                {[["all",t.allRecipes],["following",`${t.followingFeed}${following.length>0?` (${following.length})`:""}`],["bookmarks",`${t.myBookmarks}${Object.keys(collections).length>0?` (${Object.keys(collections).length})`:""}`]].map(([v,lbl])=>(
                   <button key={v} className={`bookmark-tab-btn ${feedTab===v&&!showRanking?"active":""}`}
                     onClick={()=>{ setFeedTab(v); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                     {lbl}
@@ -817,6 +822,67 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
               {lang==="en"?"My Recipes":"내 레시피"}
             </div>
           )}
+
+          {/* 즐겨찾기 탭 — 폴더 그리드 */}
+          {feedTab==="bookmarks" && (
+            <div style={{ marginBottom:"20px" }}>
+              {/* 폴더 그리드 */}
+              {Object.keys(collections).length > 0 && (
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginBottom:"20px" }}>
+                  {Object.entries(collections).map(([name, folder]) => {
+                    const isActive = activeTag === `__folder__${name}`;
+                    return (
+                      <button key={name} type="button"
+                        onClick={() => setActiveTag(isActive ? null : `__folder__${name}`)}
+                        style={{
+                          display:"flex", alignItems:"center", gap:"10px", padding:"12px 14px",
+                          background: isActive ? "var(--espresso)" : "var(--foam)",
+                          borderTop:`1px solid ${isActive ? "var(--espresso)" : "var(--divider)"}`,
+                          borderRight:`1px solid ${isActive ? "var(--espresso)" : "var(--divider)"}`,
+                          borderBottom:`1px solid ${isActive ? "var(--espresso)" : "var(--divider)"}`,
+                          borderLeft:`4px solid ${folder.color || "#B07D54"}`,
+                          borderRadius:"10px", cursor:"pointer", textAlign:"left",
+                          transition:"all 0.15s",
+                        }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:600, color: isActive?"var(--cream)":"var(--espresso)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            {name === "_default" ? (lang==="en"?"Default":"기본 즐겨찾기") : name}
+                          </div>
+                          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color: isActive?"rgba(255,255,255,0.6)":"var(--muted)" }}>
+                            {(folder.ids||[]).length}{lang==="en"?" recipes":"개"}
+                          </div>
+                        </div>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink:0, color: isActive?"var(--cream)":"var(--muted)" }}>
+                          <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {/* 폴더 관리 + 전체 표시 행 */}
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px" }}>
+                {activeTag?.startsWith("__folder__") && (
+                  <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                    <div style={{ width:"8px", height:"8px", borderRadius:"50%", background: collections[activeTag.replace("__folder__","")]?.color||"#B07D54", flexShrink:0 }}/>
+                    <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:600, color:"var(--espresso)" }}>
+                      {activeTag.replace("__folder__","") === "_default" ? (lang==="en"?"Default":"기본 즐겨찾기") : activeTag.replace("__folder__","")}
+                    </span>
+                    <button onClick={()=>setActiveTag(null)}
+                      style={{ background:"none", border:"none", cursor:"pointer", color:"var(--muted)", fontSize:"0.9rem", padding:0, lineHeight:1 }}>×</button>
+                  </div>
+                )}
+                <button
+                  onClick={()=>{ setCollectionTarget("manage"); window.history.pushState({modal:true},""); }}
+                  style={{ marginLeft:"auto", background:"none", border:"1px solid var(--steam)", borderRadius:"8px", padding:"5px 12px", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", display:"flex", alignItems:"center", gap:"5px", transition:"border-color 0.15s, color 0.15s" }}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--latte)";e.currentTarget.style.color="var(--latte)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--steam)";e.currentTarget.style.color="var(--muted)";}}>
+                  <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M1 4h12M1 8h8M1 12h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                  {lang==="en"?"Manage folders":"폴더 관리"}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="recipes-grid">
             {filtered.length===0 ? (
               <div className="empty-state">
@@ -828,7 +894,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
               <RecipeCard key={rec.id} recipe={rec} currentUid={user?.uid} lang={lang}
                 onDelete={handleDelete}
                 onLike={handleLike}
-                onBookmark={toggleBookmark}
+                onBookmark={(id)=>{ setCollectionTarget(id); window.history.pushState({modal:true},""); }}
                 isBookmarked={bookmarks.includes(rec.id)}
                 onFollow={toggleFollow}
                 isFollowing={following.includes(rec.uid)||following.includes(rec.author)}
@@ -864,13 +930,26 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
           onDelete={id=>{ handleDelete(id); setDetailRecipeWrapped(null); }}
           onFollow={toggleFollow}
           isFollowing={detailRecipe&&(following.includes(detailRecipe.uid)||following.includes(detailRecipe.author))}
-          onBookmark={toggleBookmark}
+          onBookmark={(id)=>{ setCollectionTarget(id); window.history.pushState({modal:true},""); }}
           isBookmarked={detailRecipe&&bookmarks.includes(detailRecipe.id)}
           onCompare={user?.uid?(r)=>setCompareTargetState(r):null}
           onCopyRecipe={user?.uid?(r)=>{ pendingDetailRef.current=detailRecipeRef.current; setDetailRecipeWrapped(null); handleCopyRecipe(r); }:null}
           onAuthorClick={a=>{ setDetailRecipeWrapped(null); handleAuthorClick(a); }}
           onTagClick={tag=>setActiveTag(prev=>prev===tag?null:tag)}
           activeTag={activeTag}
+        />
+      )}
+      {collectionTarget && (
+        <CollectionModal
+          recipeId={collectionTarget === "manage" ? null : collectionTarget}
+          collections={collections}
+          onAddToCollection={addToCollection}
+          onCreateCollection={createCollection}
+          onRenameCollection={renameCollection}
+          onDeleteCollection={deleteCollection}
+          onUpdateColor={updateCollectionColor}
+          lang={lang}
+          onClose={()=>{ window.history.go(-1); setCollectionTarget(null); }}
         />
       )}
       {showModal && (
