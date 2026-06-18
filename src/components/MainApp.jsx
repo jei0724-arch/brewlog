@@ -323,20 +323,30 @@ export default function MainApp({
 Recipes: ${JSON.stringify(recent.slice(0,3).map(r=>({bean:r.bean,gram:r.gram,seconds:r.seconds,espressoMl:r.espressoMl,waterTemp:r.waterTemp,rating:r.rating,note:r.note})))}
 Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommended recipe name","recipeDesc":"2 sentence description","gram":"recommended dose (number only)","temp":"recommended temp (number only)","seconds":"recommended time (number only)"}`;
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`,
-        { method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({
-            contents:[{ parts:[{ text:prompt }] }],
-            generationConfig:{
-              temperature:0.7,
-              maxOutputTokens:2048,
-              // thinkingConfig는 generationConfig 안에 있어야 함
-              // gemini-3.5-flash(3.x)는 thinking 완전 비활성화 불가 → minimal로 최소화
-              thinkingConfig:{ thinkingLevel:"minimal" },
-            },
-          }) }
-      );
+      // 20초 타임아웃 — 모바일 네트워크 hang 방지
+      const controller = new AbortController();
+      const timeoutId  = setTimeout(() => controller.abort(), 20000);
+
+      let res;
+      try {
+        res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`,
+          { method:"POST",
+            headers:{"Content-Type":"application/json"},
+            signal: controller.signal,
+            body: JSON.stringify({
+              contents:[{ parts:[{ text:prompt }] }],
+              generationConfig:{
+                temperature:0.7,
+                maxOutputTokens:2048,
+                thinkingConfig:{ thinkingLevel:"minimal" },
+              },
+            }) }
+        );
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
       // parts 중 thought가 아닌 실제 텍스트만 추출
@@ -349,10 +359,11 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
       localStorage.setItem(langKey, JSON.stringify(result));
       setGeminiAdvice(result);
     } catch (e) {
-      console.error("[Gemini]", e);
+      console.error("[Gemini]", e.name === "AbortError" ? "타임아웃(20s)" : e);
       setGeminiError(true);
+    } finally {
+      setGeminiLoading(false);
     }
-    setGeminiLoading(false);
   }, [user, recipes, lang]);
 
   useEffect(() => {
