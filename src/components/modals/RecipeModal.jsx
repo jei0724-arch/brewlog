@@ -1,0 +1,1475 @@
+/* ============================================================
+   BREWLOG NOTE — src/components/modals/RecipeModal.jsx
+   레시피 기록 / 수정 / 복사 모달
+   ─ 프리셋 시스템 (최대 10개, 저장/적용/삭제/수정)
+   ─ 내 원두 Vault 연동 (Bean Vault)
+   ─ 내 장비 Vault 연동 (Equipment Vault)
+   ─ 전자동 / 반자동 / 핸드드립 머신 분기
+   ─ Timer 컴포넌트 분리 격리 (인퓨전 + 추출 2페이즈)
+   ─ Flavor Radar 실시간 미리보기
+   ─ 추출 압력 자동 계산 (ULKA E5 펌프 곡선)
+   ─ 날씨 자동 획득 (OpenWeatherMap)
+   ─ 구글 드라이브 자동 백업 (저장 시 백그라운드)
+   ─ Gemini 캐시 무효화 (저장 후 다음 분석 최신화)
+   ============================================================ */
+import React, {
+  useState, useEffect, useRef, useCallback,
+} from "react";
+import {
+  collection, doc, getDoc, getDocs, addDoc, updateDoc,
+  query, where, serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../../config/firebase";
+import { I18N }         from "../../constants/localization";
+import { COFFEE_MENUS, MenuIcons, FLAVOR_AXES } from "../../constants/coffeeMenus";
+import {
+  MACHINE_BRANDS, GRINDER_BRANDS,
+  loadMyMachine, saveMyMachine,
+  loadMyGrinder, saveMyGrinder,
+  loadMyBean, saveMyBean,
+  loadRecipeDefaults, saveRecipeDefaults,
+  loadPresets, savePresets,
+  isAutoMachine, isBothModeBrand, getBuiltinGrinder,
+} from "../../utils/storage";
+import { calcPressure } from "../../utils/pressure";
+import { CoffeeBeanIcon, BrandInput, TagInput, FlavorRadar } from "../ui";
+import Timer from "../recipes/Timer";
+
+// ── OpenWeatherMap API ───────────────────────────────────────────
+const OWM_KEY = import.meta.env.VITE_OWM_KEY;
+const WEATHER_ICONS = {
+  Clear:"☀️", Clouds:"☁️", Rain:"🌧️", Drizzle:"🌦️",
+  Thunderstorm:"⛈️", Snow:"❄️", Mist:"🌫️", Fog:"🌫️",
+  Haze:"🌫️", Dust:"🌪️", Sand:"🌪️", Smoke:"🌫️",
+};
+
+async function fetchWeather() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation)
+      return reject("위치 정보를 지원하지 않는 브라우저예요.");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude: lat, longitude: lon } = pos.coords;
+          const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric&lang=kr`;
+          const res = await fetch(url);
+          if (!res.ok) return reject("날씨 API 오류: " + res.status);
+          const d = await res.json();
+          if (d.cod !== 200) return reject("날씨 오류: " + d.message);
+          resolve({
+            condition: d.weather[0].main,
+            descKo: d.weather[0].description,
+            temp: Math.round(d.main.temp),
+            humidity: d.main.humidity,
+            icon: WEATHER_ICONS[d.weather[0].main] || "🌡️",
+            country: d.sys?.country || "",
+            recordedAt: new Date().toISOString(),
+          });
+        } catch (e) { reject("네트워크 오류: " + e.message); }
+      },
+      (err) => {
+        const msg =
+          err.code === 1 ? "위치 권한을 허용해주세요."
+          : err.code === 2 ? "위치를 찾을 수 없어요."
+          : err.code === 3 ? "위치 요청 시간이 초과됐어요."
+          : err.message;
+        reject(msg);
+      },
+      { timeout: 15000, maximumAge: 60000, enableHighAccuracy: false }
+    );
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+export default function RecipeModal({
+  onClose, onSave, user, editTarget, lang = "ko",
+}) {
+  const t      = I18N[lang];
+  const isEdit = !!editTarget && !editTarget._isCopy;
+  const isCopy = !!editTarget?._isCopy;
+
+  // ── 내 원두 / 장비 로드 ─────────────────────────────────────────
+  const [myBeans,         setMyBeans]         = useState([]);
+  const [linkedBeanId,    setLinkedBeanId]    = useState(null);
+  const [myEquips,        setMyEquips]        = useState([]);
+  const [selectedEquipIds, setSelectedEquipIds] = useState({});
+
+  const applyEquipment = useCallback((eq) => {
+    if (!eq) return;
+    if (eq.category === "handdrip") {
+      setMachineType("handdrip");
+      setHandDripName(`${eq.brand}${eq.model ? " " + eq.model : ""}`);
+      setMachineBrand(""); setMachineModel("");
+      setMachineLocked(true);
+    } else if (eq.category === "machine") {
+      setMachineType("semi");
+      setMachineBrand(eq.brand || "");
+      setMachineModel(eq.model || "");
+      setMachineLocked(true);
+    } else if (eq.category === "grinder") {
+      setGrinderBrand(eq.brand || "");
+      setGrinderModel(eq.model || "");
+      setGrinderLocked(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    getDocs(query(collection(db, "equipments"), where("uid", "==", user.uid)))
+      .then((snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        list.sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
+        setMyEquips(list);
+        // 신규 작성 시에만 대표 장비 자동 적용
+        if (!isEdit && !isCopy) {
+          const pMachine  = list.find((e) => e.category === "machine"  && e.isPrimary);
+          const pGrinder  = list.find((e) => e.category === "grinder"  && e.isPrimary);
+          const pHanddrip = list.find((e) => e.category === "handdrip" && e.isPrimary);
+          const newSelected = {};
+          if (pHanddrip) { applyEquipment(pHanddrip); newSelected.handdrip = pHanddrip.id; }
+          else if (pMachine) { applyEquipment(pMachine); newSelected.machine = pMachine.id; }
+          if (pGrinder)  { applyEquipment(pGrinder);  newSelected.grinder  = pGrinder.id; }
+          setSelectedEquipIds(newSelected);
+        }
+      }).catch(() => {});
+  }, [user?.uid, isEdit, isCopy, applyEquipment]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    getDocs(query(collection(db, "beans"), where("uid", "==", user.uid)))
+      .then((snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+          .filter((b) => b.status !== "empty")
+          .sort(
+            (a, b) =>
+              (b.createdAt?.toDate?.()?.getTime() ?? 0) -
+              (a.createdAt?.toDate?.()?.getTime() ?? 0)
+          );
+        setMyBeans(list);
+      }).catch(() => {});
+  }, [user]);
+
+  // ── 머신 상태 ───────────────────────────────────────────────────
+  const savedMachine = loadMyMachine();
+  const isHandDrip   = !isEdit && !isCopy && savedMachine?.equipType === "handdrip";
+
+  const [machineLocked, setMachineLocked] = useState(
+    isCopy
+      ? !!(editTarget.machineBrand || editTarget.machineType === "handdrip")
+      : !!savedMachine && !isEdit
+  );
+  const [machineBrand, setMachineBrand] = useState(
+    (isEdit || isCopy) ? (editTarget.machineBrand || "")
+    : (isHandDrip ? "" : (savedMachine?.brand || ""))
+  );
+  const [machineModel, setMachineModel] = useState(
+    (isEdit || isCopy) ? (editTarget.machineModel || "")
+    : (isHandDrip ? "" : (savedMachine?.model || ""))
+  );
+  const [machineType, setMachineType] = useState(
+    (isEdit || isCopy) ? (editTarget.machineType || "auto")
+    : (isHandDrip ? "handdrip" : "auto")
+  );
+  const [handDripName, setHandDripName] = useState(
+    (isEdit || isCopy)
+      ? (editTarget.machine && editTarget.machineType === "handdrip" ? editTarget.machine : "")
+      : (savedMachine?.handDripName || "")
+  );
+  const isAutoMode = isAutoMachine(machineBrand) && machineType === "auto";
+
+  // ── 그라인더 상태 ───────────────────────────────────────────────
+  const savedGrinder = loadMyGrinder();
+  const [grinderLocked, setGrinderLocked] = useState(
+    isCopy ? !!editTarget.grinderBrand : (!!savedGrinder && !isEdit)
+  );
+  const [grinderBrand, setGrinderBrand] = useState(
+    (isEdit || isCopy) ? (editTarget.grinderBrand || "") : (savedGrinder?.brand || "")
+  );
+  const [grinderModel, setGrinderModel] = useState(
+    (isEdit || isCopy) ? (editTarget.grinderModel || "") : (savedGrinder?.model || "")
+  );
+  const isCustomGrinderBrand = grinderBrand === "기타 (직접 입력)";
+
+  // ── 폼 상태 ─────────────────────────────────────────────────────
+  const savedBean     = loadMyBean();
+  const savedDefaults = loadRecipeDefaults();
+
+  const [form, setForm] = useState(
+    (isEdit || isCopy)
+      ? {
+          ...editTarget,
+          waterTemp:       editTarget.waterTemp       || "93",
+          waterType:       editTarget.waterType       || "",
+          waterBrand:      editTarget.waterBrand      || "",
+          diluteCustom:    editTarget.diluteCustom    || "",
+          brewPressureBar: editTarget.brewPressureBar || "",
+          continuousMemo:  editTarget.continuousMemo  || "",
+          tags:            editTarget.tags            || [],
+          recordDate: isCopy
+            ? new Date().toISOString().split("T")[0]
+            : (editTarget.recordDate || new Date().toISOString().split("T")[0]),
+          isPublic: isCopy ? true : (editTarget.isPublic !== false),
+        }
+      : {
+          company:         savedBean?.company   || "",
+          bean:            savedBean?.bean      || "",
+          roastDate:       savedBean?.roastDate || "",
+          recordDate:      new Date().toISOString().split("T")[0],
+          rating:          0,
+          flavorAcidity:   0, flavorSweet:      0, flavorBitter: 0,
+          flavorAroma:     0, flavorAftertaste: 0, flavorBalance: 0, flavorBody: 0,
+          gram:            savedDefaults?.gram       || "",
+          seconds:         savedDefaults?.seconds    || "",
+          infusionSeconds: savedDefaults?.infusionSeconds || "0",
+          espressoMl:      savedDefaults?.espressoMl || "",
+          diluteMl:        savedDefaults?.diluteMl   || "",
+          diluteType:      savedDefaults?.diluteType || "물",
+          waterTemp:       savedDefaults?.waterTemp  || "93",
+          waterType:       savedDefaults?.waterType  || "",
+          waterBrand:      "",
+          diluteCustom:    "",
+          grindSize:       savedDefaults?.grindSize  || "",
+          isPublic:  true,
+          isIced:    false,
+          syrup: "", note: "",
+          brewPressureBar: "",
+          continuousMemo:  "",
+          tags: [],
+        }
+  );
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const [saving,  setSaving]  = useState(false);
+  const [errors,  setErrors]  = useState({});
+  const [weather, setWeather] = useState(isEdit ? (editTarget.weather || null) : null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError,   setWeatherError]   = useState(null);
+
+  // 신규/복사 시 날씨 자동 획득
+  useEffect(() => {
+    if (!isEdit && !weather) {
+      setWeatherLoading(true);
+      fetchWeather()
+        .then((w) => { setWeather(w); setWeatherError(null); })
+        .catch((e) => { setWeatherError(typeof e === "string" ? e : e.message); })
+        .finally(() => setWeatherLoading(false));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 메뉴 선택 ───────────────────────────────────────────────────
+  const [selectedMenu, setSelectedMenu] = useState(
+    (isEdit || isCopy) ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : "")
+  );
+
+  const MENU_DEFAULTS = {
+    espresso:   { seconds: "25", espressoMl: "30",  diluteMl: "",    diluteType: "물" },
+    ristretto:  { seconds: "20", espressoMl: "15",  diluteMl: "",    diluteType: "물" },
+    lungo:      { seconds: "40", espressoMl: "60",  diluteMl: "",    diluteType: "물" },
+    americano:  { seconds: "25", espressoMl: "30",  diluteMl: "150", diluteType: "물" },
+    long_black: { seconds: "25", espressoMl: "60",  diluteMl: "150", diluteType: "물" },
+    latte:      { seconds: "25", espressoMl: "30",  diluteMl: "150", diluteType: "우유" },
+    cappuccino: { seconds: "25", espressoMl: "30",  diluteMl: "100", diluteType: "우유" },
+    flatwhite:  { seconds: "25", espressoMl: "40",  diluteMl: "80",  diluteType: "우유" },
+    macchiato:  { seconds: "25", espressoMl: "30",  diluteMl: "20",  diluteType: "우유" },
+    cortado:    { seconds: "25", espressoMl: "30",  diluteMl: "30",  diluteType: "우유" },
+    cold_brew:  { seconds: "30", espressoMl: "60",  diluteMl: "100", diluteType: "물" },
+    hand_drip:  { seconds: "180", espressoMl: "200", diluteMl: "",   diluteType: "" },
+  };
+
+  const selectMenu = (menu) => {
+    setSelectedMenu(menu.id);
+    if (!menu.canIce) set("isIced", false);
+    if (MENU_DEFAULTS[menu.id]) {
+      setForm((f) => ({ ...f, ...MENU_DEFAULTS[menu.id] }));
+    }
+  };
+
+  // 핸드드립 메뉴 ↔ machineType 동기화
+  const applyingPresetRef = useRef(false);
+  useEffect(() => {
+    if (applyingPresetRef.current) return;
+    if (selectedMenu === "hand_drip") {
+      setMachineType("handdrip");
+      setSelectedEquipIds((prev) => {
+        if (!prev.machine) return prev;
+        const next = { ...prev }; delete next.machine; return next;
+      });
+      setMachineBrand(""); setMachineModel(""); setMachineLocked(false);
+    } else if (machineType === "handdrip") {
+      setMachineType("auto");
+    }
+  }, [selectedMenu]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 머신 브랜드/모델 → 내장 그라인더 자동 감지
+  useEffect(() => {
+    if (!isEdit && !isCopy) {
+      const builtin = getBuiltinGrinder(machineBrand, machineModel);
+      if (builtin) {
+        setGrinderBrand(builtin.brand);
+        setGrinderModel(builtin.model);
+        setGrinderLocked(true);
+      }
+    }
+  }, [machineBrand, machineModel]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const currentMenu    = COFFEE_MENUS.find((m) => m.id === selectedMenu);
+  const needsDilute    = !currentMenu || currentMenu.needsDilute;
+  const diluteCategory = currentMenu?.diluteCategory || "both";
+  const hasSyrup       = currentMenu?.hasSyrup  || false;
+  const canIce         = currentMenu?.canIce     || false;
+
+  const machineDisplay =
+    machineType === "handdrip"
+      ? handDripName
+      : machineBrand
+      ? machineModel ? `${machineBrand} ${machineModel}` : machineBrand
+      : "";
+  const grinderDisplay = grinderBrand
+    ? grinderModel ? `${grinderBrand} ${grinderModel}` : grinderBrand
+    : "";
+
+  const isCustomBrand = machineBrand === "기타 (직접 입력)";
+
+  // ── 프리셋 ──────────────────────────────────────────────────────
+  const PRESET_LIMIT = 10;
+  const [presets,       setPresets]       = useState(() => loadPresets(user?.uid));
+  const [showPresetSave, setShowPresetSave] = useState(false);
+  const [presetName,    setPresetName]    = useState("");
+  const [activePresetId, setActivePresetId] = useState(null);
+
+  const applyPreset = (preset) => {
+    applyingPresetRef.current = true;
+    if (preset.menuId) setSelectedMenu(preset.menuId);
+    if (preset.linkedBeanId) {
+      setLinkedBeanId(preset.linkedBeanId);
+      const bean = myBeans.find((b) => b.id === preset.linkedBeanId);
+      if (bean) {
+        set("company", bean.roastery || "");
+        set("bean", bean.name || "");
+        set("roastDate", bean.roastDate || "");
+      }
+    } else { setLinkedBeanId(null); }
+
+    if (preset.equipType === "handdrip") {
+      setMachineType("handdrip"); setHandDripName(preset.handDripName || "");
+      setMachineBrand(""); setMachineModel("");
+    } else {
+      setMachineType(preset.machineType || "auto");
+      setMachineBrand(preset.machineBrand || "");
+      setMachineModel(preset.machineModel || "");
+      setHandDripName("");
+    }
+    setMachineLocked(!!(preset.machineBrand || preset.handDripName));
+    setGrinderBrand(preset.grinderBrand || "");
+    setGrinderModel(preset.grinderModel || "");
+    setGrinderLocked(!!preset.grinderBrand);
+    if (preset.selectedEquipIds) setSelectedEquipIds({ ...preset.selectedEquipIds });
+
+    setForm((f) => ({
+      ...f,
+      isIced:          preset.isIced          ?? false,
+      gram:            preset.gram            ?? "",
+      seconds:         preset.seconds         ?? "",
+      infusionSeconds: preset.infusionSeconds ?? "0",
+      espressoMl:      preset.espressoMl      ?? "",
+      waterTemp:       preset.waterTemp       ?? "",
+      waterType:       preset.waterType       ?? "",
+      waterBrand:      preset.waterBrand      ?? "",
+      grindSize:       preset.grindSize       ?? "",
+      diluteMl:        preset.diluteMl        ?? "",
+      diluteType:      preset.diluteType      ?? "물",
+      syrup:           preset.syrup           ?? "",
+      brewPressureBar: preset.brewPressureBar ?? "",
+      continuousMemo:  preset.continuousMemo  ?? "",
+    }));
+    setTimeout(() => { applyingPresetRef.current = false; }, 300);
+  };
+
+  const savePreset = () => {
+    const trimmed = presetName.trim();
+    if (!trimmed) return;
+    if (/^[ㄱ-ㅎㅏ-ㅣ]+$/.test(trimmed)) {
+      alert(lang === "en" ? "Please enter a valid preset name." : "프리셋 이름을 정확히 입력해 주세요.");
+      return;
+    }
+    if (presets.length >= PRESET_LIMIT) {
+      alert(lang === "en"
+        ? `You can save up to ${PRESET_LIMIT} presets.`
+        : `프리셋은 최대 ${PRESET_LIMIT}개까지 저장할 수 있어요.`);
+      return;
+    }
+    const hdMode = machineType === "handdrip";
+    const newPreset = {
+      id: `preset_${Date.now()}`,
+      name: trimmed,
+      menuId:          selectedMenu,
+      isIced:          form.isIced  || false,
+      linkedBeanId:    linkedBeanId || null,
+      equipType:       hdMode ? "handdrip" : "machine",
+      handDripName:    hdMode ? handDripName : "",
+      machineBrand:    hdMode ? "" : machineBrand,
+      machineModel:    hdMode ? "" : machineModel,
+      machineType:     hdMode ? "" : machineType,
+      grinderBrand, grinderModel,
+      selectedEquipIds: { ...selectedEquipIds },
+      gram:            form.gram,
+      seconds:         form.seconds,
+      infusionSeconds: form.infusionSeconds || "0",
+      espressoMl:      form.espressoMl,
+      waterTemp:       form.waterTemp  || "",
+      waterType:       form.waterType  || "",
+      waterBrand:      form.waterBrand || "",
+      grindSize:       form.grindSize,
+      diluteMl:        form.diluteMl,
+      diluteType:      form.diluteType,
+      syrup:           form.syrup           || "",
+      brewPressureBar: form.brewPressureBar || "",
+      continuousMemo:  form.continuousMemo  || "",
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...presets, newPreset];
+    savePresets(user?.uid, updated);
+    setPresets(updated);
+    setPresetName(""); setShowPresetSave(false);
+  };
+
+  const deletePreset = (id) => {
+    const updated = presets.filter((p) => p.id !== id);
+    savePresets(user?.uid, updated);
+    setPresets(updated);
+    if (activePresetId === id) setActivePresetId(null);
+  };
+
+  // ── 유효성 검사 + 저장 ─────────────────────────────────────────
+  const modalRef = useRef(null);
+
+  const scrollToError = (errorKeys) => {
+    const priority = ["menu","company","bean","gram","seconds","espressoMl"];
+    const first    = priority.find((k) => errorKeys.includes(k));
+    if (!first || !modalRef.current) return;
+    const el = modalRef.current.querySelector(`[data-field="${first}"]`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const save = async () => {
+    const newErrors = {};
+    if (!selectedMenu)  newErrors.menu       = true;
+    if (!form.company)  newErrors.company    = true;
+    if (!form.bean)     newErrors.bean       = true;
+    if (!form.gram)     newErrors.gram       = true;
+    if (!form.seconds)  newErrors.seconds    = true;
+    if (!form.espressoMl) newErrors.espressoMl = true;
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      scrollToError(Object.keys(newErrors));
+      return;
+    }
+    setErrors({});
+
+    // localStorage 저장
+    if (machineType === "handdrip") {
+      saveMyMachine({ brand: "", model: "", equipType: "handdrip", handDripName: handDripName.trim() });
+    } else if (machineBrand && machineModel && !machineLocked) {
+      saveMyMachine({ brand: machineBrand, model: machineModel, equipType: "machine", handDripName: "" });
+    }
+    if (grinderBrand && grinderModel && !grinderLocked) {
+      saveMyGrinder({ brand: grinderBrand, model: grinderModel });
+    }
+    if (form.company || form.bean) {
+      saveMyBean({ company: form.company, bean: form.bean, roastDate: form.roastDate });
+    }
+    saveRecipeDefaults({
+      gram: form.gram, seconds: form.seconds,
+      infusionSeconds: form.infusionSeconds, espressoMl: form.espressoMl,
+      diluteMl: form.diluteMl, diluteType: form.diluteType,
+      waterTemp: form.waterTemp, grindSize: form.grindSize,
+    });
+
+    setSaving(true);
+    try {
+      const pressureData = calcPressure(form.espressoMl, form.seconds);
+      const payload = {
+        weather: weather || null,
+        ...form,
+        menuId:    selectedMenu,
+        menuLabel: currentMenu?.label || "",
+        flowRate:  pressureData?.flowRate  || null,
+        pumpBar:   pressureData?.pumpBar   || null,
+        showerBar: pressureData?.showerBar || null,
+        machine:      machineDisplay,
+        machineBrand: machineType === "handdrip" ? "" : machineBrand,
+        machineModel: machineType === "handdrip" ? "" : machineModel,
+        machineType:  machineType === "handdrip"
+          ? "handdrip"
+          : isAutoMachine(machineBrand) ? machineType : "manual",
+        grinder: grinderDisplay,
+        grinderBrand, grinderModel,
+        grindSize:       form.grindSize,
+        isPublic:        form.isPublic !== false,
+        linkedBeanId:    linkedBeanId   || null,
+        brewPressureBar: form.brewPressureBar || null,
+        continuousMemo:  form.continuousMemo  || "",
+        tags:            (form.tags || []).filter(Boolean),
+      };
+
+      if (isEdit) {
+        // ── consumedG 차액 반영 (24시간 이내 수정) ──
+        if (linkedBeanId || editTarget.linkedBeanId) {
+          try {
+            const createdAt = editTarget.createdAt?.toDate?.() || null;
+            const within24h = createdAt && (Date.now() - createdAt.getTime()) < 86400000;
+            const prevBeanId = editTarget.linkedBeanId || null;
+            const newBeanId  = linkedBeanId || null;
+            const prevGram   = parseFloat(editTarget.gram) || 0;
+            const newGram    = parseFloat(form.gram) || 0;
+
+            if (within24h) {
+              if (prevBeanId && newBeanId && prevBeanId === newBeanId) {
+                const diff = newGram - prevGram;
+                if (diff !== 0) {
+                  const bRef  = doc(db, "beans", prevBeanId);
+                  const bSnap = await getDoc(bRef);
+                  if (bSnap.exists()) {
+                    const cur = parseFloat(bSnap.data().consumedG) || 0;
+                    await updateDoc(bRef, { consumedG: Math.max(0, cur + diff) });
+                  }
+                }
+              }
+              if (prevBeanId && newBeanId && prevBeanId !== newBeanId) {
+                const prevRef  = doc(db, "beans", prevBeanId);
+                const prevSnap = await getDoc(prevRef);
+                if (prevSnap.exists()) {
+                  const cur = parseFloat(prevSnap.data().consumedG) || 0;
+                  await updateDoc(prevRef, { consumedG: Math.max(0, cur - prevGram) });
+                }
+                const newRef  = doc(db, "beans", newBeanId);
+                const newSnap = await getDoc(newRef);
+                if (newSnap.exists()) {
+                  const cur = parseFloat(newSnap.data().consumedG) || 0;
+                  await updateDoc(newRef, { consumedG: cur + newGram });
+                }
+              }
+              if (prevBeanId && !newBeanId) {
+                const prevRef  = doc(db, "beans", prevBeanId);
+                const prevSnap = await getDoc(prevRef);
+                if (prevSnap.exists()) {
+                  const cur = parseFloat(prevSnap.data().consumedG) || 0;
+                  await updateDoc(prevRef, { consumedG: Math.max(0, cur - prevGram) });
+                }
+              }
+              if (!prevBeanId && newBeanId) {
+                const newRef  = doc(db, "beans", newBeanId);
+                const newSnap = await getDoc(newRef);
+                if (newSnap.exists()) {
+                  const cur = parseFloat(newSnap.data().consumedG) || 0;
+                  await updateDoc(newRef, { consumedG: cur + newGram });
+                }
+              }
+            }
+          } catch (e) { console.error("[consumedG] 수정 반영 실패:", e.message); }
+        }
+        const { id, ...rest } = payload;
+        await updateDoc(doc(db, "recipes", editTarget.id), rest);
+
+      } else {
+        await addDoc(collection(db, "recipes"), {
+          ...payload,
+          author:    user?.displayName,
+          uid:       user?.uid,
+          createdAt: serverTimestamp(),
+        });
+        // ── consumedG 누적 (신규) ──
+        if (linkedBeanId) {
+          try {
+            const bRef  = doc(db, "beans", linkedBeanId);
+            const bSnap = await getDoc(bRef);
+            if (bSnap.exists()) {
+              const cur      = parseFloat(bSnap.data().consumedG) || 0;
+              const curCount = bSnap.data().usedCount || 0;
+              const upd = {
+                consumedG:  cur + (parseFloat(form.gram) || 0),
+                usedCount:  curCount + 1,
+                lastUsedAt: serverTimestamp(),
+              };
+              if (bSnap.data().status === "sealed" || !bSnap.data().status) upd.status = "open";
+              await updateDoc(bRef, upd);
+            }
+          } catch (e) { console.error("[consumedG] 신규 반영 실패:", e.message); }
+        }
+        // ── 구독자 알림 ──
+        try {
+          const followSnap = await getDocs(
+            query(collection(db, "users"), where("following", "array-contains", user?.uid))
+          );
+          await Promise.all(
+            followSnap.docs.map((d) =>
+              addDoc(collection(db, "notifications"), {
+                toUid:    d.id,
+                type:     "newRecipe",
+                fromUser: user?.displayName,
+                beanName: payload.bean || "",
+                read:     false,
+                createdAt: serverTimestamp(),
+              }).catch((e) => console.error("[알림] newRecipe 실패:", e.message))
+            )
+          );
+        } catch (e) { console.error("[알림] 구독자 알림 오류:", e.message); }
+      }
+
+      onSave();
+
+      // Gemini 캐시 무효화
+      try {
+        ["ko", "en"].forEach((l) =>
+          localStorage.removeItem(`brewlog_gemini_${user?.uid}_${l}`)
+        );
+      } catch {}
+
+    } catch (e) {
+      alert("저장 오류: " + e.message);
+    }
+    setSaving(false);
+  };
+
+  // ── 추출 압력 실시간 계산 ───────────────────────────────────────
+  const pressureData = calcPressure(form.espressoMl, form.seconds);
+
+  // ── JSX ─────────────────────────────────────────────────────────
+  return (
+    <div
+      className="modal-backdrop"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="modal" ref={modalRef}>
+        <h2>
+          {isEdit
+            ? t.editTitle
+            : editTarget?._isCopy
+            ? "레시피 복사하기"
+            : t.recordTitle}
+        </h2>
+
+        {/* 복사 모드 안내 */}
+        {editTarget?._isCopy && (
+          <div style={{ background:"#EBF5FB", border:"1px solid #AED6F1", borderRadius:"8px", padding:"10px 14px", marginBottom:"16px", fontSize:"0.8rem", color:"#2980b9", display:"flex", alignItems:"center", gap:"8px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+            다른 레시피를 복사했어요. 내용을 수정하고 저장하면 내 새 레시피로 등록됩니다.
+          </div>
+        )}
+
+        {/* ── 프리셋 영역 ── */}
+        <div style={{ marginBottom:"20px", paddingBottom:"20px", borderBottom:"1px solid var(--divider)" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
+            <span style={{ fontSize:"0.72rem", color:"var(--muted)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.07em", fontFamily:"'DM Sans',sans-serif" }}>
+              {lang === "en" ? "Presets" : "프리셋"}
+            </span>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color: presets.length >= PRESET_LIMIT ? "#e67e22" : "var(--muted)" }}>
+              {presets.length} / {PRESET_LIMIT}
+            </span>
+          </div>
+          {presets.length === 0 ? (
+            <p style={{ fontSize:"0.78rem", color:"var(--muted)", opacity:0.7 }}>
+              {lang === "en"
+                ? "No presets yet. Fill in settings below and save."
+                : "저장된 프리셋이 없어요. 아래 설정을 입력한 뒤 저장해보세요."}
+            </p>
+          ) : (
+            <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+              {presets.map((p) => {
+                const isActive = activePresetId === p.id;
+                return (
+                  <button key={p.id} type="button"
+                    onClick={() => { applyPreset(p); setActivePresetId(p.id); }}
+                    style={{
+                      padding:"6px 14px", borderRadius:"8px",
+                      border:`1px solid ${isActive ? "var(--espresso)" : "var(--latte)"}`,
+                      background: isActive ? "var(--espresso)" : "#FDF6EF",
+                      color: isActive ? "var(--cream)" : "var(--latte)",
+                      fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem",
+                      cursor:"pointer", fontWeight: isActive ? 700 : 500,
+                      transition:"all 0.15s",
+                      boxShadow: isActive ? "0 0 0 2px var(--espresso)" : "none",
+                    }}>
+                    {p.name || (lang === "en" ? "(unnamed)" : "(이름 없음)")}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 프리셋 저장 오버레이 */}
+        {showPresetSave && (
+          <div style={{ position:"fixed", inset:0, background:"#0005", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}
+            onClick={(e) => e.target === e.currentTarget && setShowPresetSave(false)}>
+            <div style={{ background:"var(--foam)", borderRadius:"12px", padding:"24px", width:"100%", maxWidth:"360px", boxShadow:"0 8px 32px #0003" }}>
+              <h3 style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", marginBottom:"16px", color:"var(--espresso)" }}>
+                {lang === "en" ? "Save as Preset" : "프리셋으로 저장"}
+              </h3>
+              <p style={{ fontSize:"0.78rem", color:"var(--muted)", marginBottom:"14px", lineHeight:1.6 }}>
+                {lang === "en"
+                  ? "Current settings will be saved: menu, dose, time, yield, temperature, and grind size."
+                  : "현재 입력된 메뉴, 원두량, 시간, 추출량, 온도, 분쇄도가 저장돼요."}
+              </p>
+              <div className="field full" style={{ marginBottom:"14px" }}>
+                <label>{lang === "en" ? "Preset Name" : "프리셋 이름"}</label>
+                <input
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") savePreset(); if (e.key === "Escape") setShowPresetSave(false); }}
+                  placeholder={lang === "en" ? "e.g. Morning Espresso" : "예) 아침 에스프레소"}
+                  autoFocus
+                />
+              </div>
+              <div style={{ display:"flex", gap:"8px", justifyContent:"flex-end" }}>
+                <button className="btn-cancel" onClick={() => { setShowPresetSave(false); setPresetName(""); }}>
+                  {lang === "en" ? "Cancel" : "취소"}
+                </button>
+                <button className="btn-save-sm" onClick={savePreset} disabled={!presetName.trim()}>
+                  {lang === "en" ? "Save" : "저장"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="modal-grid">
+          {/* ── 섹션: 기본 정보 ── */}
+          <div style={{ gridColumn:"1 / -1", margin:"4px 0 16px" }}>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>기본 정보</span>
+            <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
+          </div>
+
+          {/* 커피 메뉴 선택 */}
+          <div className="field full" data-field="menu">
+            <label style={{ color: errors.menu ? "#c0392b" : undefined }}>{t.coffeeMenu}</label>
+            <div className="menu-selector" style={{ border: errors.menu ? "1px solid #c0392b" : "none", borderRadius:"8px", padding: errors.menu ? "0.5rem" : "0" }}>
+              {COFFEE_MENUS.map((m) => (
+                <button key={m.id} type="button"
+                  className={`menu-btn ${selectedMenu === m.id ? "selected" : ""}`}
+                  onClick={() => { selectMenu(m); setErrors((p) => ({ ...p, menu: false })); }}>
+                  {MenuIcons[m.id]}
+                  {lang === "en" ? m.labelEn : m.label}
+                </button>
+              ))}
+            </div>
+            {errors.menu && <p style={{ color:"#c0392b", fontSize:"0.78rem", marginTop:"0.3rem" }}>⚠️ 커피 메뉴를 선택해주세요</p>}
+          </div>
+
+          {/* HOT / ICE 토글 */}
+          {canIce && (
+            <div className="field full">
+              <div style={{ display:"flex", gap:"8px" }}>
+                {[
+                  { isIced:false, label:"HOT", color:"#e67e22", bg:"#FEF3E8" },
+                  { isIced:true,  label:"ICE", color:"#2980b9", bg:"#EBF5FB" },
+                ].map(({ isIced, label, color, bg }) => (
+                  <button key={label} type="button"
+                    onClick={() => { set("isIced", isIced); if (!isIced && !form.waterTemp) set("waterTemp","93"); }}
+                    style={{ flex:1, height:"44px", border:"1px solid", borderRadius:"8px", cursor:"pointer",
+                      fontFamily:"'DM Sans',sans-serif", fontSize:"0.9rem", fontWeight: form.isIced === isIced ? 600 : 400,
+                      transition:"all 0.2s", display:"flex", alignItems:"center", justifyContent:"center", gap:"6px",
+                      borderColor: form.isIced === isIced ? color : "var(--steam)",
+                      background:  form.isIced === isIced ? bg    : "var(--foam)",
+                      color:       form.isIced === isIced ? color : "var(--muted)" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 원두 선택 — 내 원두에서 */}
+          {myBeans.length === 0 ? (
+            <div className="field full">
+              <div style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"8px", padding:"14px 16px", fontSize:"0.82rem", color:"var(--muted)", lineHeight:1.6 }}>
+                {lang === "en"
+                  ? "No beans registered. Add beans in the My Beans tab first."
+                  : "등록된 원두가 없어요. 내 원두 탭에서 원두를 먼저 추가해주세요."}
+              </div>
+            </div>
+          ) : (
+            <div className="field full">
+              <label style={{ color: errors.bean ? "#c0392b" : undefined }}>
+                {lang === "en" ? "Select Bean *" : "원두 선택 *"}
+              </label>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+                {myBeans.map((b) => {
+                  const roastDays  = b.roastDate ? Math.floor((Date.now() - new Date(b.roastDate)) / 86400000) : null;
+                  const isExhausted = b.status === "empty";
+                  const isSelected  = linkedBeanId === b.id;
+                  return (
+                    <button key={b.id} type="button"
+                      disabled={isExhausted}
+                      onClick={() => {
+                        if (isSelected) {
+                          setLinkedBeanId(null);
+                          set("company",""); set("bean",""); set("roastDate","");
+                        } else {
+                          setLinkedBeanId(b.id);
+                          set("company", b.roastery || "");
+                          set("bean",    b.name     || "");
+                          set("roastDate", b.roastDate || "");
+                          setErrors((p) => ({ ...p, bean:false, company:false }));
+                        }
+                      }}
+                      style={{
+                        padding:"6px 12px", border:"1px solid", borderRadius:"8px",
+                        fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem",
+                        cursor: isExhausted ? "not-allowed" : "pointer",
+                        borderColor: isSelected  ? "var(--espresso)" : "var(--steam)",
+                        background:  isSelected  ? "var(--espresso)" : isExhausted ? "var(--divider)" : "var(--foam)",
+                        color:       isSelected  ? "var(--cream)"    : isExhausted ? "var(--muted)"   : "var(--espresso)",
+                        opacity: isExhausted ? 0.5 : 1, textAlign:"left", lineHeight:1.4, transition:"all 0.15s",
+                      }}>
+                      <span style={{ fontWeight:600 }}>{b.name}</span>
+                      <span style={{ marginLeft:"4px", fontSize:"0.72rem", opacity:0.7 }}>· {b.roastery}</span>
+                      {roastDays !== null && (
+                        <span style={{ marginLeft:"4px", fontSize:"0.65rem", opacity:0.6 }}>
+                          ({roastDays}{lang === "en" ? "d" : "일"})
+                        </span>
+                      )}
+                      {b.usedCount > 0 && (
+                        <span style={{ marginLeft:"3px", fontSize:"0.65rem", color: isSelected ? "var(--cream)" : "var(--latte)", opacity:0.8 }}>
+                          ×{b.usedCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {errors.bean && <p style={{ color:"#c0392b", fontSize:"0.78rem", marginTop:"0.4rem" }}>⚠️ {lang === "en" ? "Please select a bean." : "원두를 선택해주세요."}</p>}
+            </div>
+          )}
+
+          {/* ── 섹션: 장비 설정 ── */}
+          <div style={{ gridColumn:"1 / -1", margin:"36px 0 16px" }}>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>장비 설정</span>
+            <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
+          </div>
+
+          {/* 내 장비에서 선택 */}
+          {myEquips.length > 0 && (
+            <div className="field full">
+              <label style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="9" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 4V3a2 2 0 0 1 4 0v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M10.5 7h1.5a1.5 1.5 0 0 1 0 3h-1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                {lang === "en" ? "Select from My Gear" : "내 장비에서 선택"}
+              </label>
+              {[
+                { cat:"machine",  labelKo:"커피 머신",    labelEn:"Machine" },
+                { cat:"handdrip", labelKo:"핸드드립 기구", labelEn:"Hand Drip" },
+                { cat:"grinder",  labelKo:"그라인더",     labelEn:"Grinder" },
+                { cat:"other",    labelKo:"기타",         labelEn:"Other" },
+              ].map(({ cat, labelKo, labelEn }) => {
+                if (cat === "machine"  && selectedMenu === "hand_drip") return null;
+                if (cat === "handdrip" && selectedMenu && selectedMenu !== "hand_drip" && selectedMenu !== "other") return null;
+                const catEquips = myEquips.filter((e) => e.category === cat);
+                if (!catEquips.length) return null;
+                return (
+                  <div key={cat} style={{ marginBottom:"8px" }}>
+                    <div style={{ fontSize:"0.62rem", color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"5px" }}>
+                      {lang === "en" ? labelEn : labelKo}
+                    </div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+                      {catEquips.map((eq) => {
+                        const isSelected = selectedEquipIds[eq.category] === eq.id;
+                        return (
+                          <button key={eq.id} type="button"
+                            onClick={() => {
+                              const newIds = { ...selectedEquipIds };
+                              if (isSelected) { delete newIds[eq.category]; setSelectedEquipIds(newIds); }
+                              else {
+                                if (eq.category === "machine")  delete newIds.handdrip;
+                                if (eq.category === "handdrip") delete newIds.machine;
+                                newIds[eq.category] = eq.id;
+                                setSelectedEquipIds(newIds);
+                                applyEquipment(eq);
+                              }
+                            }}
+                            style={{ padding:"5px 12px", border:"1px solid", borderRadius:"8px",
+                              fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", cursor:"pointer", transition:"all 0.15s",
+                              display:"flex", alignItems:"center", gap:"5px",
+                              borderColor: isSelected ? "var(--espresso)" : "var(--steam)",
+                              background:  isSelected ? "var(--espresso)" : "var(--foam)" }}>
+                            <span style={{ fontWeight:600, color: isSelected ? "var(--cream)" : "var(--espresso)" }}>{eq.brand}</span>
+                            {eq.isPrimary && !isSelected && <span style={{ fontSize:"0.6rem", color:"var(--latte)" }}>★</span>}
+                            {eq.model && <span style={{ color: isSelected ? "var(--cream)" : "var(--muted)", fontSize:"0.72rem", opacity: isSelected ? 0.8 : 1 }}>{eq.model}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 머신 / 핸드드립 (내 장비 미등록 시) */}
+          {!myEquips.some((e) => e.category === "machine" || e.category === "handdrip") && (
+            <div className="field full">
+              <label>{machineType === "handdrip" ? (lang === "en" ? "Hand Drip Equipment" : "핸드드립 기구") : t.machine}</label>
+              <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
+                {[
+                  { val:"auto",     label: lang === "en" ? "Coffee Machine" : "커피 머신" },
+                  { val:"handdrip", label: lang === "en" ? "Hand Drip"      : "핸드드립" },
+                ].map(({ val, label }) => (
+                  <button key={val} type="button"
+                    onClick={() => {
+                      if (val === "handdrip") {
+                        setMachineType("handdrip"); setMachineBrand(""); setMachineModel(""); setMachineLocked(false);
+                        const hd = COFFEE_MENUS.find((m) => m.id === "hand_drip");
+                        if (hd) selectMenu(hd);
+                      } else {
+                        setMachineType("auto");
+                        setMachineBrand(savedMachine?.equipType !== "handdrip" ? (savedMachine?.brand || "") : "");
+                        setMachineModel(savedMachine?.equipType !== "handdrip" ? (savedMachine?.model || "") : "");
+                        setMachineLocked(false);
+                      }
+                    }}
+                    style={{ flex:1, height:"42px", border:"1px solid", borderRadius:"8px",
+                      borderColor: (val === "handdrip" ? machineType === "handdrip" : machineType !== "handdrip") ? "var(--espresso)" : "var(--steam)",
+                      background:  (val === "handdrip" ? machineType === "handdrip" : machineType !== "handdrip") ? "var(--espresso)" : "var(--foam)",
+                      color:       (val === "handdrip" ? machineType === "handdrip" : machineType !== "handdrip") ? "var(--cream)"    : "var(--muted)",
+                      fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem",
+                      fontWeight: (val === "handdrip" ? machineType === "handdrip" : machineType !== "handdrip") ? 600 : 400,
+                      cursor:"pointer", transition:"all 0.2s" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {machineType === "handdrip" ? (
+                <input value={handDripName} onChange={(e) => setHandDripName(e.target.value)}
+                  placeholder={lang === "en" ? "e.g. Hario V60, Chemex …" : "예) 하리오 V60, 케멕스 …"}
+                  style={{ width:"100%", padding:"0.75rem 1rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.95rem", color:"var(--espresso)", outline:"none" }}
+                />
+              ) : machineLocked ? (
+                <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+                  <div style={{ flex:1, padding:"0.75rem 1rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontSize:"0.95rem", color:"var(--espresso)", fontWeight:500 }}>
+                    {machineDisplay}
+                  </div>
+                  <button onClick={() => setMachineLocked(false)}
+                    style={{ height:"42px", padding:"0 16px", background:"none", border:"1px solid var(--steam)", borderRadius:"8px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--muted)", cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.2s" }}>
+                    {lang === "en" ? "Edit" : "변경"}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <BrandInput value={machineBrand} onChange={(v) => { setMachineBrand(v); setMachineModel(""); }}
+                    brands={MACHINE_BRANDS} placeholder="브랜드 입력 또는 검색 (예: Breville, 드롱기…)"/>
+                  {machineBrand && (
+                    <>
+                      {isBothModeBrand(machineBrand) && (
+                        <div style={{ display:"flex", gap:"8px", marginTop:"8px" }}>
+                          {[{ val:"auto", label: t.autoType }, { val:"manual", label: t.manualType }].map(({ val, label }) => (
+                            <button key={val} type="button" onClick={() => setMachineType(val)}
+                              style={{ flex:1, height:"42px", border:"1px solid", borderRadius:"8px",
+                                borderColor: machineType === val ? "var(--espresso)" : "var(--steam)",
+                                background:  machineType === val ? "var(--espresso)" : "var(--foam)",
+                                color:       machineType === val ? "var(--cream)"    : "var(--muted)",
+                                fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem",
+                                fontWeight: machineType === val ? 600 : 400, cursor:"pointer", transition:"all 0.2s" }}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <input value={machineModel} onChange={(e) => setMachineModel(e.target.value)}
+                        placeholder={isCustomBrand ? "브랜드명과 모델명 입력" : "예) Barista Express, Dedica …"}
+                        style={{ width:"100%", marginTop:"8px", padding:"0.75rem 1rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.95rem", color:"var(--espresso)", outline:"none" }}
+                      />
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* 그라인더 (내 장비 미등록 + 전자동 아닐 때) */}
+          {!myEquips.some((e) => e.category === "grinder") && !isAutoMode && (
+            grinderLocked ? (
+              <div className="field full">
+                <label>{t.grinder}</label>
+                <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+                  <div style={{ flex:1, padding:"0.75rem 1rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontSize:"0.95rem", color:"var(--espresso)", fontWeight:500 }}>
+                    {grinderDisplay}
+                  </div>
+                  <button onClick={() => setGrinderLocked(false)}
+                    style={{ height:"42px", padding:"0 16px", background:"none", border:"1px solid var(--steam)", borderRadius:"8px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--muted)", cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.2s" }}>
+                    {lang === "en" ? "Edit" : "변경"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="field full">
+                  <label>{t.grinderBrand}</label>
+                  <BrandInput value={grinderBrand} onChange={(v) => { setGrinderBrand(v); setGrinderModel(""); }}
+                    brands={GRINDER_BRANDS} placeholder="브랜드 입력 또는 검색 (예: Mahlkönig, 마쩌…)"/>
+                </div>
+                {grinderBrand && (
+                  <div className="field full">
+                    <label>{t.machineModel}</label>
+                    <input value={grinderModel} onChange={(e) => setGrinderModel(e.target.value)}
+                      placeholder={isCustomGrinderBrand ? "브랜드명과 모델명 입력" : "예) Encore, C40, Nano …"}/>
+                  </div>
+                )}
+              </>
+            )
+          )}
+
+          {/* 분쇄도 (전자동 아닐 때) */}
+          {!isAutoMode && (
+            <div className="field full">
+              <label>{lang === "en" ? "Grind Size" : "분쇄도"}</label>
+              <input value={form.grindSize} onChange={(e) => set("grindSize", e.target.value)}
+                placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"}/>
+            </div>
+          )}
+
+          {/* ── 섹션: 추출 파라미터 ── */}
+          <div style={{ gridColumn:"1 / -1", margin:"36px 0 16px" }}>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>추출 파라미터</span>
+            <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
+          </div>
+
+          {/* 원두량 */}
+          {isAutoMode ? (
+            <div className="field full">
+              <div className="bean-counter">
+                <span className="bean-counter-label">
+                  {t.gramAuto}
+                  <span className="auto-badge">전자동</span>
+                </span>
+                <div className="bean-counter-display">
+                  <div className="bean-icons">
+                    {Array.from({ length: Number(form.gram) || 0 }).map((_, i) => (
+                      <span key={i} className="bean-icon" title="클릭해서 제거"
+                        onClick={() => set("gram", String(Math.max(0, (Number(form.gram)||0) - 1)))}>
+                        <CoffeeBeanIcon size={22}/>
+                      </span>
+                    ))}
+                    {(!form.gram || Number(form.gram) === 0) && (
+                      <span style={{ fontSize:"0.82rem", color:"var(--muted)" }}>
+                        {lang === "ko" ? "콩을 추가해주세요" : "Add beans"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="bean-counter-btns">
+                    <button type="button" className="bean-btn"
+                      onClick={() => set("gram", String(Math.max(0, (Number(form.gram)||0) - 1)))}>−</button>
+                    <button type="button" className="bean-btn"
+                      onClick={() => set("gram", String((Number(form.gram)||0) + 1))}>+</button>
+                  </div>
+                </div>
+                <span className="bean-count-text">{form.gram || 0}개</span>
+              </div>
+            </div>
+          ) : (
+            <div className="field" data-field="gram">
+              <label style={{ color: errors.gram ? "#c0392b" : undefined }}>{t.gram}</label>
+              <input type="number" value={form.gram}
+                onChange={(e) => { set("gram", String(Math.max(0, Number(e.target.value)))); setErrors((p) => ({ ...p, gram:false })); }}
+                placeholder="18" min="0"
+                style={{ borderColor: errors.gram ? "#c0392b" : undefined }}/>
+              {errors.gram && <p style={{ color:"#c0392b", fontSize:"0.78rem", marginTop:"0.3rem" }}>⚠️ 필수 항목이에요</p>}
+            </div>
+          )}
+
+          {/* 추출 시간 — Timer 컴포넌트 */}
+          <div className="field" data-field="seconds">
+            <label style={{ color: errors.seconds ? "#c0392b" : undefined }}>{t.seconds}</label>
+            <Timer
+              value={form.seconds}
+              infusionValue={form.infusionSeconds || "0"}
+              onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
+              onInfusionChange={(v) => set("infusionSeconds", v)}
+              lang={lang} t={t}
+            />
+            {errors.seconds && <p style={{ color:"#c0392b", fontSize:"0.78rem", marginTop:"0.3rem" }}>{lang === "en" ? "⚠️ Required" : "⚠️ 필수 항목이에요"}</p>}
+          </div>
+
+          {/* 추출량 */}
+          <div className="field" data-field="espressoMl">
+            <label style={{ color: errors.espressoMl ? "#c0392b" : undefined }}>{t.espressoMl}</label>
+            <input type="number" value={form.espressoMl}
+              onChange={(e) => { set("espressoMl", String(Math.max(0, Number(e.target.value)))); setErrors((p) => ({ ...p, espressoMl:false })); }}
+              placeholder="36" min="0"
+              style={{ borderColor: errors.espressoMl ? "#c0392b" : undefined }}/>
+            {errors.espressoMl && <p style={{ color:"#c0392b", fontSize:"0.78rem", marginTop:"0.3rem" }}>⚠️ 필수 항목이에요</p>}
+          </div>
+
+          {/* 물온도 */}
+          <div className="field">
+            <label>{lang === "en" ? "Water Temp (°C)" : "물온도 (°C)"}</label>
+            <input type="number" value={form.waterTemp}
+              onChange={(e) => set("waterTemp", String(Math.max(0, Number(e.target.value))))}
+              placeholder="93" min="0" max="100"/>
+          </div>
+
+          {/* 물 종류 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Water Type" : "물 종류"}</label>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", marginBottom:"6px" }}>
+              {[
+                { id:"tap",    ko:"수돗물", en:"Tap Water" },
+                { id:"filter", ko:"정수기", en:"Filtered" },
+                { id:"bottle", ko:"생수",   en:"Bottled" },
+                { id:"other",  ko:"기타",   en:"Other" },
+              ].map((w) => {
+                const isSel = form.waterType === w.id;
+                return (
+                  <button key={w.id} type="button" onClick={() => set("waterType", isSel ? "" : w.id)}
+                    style={{ padding:"5px 12px", border:"1px solid", borderRadius:"8px",
+                      fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", cursor:"pointer", transition:"all 0.15s",
+                      borderColor: isSel ? "var(--espresso)" : "var(--steam)",
+                      background:  isSel ? "var(--espresso)" : "var(--foam)",
+                      color:       isSel ? "var(--cream)"    : "var(--espresso)" }}>
+                    {lang === "en" ? w.en : w.ko}
+                  </button>
+                );
+              })}
+            </div>
+            {(form.waterType === "filter" || form.waterType === "bottle" || form.waterType === "other") && (
+              <input value={form.waterBrand || ""} onChange={(e) => set("waterBrand", e.target.value)}
+                placeholder={
+                  form.waterType === "filter" ? (lang === "en" ? "e.g. Coway, Brita…" : "예) 코웨이, 브리타…")
+                  : form.waterType === "bottle" ? (lang === "en" ? "e.g. Evian, Volvic…" : "예) 삼다수, 에비앙…")
+                  : (lang === "en" ? "Specify…" : "직접 입력…")
+                }/>
+            )}
+          </div>
+
+          {/* 희석 */}
+          {needsDilute && (
+            <>
+              <div className="field full">
+                <label>{t.diluteType}</label>
+                {diluteCategory !== "milk" && (
+                  <div style={{ marginBottom:"10px" }}>
+                    <div style={{ fontSize:"0.62rem", color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"5px" }}>{lang === "en" ? "Water" : "물"}</div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+                      <button type="button" onClick={() => set("diluteType", form.diluteType === "물" ? "" : "물")}
+                        style={{ padding:"5px 12px", border:"1px solid", borderRadius:"8px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", cursor:"pointer", transition:"all 0.15s",
+                          borderColor: form.diluteType === "물" ? "var(--espresso)" : "var(--steam)",
+                          background:  form.diluteType === "물" ? "var(--espresso)" : "var(--foam)",
+                          color:       form.diluteType === "물" ? "var(--cream)"    : "var(--espresso)" }}>
+                        {lang === "en" ? "Water" : "물"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontSize:"0.62rem", color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"5px" }}>{lang === "en" ? "Milk" : "우유"}</div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+                    {[
+                      { id:"우유",       en:"Whole Milk" },
+                      { id:"저지방우유", en:"Low-fat Milk" },
+                      { id:"두유",       en:"Soy Milk" },
+                      { id:"귀리우유",   en:"Oat Milk" },
+                      { id:"아몬드우유", en:"Almond Milk" },
+                      { id:"코코넛우유", en:"Coconut Milk" },
+                      { id:"기타우유",   en:"Other Milk" },
+                    ].map((m) => {
+                      const isSel = form.diluteType === m.id;
+                      return (
+                        <button key={m.id} type="button"
+                          onClick={() => { set("diluteType", isSel ? "" : m.id); if (m.id !== "기타우유") set("diluteCustom",""); }}
+                          style={{ padding:"5px 12px", border:"1px solid", borderRadius:"8px",
+                            fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", cursor:"pointer", transition:"all 0.15s",
+                            borderColor: isSel ? "var(--espresso)" : "var(--steam)",
+                            background:  isSel ? "var(--espresso)" : "var(--foam)",
+                            color:       isSel ? "var(--cream)"    : "var(--espresso)" }}>
+                          {lang === "en" ? m.en : m.id === "기타우유" ? "기타" : m.id}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {form.diluteType === "기타우유" && (
+                    <input style={{ marginTop:"6px" }} value={form.diluteCustom || ""}
+                      onChange={(e) => set("diluteCustom", e.target.value)}
+                      placeholder={lang === "en" ? "e.g. Rice milk…" : "예) 쌀우유, 마카다미아 우유…"}/>
+                  )}
+                </div>
+              </div>
+              <div className="field full">
+                <label>{t.diluteMl}</label>
+                <input type="number" value={form.diluteMl}
+                  onChange={(e) => set("diluteMl", String(Math.max(0, Number(e.target.value))))}
+                  placeholder="150" min="0"/>
+              </div>
+            </>
+          )}
+
+          {/* 시럽 */}
+          {hasSyrup && (
+            <div className="field full">
+              <label>{t.syrup}</label>
+              <input value={form.syrup || ""} onChange={(e) => set("syrup", e.target.value)}
+                placeholder="바닐라 시럽 1펌프, 카라멜 시럽 2펌프 …"/>
+            </div>
+          )}
+
+          {/* ── 섹션: 기록 & 평가 ── */}
+          <div style={{ gridColumn:"1 / -1", margin:"36px 0 16px" }}>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>기록 & 평가</span>
+            <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
+          </div>
+
+          {/* 기록 날짜 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Brew Date" : "기록 날짜"}</label>
+            <input type="date" value={form.recordDate || ""}
+              onChange={(e) => set("recordDate", e.target.value)}
+              max={new Date().toISOString().split("T")[0]}/>
+          </div>
+
+          {/* 날씨 */}
+          <div className="field full">
+            <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <span>{lang === "en" ? "Weather at Brew Time" : "추출 시점 날씨"}</span>
+              {!weatherLoading && (
+                <button type="button" onClick={() => {
+                  setWeatherError(null); setWeatherLoading(true);
+                  fetchWeather().then((w) => { setWeather(w); setWeatherError(null); })
+                    .catch((e) => { setWeatherError(typeof e === "string" ? e : e.message); })
+                    .finally(() => setWeatherLoading(false));
+                }} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--muted)", display:"inline-flex", alignItems:"center", gap:"4px", fontSize:"0.7rem", fontFamily:"'DM Sans',sans-serif", padding:0 }}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13.5 8a5.5 5.5 0 1 1-1.1-3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M13.5 3v2.5H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  {lang === "en" ? "Refresh" : "새로고침"}
+                </button>
+              )}
+            </label>
+            {weatherLoading && (
+              <div className="weather-loading">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation:"spin 1s linear infinite" }}>
+                  <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 25" strokeLinecap="round"/>
+                </svg>
+                {lang === "en" ? "Getting weather…" : "날씨 불러오는 중…"}
+              </div>
+            )}
+            {!weatherLoading && weather && (
+              <div className="weather-box">
+                <span className="weather-icon">{weather.icon}</span>
+                <div className="weather-info">
+                  <span className="weather-main">{weather.descKo} {weather.temp}°C</span>
+                  <span className="weather-detail">
+                    {lang === "en" ? "Humidity" : "습도"} {weather.humidity}% · {weather.country}
+                  </span>
+                </div>
+              </div>
+            )}
+            {!weatherLoading && !weather && !weatherError && (
+              <p style={{ fontSize:"0.78rem", color:"var(--muted)", opacity:0.7 }}>
+                {lang === "en" ? "Location permission required." : "위치 권한이 필요해요."}
+              </p>
+            )}
+            {weatherError && (
+              <p style={{ fontSize:"0.78rem", color:"#e67e22", marginTop:"0.3rem" }}>
+                ⚠️ {lang === "en" ? "Could not get weather. " : "날씨를 가져올 수 없어요. "}{weatherError}
+              </p>
+            )}
+          </div>
+
+          {/* Flavor 프로파일 */}
+          <div className="field full flavor-radar-wrap">
+            <label style={{ marginBottom:"16px", display:"block" }}>
+              {lang === "en" ? "Flavor Profile" : "플레이버 프로파일"}
+            </label>
+            <div style={{ display:"flex", justifyContent:"center", marginBottom:"20px" }}>
+              <FlavorRadar values={form} size={200} lang={lang}/>
+            </div>
+            <div className="flavor-grid-2col" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"12px 24px" }}>
+              {FLAVOR_AXES.map((ax) => {
+                const val = form[ax.key] || 0;
+                const pct = (val / 5) * 100;
+                return (
+                  <div key={ax.key} className="flavor-slider-row">
+                    <div className="flavor-slider-label">
+                      <span className="flavor-slider-name">{lang === "en" ? ax.en : ax.ko}</span>
+                      <span className={`flavor-slider-val${val === 0 ? " zero" : ""}`}>
+                        {val === 0 ? "—" : `${val} / 5`}
+                      </span>
+                    </div>
+                    <input type="range" min="0" max="5" step="1"
+                      value={val} onChange={(e) => set(ax.key, parseInt(e.target.value))}
+                      className="flavor-range" style={{ "--pct": `${pct}%` }}/>
+                    <div style={{ fontSize:"0.62rem", color:"var(--muted)", opacity:0.65, lineHeight:1.3, marginTop:"1px" }}>
+                      {lang === "en" ? ax.desc_en : ax.desc_ko}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 별점 */}
+          <div className="field full">
+            <label>{t.rating}</label>
+            <div className="star-rating">
+              {[1,2,3,4,5].map((star) => (
+                <button key={star} type="button"
+                  className={`star-btn ${star <= (form.rating || 0) ? "active" : ""}`}
+                  onClick={() => set("rating", form.rating === star ? 0 : star)}>
+                  {star <= (form.rating || 0) ? "★" : "☆"}
+                </button>
+              ))}
+              <span className="star-label">{t.ratingLabels[form.rating || 0]}</span>
+            </div>
+          </div>
+
+          {/* 예상 압력 */}
+          {machineType !== "handdrip" && pressureData && (
+            <div className={`pressure-box ${pressureData.status} field full`} style={{ marginBottom:0 }}>
+              <div className="pressure-title">{t.pressureTitle}</div>
+              <div className="pressure-row">
+                <span style={{ color:"var(--muted)" }}>{t.brewPressure}</span>
+                <span className={`pressure-val pressure-${pressureData.status}`}>
+                  {pressureData.status === "high"
+                    ? `9 bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${pressureData.pumpBar} bar)`
+                    : `${pressureData.showerBar} bar`}
+                </span>
+              </div>
+              <div style={{ marginTop:"0.3rem", fontSize:"0.78rem", color:"var(--muted)" }}>
+                {pressureData.status === "good" ? t.pressureGood : pressureData.status === "high" ? t.pressureHigh : t.pressureLow}
+                {" "}({t.pressureRange})
+              </div>
+            </div>
+          )}
+
+          {/* 맛 노트 */}
+          <div className="field full">
+            <label>{t.note}</label>
+            <textarea value={form.note} onChange={(e) => set("note", e.target.value)}
+              placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"}/>
+          </div>
+
+          {/* 태그 */}
+          <div className="field full">
+            <label style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                <path d="M2 2h6l6 6-6 6-6-6V2z" stroke="var(--latte)" strokeWidth="1.3" strokeLinejoin="round"/>
+                <circle cx="5.5" cy="5.5" r="1" fill="var(--latte)"/>
+              </svg>
+              {lang === "en" ? "Tags" : "태그"}
+            </label>
+            <TagInput tags={form.tags || []} onChange={(tags) => set("tags", tags)} lang={lang}/>
+          </div>
+
+          {/* 추출 세부 기록 (압력 + 연속추출 메모) */}
+          {machineType !== "handdrip" && (
+            <div className="field full" style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"var(--r-card)", padding:"16px", display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="var(--latte)" strokeWidth="1.3"/><path d="M8 5v3.5l2 1.5" stroke="var(--latte)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.06em", textTransform:"uppercase" }}>
+                  {lang === "en" ? "Advanced Brew Log" : "추출 세부 기록"}
+                </span>
+              </div>
+              {/* 압력 직접 입력 */}
+              <div>
+                <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
+                  {t.brewPressureDetail}
+                </label>
+                <div style={{ position:"relative", display:"flex", alignItems:"center" }}>
+                  <input type="number" min="0" max="20" step="0.1"
+                    value={form.brewPressureBar || ""}
+                    onChange={(e) => set("brewPressureBar", e.target.value)}
+                    placeholder={t.brewPressureDetailPh}
+                    style={{ width:"100%", padding:"0.7rem 3.2rem 0.7rem 1rem", border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.9rem", color:"var(--espresso)", outline:"none", transition:"border-color var(--transition-base)" }}
+                    onFocus={(e) => { e.target.style.borderColor = "var(--latte)"; }}
+                    onBlur={(e)  => { e.target.style.borderColor = "var(--steam)"; }}
+                  />
+                  <span style={{ position:"absolute", right:"12px", fontSize:"0.8rem", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif", fontWeight:600, pointerEvents:"none" }}>BAR</span>
+                </div>
+                {form.brewPressureBar && (() => {
+                  const bar    = parseFloat(form.brewPressureBar);
+                  const status = bar >= 9 && bar <= 11 ? "good" : bar > 11 ? "high" : "low";
+                  const colors = { good:"#27ae60", high:"#e67e22", low:"#2980b9" };
+                  const labels = { good: t.pressureGood, high: t.pressureHigh, low: t.pressureLow };
+                  return (
+                    <p style={{ marginTop:"5px", fontSize:"0.75rem", color:colors[status] }}>
+                      {labels[status]} ({t.pressureRange})
+                    </p>
+                  );
+                })()}
+              </div>
+              {/* 연속 추출 메모 */}
+              <div>
+                <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
+                  {t.continuousMemo}
+                </label>
+                <textarea value={form.continuousMemo || ""}
+                  onChange={(e) => set("continuousMemo", e.target.value)}
+                  placeholder={t.continuousMemoPh} rows={2}
+                  style={{ width:"100%", padding:"0.7rem 1rem", border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.9rem", color:"var(--espresso)", outline:"none", resize:"vertical", minHeight:"70px", lineHeight:1.55, transition:"border-color var(--transition-base)" }}
+                  onFocus={(e) => { e.target.style.borderColor = "var(--latte)"; }}
+                  onBlur={(e)  => { e.target.style.borderColor = "var(--steam)"; }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 공개 설정 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Visibility" : "공개 설정"}</label>
+            <div style={{ display:"flex", gap:"0.5rem" }}>
+              {[
+                { pub:true,  label: lang === "en" ? "Public"  : "공개",   desc: lang === "en" ? "Visible to everyone" : "피드에 공개됩니다" },
+                { pub:false, label: lang === "en" ? "Private" : "비공개", desc: lang === "en" ? "Only visible to you" : "나만 볼 수 있어요" },
+              ].map(({ pub, label, desc }) => {
+                const active = pub ? form.isPublic !== false : form.isPublic === false;
+                return (
+                  <button key={label} type="button" onClick={() => set("isPublic", pub)}
+                    style={{ flex:1, padding:"0.65rem", border:"1px solid", borderRadius:"8px", cursor:"pointer",
+                      fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", transition:"all 0.2s",
+                      display:"flex", alignItems:"center", justifyContent:"center", gap:"6px",
+                      borderColor: active ? "var(--espresso)" : "var(--steam)",
+                      background:  active ? "var(--espresso)" : "var(--foam)",
+                      color:       active ? "var(--cream)"    : "var(--muted)",
+                      fontWeight:  active ? 600 : 400 }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p style={{ fontSize:"0.76rem", color:"var(--muted)", marginTop:"0.4rem" }}>
+              {form.isPublic !== false
+                ? (lang === "en" ? "Visible to everyone in the feed" : "피드에 공개됩니다")
+                : (lang === "en" ? "Only visible to you" : "나만 볼 수 있어요")}
+            </p>
+          </div>
+        </div>
+
+        {/* 프리셋으로 저장 버튼 */}
+        <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"16px" }}>
+          <button type="button"
+            onClick={() => presets.length < PRESET_LIMIT && setShowPresetSave(true)}
+            disabled={presets.length >= PRESET_LIMIT}
+            style={{
+              background:"none", border:`1px solid ${presets.length >= PRESET_LIMIT ? "var(--divider)" : "var(--steam)"}`,
+              borderRadius:"8px", padding:"7px 14px",
+              cursor: presets.length >= PRESET_LIMIT ? "not-allowed" : "pointer",
+              fontSize:"0.78rem", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif",
+              display:"flex", alignItems:"center", gap:"5px", transition:"all 0.2s",
+              opacity: presets.length >= PRESET_LIMIT ? 0.5 : 1,
+            }}
+            onMouseEnter={(e) => { if (presets.length < PRESET_LIMIT) { e.currentTarget.style.borderColor = "var(--latte)"; e.currentTarget.style.color = "var(--latte)"; }}}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = presets.length >= PRESET_LIMIT ? "var(--divider)" : "var(--steam)"; e.currentTarget.style.color = "var(--muted)"; }}>
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            {lang === "en" ? "Save as Preset" : "현재 설정 프리셋으로 저장"}
+            {presets.length >= PRESET_LIMIT && (
+              <span style={{ fontSize:"0.68rem", color:"#e67e22", marginLeft:"2px" }}>({PRESET_LIMIT}/{PRESET_LIMIT})</span>
+            )}
+          </button>
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn-cancel" onClick={onClose}>{t.cancel}</button>
+          <button className="btn-primary" style={{ width:"auto", marginTop:0, padding:"0.7rem 2rem" }}
+            onClick={save} disabled={saving}>
+            {saving ? t.saving : isEdit ? t.update : t.save}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
