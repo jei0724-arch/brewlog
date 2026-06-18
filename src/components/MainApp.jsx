@@ -326,11 +326,20 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`,
         { method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ contents:[{ parts:[{ text:prompt }] }], generationConfig:{ temperature:0.7, maxOutputTokens:2048 } }) }
+          body: JSON.stringify({
+            contents:[{ parts:[{ text:prompt }] }],
+            generationConfig:{ temperature:0.7, maxOutputTokens:2048 },
+            // thinking 비활성화 — parts[0]이 thought가 되는 문제 방지
+            thinkingConfig:{ thinkingBudget:0 },
+          }) }
       );
       const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      const clean = text.replace(/```json|```/g,"").trim();
+      if (data.error) throw new Error(data.error.message);
+      // parts 중 thought가 아닌 실제 텍스트만 추출
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      const textPart = parts.find(p => !p.thought && p.text) || parts[0] || {};
+      const text = textPart.text || "";
+      const clean = text.replace(/```json\s*/g,"").replace(/```/g,"").trim();
       const parsed = JSON.parse(clean);
       const result = { ...parsed, fetchedAt: today };
       localStorage.setItem(langKey, JSON.stringify(result));
