@@ -235,6 +235,29 @@ export default function RecipeDetailModal({
           </div>
         )}
 
+        {/* TDS / 추출 수율 */}
+        {recipe.tds && recipe.espressoMl && recipe.gram && (() => {
+          const tds    = parseFloat(recipe.tds);
+          const ml     = parseFloat(recipe.espressoMl);
+          const gram   = parseFloat(recipe.gram);
+          if (!tds||!ml||!gram) return null;
+          const yield_ = (tds * ml) / gram;
+          const status = yield_ >= 18 && yield_ <= 22 ? "ideal" : yield_ < 18 ? "under" : "over";
+          const color  = { ideal:"#27ae60", under:"#2980b9", over:"#e67e22" }[status];
+          const label  = { ideal: lang==="en"?"Ideal":"이상적", under: lang==="en"?"Under":"과소", over: lang==="en"?"Over":"과다" }[status];
+          return (
+            <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"6px", padding:"8px 12px", background:"var(--cream)", borderRadius:"var(--r-chip)", border:`1px solid ${color}30` }}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke={color} strokeWidth="1.3"/><path d="M5 8h6M8 5v6" stroke={color} strokeWidth="1.3" strokeLinecap="round"/></svg>
+              <span style={{ fontSize:"0.72rem", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif" }}>
+                TDS <strong style={{ color:"var(--espresso)" }}>{tds}%</strong>
+                &nbsp;→&nbsp;
+                {lang==="en"?"Yield":"수율"} <strong style={{ color }}>{yield_.toFixed(1)}%</strong>
+                &nbsp;<span style={{ color, fontWeight:600, fontSize:"0.68rem" }}>({label})</span>
+              </span>
+            </div>
+          );
+        })()}
+
         {/* 연속 추출 메모 */}
         {recipe.continuousMemo && (
           <div style={{ marginBottom:"8px", padding:"8px 12px", background:"var(--cream)", borderRadius:"var(--r-chip)", border:"1px solid var(--divider)", fontSize:"0.78rem", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif", lineHeight:1.55 }}>

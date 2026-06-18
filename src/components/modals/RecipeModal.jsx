@@ -317,6 +317,7 @@ export default function RecipeModal({
           diluteCustom:    editTarget.diluteCustom    || "",
           brewPressureBar: editTarget.brewPressureBar || "",
           continuousMemo:  editTarget.continuousMemo  || "",
+          tds:             editTarget.tds             || "",
           tags:            editTarget.tags            || [],
           recordDate: isCopy
             ? new Date().toISOString().split("T")[0]
@@ -347,6 +348,7 @@ export default function RecipeModal({
           syrup: "", note: "",
           brewPressureBar: "",
           continuousMemo:  "",
+          tds:             "",
           tags: [],
         }
   );
@@ -646,6 +648,7 @@ export default function RecipeModal({
         linkedBeanId:    linkedBeanId   || null,
         brewPressureBar: form.brewPressureBar || null,
         continuousMemo:  form.continuousMemo  || "",
+        tds:             form.tds             || null,
         tags:            (form.tags || []).filter(Boolean),
       };
 
@@ -1616,6 +1619,112 @@ export default function RecipeModal({
                   onFocus={(e) => { e.target.style.borderColor = "var(--latte)"; }}
                   onBlur={(e)  => { e.target.style.borderColor = "var(--steam)"; }}
                 />
+              </div>
+
+              {/* TDS / 추출 수율 계산기 */}
+              <div>
+                <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
+                  TDS / {lang === "en" ? "Extraction Yield" : "추출 수율"}
+                </label>
+                <div style={{ display:"flex", gap:"8px", alignItems:"center", marginBottom:"8px" }}>
+                  <div style={{ position:"relative", flex:1 }}>
+                    <input type="number" min="0" max="25" step="0.01"
+                      value={form.tds || ""}
+                      onChange={(e) => set("tds", e.target.value)}
+                      placeholder={lang === "en" ? "e.g. 9.2" : "예) 9.2"}
+                      style={{ width:"100%", padding:"0.7rem 3.2rem 0.7rem 1rem", border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.9rem", color:"var(--espresso)", outline:"none", transition:"border-color var(--transition-base)", boxSizing:"border-box" }}
+                      onFocus={(e) => { e.target.style.borderColor = "var(--latte)"; }}
+                      onBlur={(e)  => { e.target.style.borderColor = "var(--steam)"; }}
+                    />
+                    <span style={{ position:"absolute", right:"12px", top:"50%", transform:"translateY(-50%)", fontSize:"0.78rem", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif", fontWeight:600, pointerEvents:"none" }}>TDS%</span>
+                  </div>
+                </div>
+
+                {/* 수율 계산 결과 */}
+                {(() => {
+                  const tds       = parseFloat(form.tds);
+                  const espresso  = parseFloat(form.espressoMl);
+                  const gram      = parseFloat(form.gram);
+                  if (!tds || !espresso || !gram || tds <= 0 || espresso <= 0 || gram <= 0) {
+                    return (
+                      <p style={{ fontSize:"0.72rem", color:"var(--muted)", lineHeight:1.6 }}>
+                        {lang === "en"
+                          ? "Enter TDS%, yield(ml), and dose(g) above to calculate extraction yield."
+                          : "TDS%와 추출량(ml), 원두량(g)을 입력하면 수율이 자동 계산돼요."}
+                      </p>
+                    );
+                  }
+                  // 수율 = (TDS% × 추출량ml) / 원두량g
+                  const yield_ = (tds * espresso) / gram;
+                  const yieldRounded = yield_.toFixed(1);
+                  const ratio   = (espresso / gram).toFixed(2);
+
+                  // SCA 기준: 18~22% 이상적
+                  const status =
+                    yield_ >= 18 && yield_ <= 22 ? "ideal"
+                    : yield_ < 18                 ? "under"
+                    :                               "over";
+                  const statusColors = { ideal:"#27ae60", under:"#2980b9", over:"#e67e22" };
+                  const statusLabels = {
+                    ideal: lang==="en" ? "Ideal extraction" : "이상적인 추출",
+                    under: lang==="en" ? "Under-extracted" : "과소 추출 (분쇄 더 가늘게)",
+                    over:  lang==="en" ? "Over-extracted"  : "과다 추출 (분쇄 더 굵게)",
+                  };
+                  const color = statusColors[status];
+
+                  return (
+                    <div style={{ background:"var(--foam)", border:`1px solid ${color}40`, borderRadius:"10px", padding:"12px 14px" }}>
+                      {/* 핵심 수치 행 */}
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"8px", marginBottom:"10px" }}>
+                        {[
+                          { label:lang==="en"?"Yield":"추출 수율", value:`${yieldRounded}%`, color },
+                          { label:lang==="en"?"Ratio":"추출 비율", value:`1 : ${ratio}`,   color:"var(--espresso)" },
+                          { label:"TDS",                              value:`${tds}%`,        color:"var(--muted)" },
+                        ].map(({ label, value, color: c }) => (
+                          <div key={label} style={{ textAlign:"center", background:"var(--cream)", borderRadius:"8px", padding:"8px 4px" }}>
+                            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.55rem", color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"3px" }}>{label}</div>
+                            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", fontWeight:700, color:c, lineHeight:1 }}>{value}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* 게이지 바 */}
+                      <div style={{ marginBottom:"6px" }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", fontSize:"0.6rem", color:"var(--muted)", marginBottom:"3px" }}>
+                          <span>0%</span>
+                          <span style={{ color:"#27ae60", fontWeight:600 }}>18% ── 22%</span>
+                          <span>30%</span>
+                        </div>
+                        <div style={{ position:"relative", height:"8px", background:"var(--steam)", borderRadius:"4px", overflow:"hidden" }}>
+                          {/* SCA 이상 구간 표시 */}
+                          <div style={{ position:"absolute", left:`${(18/30)*100}%`, width:`${((22-18)/30)*100}%`, height:"100%", background:"#27ae6030", borderRadius:"2px" }}/>
+                          {/* 현재 수율 마커 */}
+                          <div style={{ position:"absolute", left:`${Math.min(Math.max((yield_/30)*100,0),100)}%`, top:0, transform:"translateX(-50%)", width:"4px", height:"100%", background:color, borderRadius:"2px", transition:"left 0.3s" }}/>
+                        </div>
+                        <div style={{ display:"flex", justifyContent:"center", marginTop:"3px" }}>
+                          <span style={{ fontSize:"0.6rem", color:"#27ae60", opacity:0.7 }}>
+                            {lang==="en"?"SCA ideal range (18~22%)": "SCA 권장 수율 (18~22%)"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 상태 메시지 + 조언 */}
+                      <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                        <div style={{ width:"6px", height:"6px", borderRadius:"50%", background:color, flexShrink:0 }}/>
+                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", color, fontWeight:600 }}>
+                          {statusLabels[status]}
+                        </span>
+                        {status !== "ideal" && (
+                          <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginLeft:"2px" }}>
+                            {status === "under"
+                              ? (lang==="en" ? "— finer grind or longer time" : "— 분쇄 가늘게 or 추출 시간 늘리기")
+                              : (lang==="en" ? "— coarser grind or shorter time" : "— 분쇄 굵게 or 추출 시간 줄이기")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
