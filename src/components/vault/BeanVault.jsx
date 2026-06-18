@@ -6,7 +6,7 @@
    ─ EquipmentModal : 장비 추가/수정 (내부 서브컴포넌트)
    ─ EquipmentVault : 장비 목록 + 대표 장비 설정
    ============================================================ */
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   collection, doc, addDoc, updateDoc, deleteDoc,
   getDocs, query, where, serverTimestamp,
@@ -275,7 +275,7 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
       } else {
         await addDoc(collection(db,"beans"), { ...data, createdAt:serverTimestamp() });
       }
-      onSaved(); onClose();
+      onSaved(form); onClose();
     } catch(e) {
       console.error(e);
       setSaveError(e.code==="permission-denied"
@@ -381,6 +381,279 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// FirstBrewSuggestionModal — 신규 원두 첫 추출 파라미터 제안
+// ─────────────────────────────────────────────────────────────────
+const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY;
+
+function FirstBrewSuggestionModal({ bean, lang, user, onClose }) {
+  const isKo = lang === "ko";
+  const [result,  setResult]  = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState(null);
+  const [asked,   setAsked]   = useState(false);
+
+  // 캐시 키: 원두명 + 로스팅레벨 기반 (같은 원두는 재호출 안 함)
+  const cacheKey = user?.uid
+    ? `brewlog_firstbrew_${user.uid}_${bean.name}_${bean.roastLevel}_${bean.process}`.replace(/\s+/g,"_")
+    : null;
+
+  const ROAST_NAMES = {
+    green:"생두", cinnamon:"시나몬", medium:"미디엄", high:"하이",
+    city:"시티", full_city:"풀 시티", french:"프렌치", italian:"이탈리안",
+  };
+
+  // 모달 열릴 때 캐시 확인
+  useEffect(() => {
+    if (!cacheKey) return;
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      if (cached) { setResult(cached); setAsked(true); }
+    } catch {}
+  }, [cacheKey]);
+
+  const fetchSuggestion = async () => {
+    if (!GEMINI_KEY) { setError(isKo ? "VITE_GEMINI_KEY가 설정되지 않았어요." : "VITE_GEMINI_KEY not set."); return; }
+    setLoading(true); setError(null); setAsked(true);
+
+    const roastLabel = ROAST_NAMES[bean.roastLevel] || bean.roastLevel || "미디엄";
+
+    const prompt = isKo
+      ? `당신은 전문 바리스타 AI입니다. 아래 원두의 첫 에스프레소 추출을 위한 시작점 파라미터를 JSON으로만 응답하세요.
+원두 정보:
+- 이름: ${bean.name}
+- 로스터리: ${bean.roastery}
+- 산지: ${bean.originDetail || bean.originType}
+- 품종: ${bean.variety || "미상"}
+- 가공법: ${bean.process || "미상"}
+- 배전도: ${roastLabel}
+- 원두 타입: ${bean.originType === "single" ? "싱글 오리진" : "블렌드"}
+응답 형식(JSON only, 다른 텍스트 금지):
+{
+  "gram": "숫자만(g)",
+  "seconds": "숫자만(s)",
+  "espressoMl": "숫자만(ml)",
+  "waterTemp": "숫자만(°C)",
+  "grindDesc": "분쇄도 설명 한 문장",
+  "ratioDesc": "추출 비율 설명",
+  "tip": "이 원두 특성에 맞는 추출 팁 2~3문장",
+  "flavorExpect": "기대 플레이버 노트 3가지 이내"
+}`
+      : `You are a professional barista AI. Suggest starting espresso parameters for the bean below. Respond in JSON only.
+Bean info:
+- Name: ${bean.name}
+- Roastery: ${bean.roastery}
+- Origin: ${bean.originDetail || bean.originType}
+- Variety: ${bean.variety || "unknown"}
+- Process: ${bean.process || "unknown"}
+- Roast level: ${bean.roastLevel || "medium"}
+- Type: ${bean.originType === "single" ? "Single Origin" : "Blend"}
+JSON only:
+{
+  "gram": "number only(g)",
+  "seconds": "number only(s)",
+  "espressoMl": "number only(ml)",
+  "waterTemp": "number only(°C)",
+  "grindDesc": "one sentence grind description",
+  "ratioDesc": "ratio explanation",
+  "tip": "2-3 sentences extraction tip for this bean",
+  "flavorExpect": "up to 3 expected flavor notes"
+}`;
+
+    try {
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), 20000);
+      let res;
+      try {
+        res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.3, maxOutputTokens: 512, thinkingConfig: { thinkingLevel: "minimal" } },
+            }) }
+        );
+      } finally { clearTimeout(tid); }
+
+      const data  = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      const text  = (parts.find(p => !p.thought && p.text) || parts[0] || {}).text || "";
+      const clean = text.replace(/```json\s*/g, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      if (cacheKey) localStorage.setItem(cacheKey, JSON.stringify(parsed));
+      setResult(parsed);
+    } catch (e) {
+      console.error("[FirstBrew]", e);
+      setError(isKo
+        ? (e.name === "AbortError" ? "응답 시간이 초과됐어요. 다시 시도해주세요." : "AI 추천을 가져오지 못했어요: " + e.message)
+        : (e.name === "AbortError" ? "Request timed out. Please try again." : "Failed to get AI suggestion: " + e.message));
+    }
+    setLoading(false);
+  };
+
+  const StatBox = ({ label, value, unit }) => (
+    <div style={{ background:"rgba(255,255,255,0.07)", borderRadius:"10px", padding:"12px 8px", textAlign:"center" }}>
+      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.6rem", color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"4px" }}>{label}</div>
+      <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.3rem", fontWeight:700, color:"var(--latte)", lineHeight:1 }}>{value}</div>
+      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"rgba(255,255,255,0.35)", marginTop:"2px" }}>{unit}</div>
+    </div>
+  );
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth:"420px", padding:0, overflow:"hidden", borderRadius:"16px" }}>
+        {/* 헤더 */}
+        <div style={{ background:"linear-gradient(135deg,#1A1A1A 0%,#2C1A0E 100%)", padding:"20px 20px 18px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"12px" }}>
+            <div style={{ width:20, height:20, borderRadius:"50%", background:"var(--latte)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white"/></svg>
+            </div>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", color:"var(--latte)" }}>
+              {isKo ? "AI 첫 추출 파라미터 제안" : "AI First Brew Suggestion"}
+            </span>
+            <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.4)", fontSize:"1.1rem", lineHeight:1, padding:"2px" }}>✕</button>
+          </div>
+          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.2rem", fontWeight:700, color:"#FBFBFA", marginBottom:"3px" }}>{bean.name}</div>
+          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", color:"rgba(255,255,255,0.55)", display:"flex", flexWrap:"wrap", gap:"6px" }}>
+            {bean.roastery && <span>{bean.roastery}</span>}
+            {bean.originDetail && <><span style={{ opacity:0.3 }}>·</span><span>{bean.originDetail}</span></>}
+            {bean.process     && <><span style={{ opacity:0.3 }}>·</span><span>{bean.process}</span></>}
+            {bean.roastLevel  && <><span style={{ opacity:0.3 }}>·</span><span>{ROAST_NAMES[bean.roastLevel]||bean.roastLevel}</span></>}
+          </div>
+        </div>
+
+        <div style={{ padding:"20px", background:"var(--foam)" }}>
+          {/* 아직 요청 안 한 상태 */}
+          {!asked && !loading && !result && (
+            <div style={{ textAlign:"center", padding:"8px 0 16px" }}>
+              <div style={{ marginBottom:"14px" }}>
+                <svg width="44" height="44" viewBox="0 0 56 56" fill="none" style={{ margin:"0 auto 10px", display:"block" }}>
+                  <circle cx="28" cy="28" r="26" stroke="var(--latte)" strokeWidth="1.5" opacity="0.3"/>
+                  <ellipse cx="28" cy="36" rx="12" ry="3.5" stroke="var(--latte)" strokeWidth="1.5"/>
+                  <path d="M16 36c0-8 4-16 12-18 8 2 12 10 12 18" stroke="var(--latte)" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M22 20c0-3 2.5-5 6-5s6 2 6 5" stroke="var(--latte)" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", color:"var(--espresso)", fontWeight:500, marginBottom:"6px" }}>
+                  {isKo ? `"${bean.name}" 원두를 처음 추출하시나요?` : `First brew with "${bean.name}"?`}
+                </p>
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--muted)", lineHeight:1.6 }}>
+                  {isKo
+                    ? "산지·가공법·배전도를 분석해서 에스프레소 시작점 파라미터를 제안해드려요."
+                    : "I'll analyze the origin, process, and roast level to suggest starting espresso parameters."}
+                </p>
+              </div>
+              <button onClick={fetchSuggestion}
+                style={{ width:"100%", padding:"12px", background:"var(--espresso)", color:"var(--cream)", border:"none", borderRadius:"10px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.9rem", fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:"8px" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="currentColor"/></svg>
+                {isKo ? "첫 추출 파라미터 추천받기" : "Get First Brew Parameters"}
+              </button>
+              <button onClick={onClose}
+                style={{ width:"100%", marginTop:"8px", padding:"10px", background:"none", border:"none", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--muted)", cursor:"pointer" }}>
+                {isKo ? "괜찮아요, 직접 설정할게요" : "No thanks, I'll set it myself"}
+              </button>
+            </div>
+          )}
+
+          {/* 로딩 */}
+          {loading && (
+            <div style={{ textAlign:"center", padding:"32px 0" }}>
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" style={{ animation:"spin 1s linear infinite", margin:"0 auto 14px", display:"block" }}>
+                <circle cx="18" cy="18" r="15" stroke="var(--latte)" strokeWidth="2" strokeDasharray="24 56" strokeLinecap="round"/>
+              </svg>
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", color:"var(--muted)", lineHeight:1.6 }}>
+                {isKo ? "원두 특성을 분석하는 중이에요…" : "Analyzing bean characteristics…"}
+              </p>
+            </div>
+          )}
+
+          {/* 에러 */}
+          {error && !loading && (
+            <div style={{ textAlign:"center", padding:"16px 0" }}>
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"#c0392b", marginBottom:"14px", lineHeight:1.6 }}>⚠️ {error}</p>
+              <button onClick={fetchSuggestion}
+                style={{ padding:"9px 20px", background:"var(--espresso)", color:"var(--cream)", border:"none", borderRadius:"8px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", cursor:"pointer" }}>
+                {isKo ? "다시 시도" : "Retry"}
+              </button>
+            </div>
+          )}
+
+          {/* 결과 */}
+          {result && !loading && (
+            <div>
+              {/* 수치 4칸 */}
+              <div style={{ background:"linear-gradient(135deg,#1A1A1A 0%,#2C1A0E 100%)", borderRadius:"12px", padding:"16px", marginBottom:"14px" }}>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px", marginBottom:"10px" }}>
+                  <StatBox label={isKo?"원두량":"Dose"}     value={result.gram}       unit="g"/>
+                  <StatBox label={isKo?"추출시간":"Time"}    value={result.seconds}    unit="s"/>
+                  <StatBox label={isKo?"추출량":"Yield"}     value={result.espressoMl} unit="ml"/>
+                  <StatBox label={isKo?"물온도":"Temp"}      value={result.waterTemp}  unit="°C"/>
+                </div>
+                {result.ratioDesc && (
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"rgba(255,255,255,0.45)", textAlign:"center" }}>
+                    {result.ratioDesc}
+                  </div>
+                )}
+              </div>
+
+              {/* 분쇄도 */}
+              {result.grindDesc && (
+                <div style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"12px 14px", marginBottom:"10px" }}>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"5px" }}>
+                    {isKo ? "분쇄도" : "Grind Size"}
+                  </div>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", color:"var(--espresso)", lineHeight:1.5 }}>
+                    {result.grindDesc}
+                  </div>
+                </div>
+              )}
+
+              {/* 기대 플레이버 */}
+              {result.flavorExpect && (
+                <div style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"12px 14px", marginBottom:"10px" }}>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"6px" }}>
+                    {isKo ? "기대 플레이버" : "Expected Flavors"}
+                  </div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+                    {result.flavorExpect.split(/[,，·]/).map((f,i) => (
+                      <span key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--latte)", background:"#B07D5415", border:"1px solid #B07D5430", borderRadius:"999px", padding:"3px 10px" }}>
+                        {f.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 추출 팁 */}
+              {result.tip && (
+                <div style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderLeft:"3px solid var(--latte)", borderRadius:"0 10px 10px 0", padding:"12px 14px", marginBottom:"16px" }}>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"5px" }}>
+                    {isKo ? "추출 팁" : "Brew Tip"}
+                  </div>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--espresso)", lineHeight:1.65 }}>
+                    {result.tip}
+                  </div>
+                </div>
+              )}
+
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", textAlign:"center", lineHeight:1.6, marginBottom:"14px" }}>
+                {isKo
+                  ? "이 수치는 시작점 제안이에요. 실제 추출 후 맛을 보며 조정해보세요 ☕"
+                  : "These are starting suggestions. Taste and adjust after your first pull ☕"}
+              </p>
+
+              <button onClick={onClose}
+                style={{ width:"100%", padding:"11px", background:"var(--espresso)", color:"var(--cream)", border:"none", borderRadius:"10px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", fontWeight:500, cursor:"pointer" }}>
+                {isKo ? "확인했어요" : "Got it"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
 // BeanVault
 // ─────────────────────────────────────────────────────────────────
 export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setShowModal, editTarget, setEditTarget, currency="KRW" }) {
@@ -388,6 +661,7 @@ export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal
   const [beans,        setBeans]        = useState([]);
   const [usedGramsMap, setUsedGramsMap] = useState({});
   const [statsResetDate, setStatsResetDate] = useState(() => localStorage.getItem(`brewlog_stats_reset_${user?.uid}`)||null);
+  const [firstBrewTarget, setFirstBrewTarget] = useState(null); // 신규 원두 첫 추출 제안
   const [usdRate,    setUsdRate]    = useState(()=>loadCachedRate()||null);
   const [rateLoading,setRateLoading]= useState(false);
 
@@ -663,7 +937,20 @@ export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal
           })}
         </div>
       )}
-      {showModal && <BeanModal lang={lang} user={user} editTarget={editTarget} onClose={()=>setShowModal(false)} onSaved={loadBeans}/>}
+      {showModal && <BeanModal lang={lang} user={user} editTarget={editTarget} onClose={()=>setShowModal(false)}
+        onSaved={(savedForm)=>{
+          loadBeans();
+          // 신규 원두 등록 시에만 첫 추출 제안 표시
+          if (!editTarget) setFirstBrewTarget(savedForm);
+        }}/>}
+      {firstBrewTarget && (
+        <FirstBrewSuggestionModal
+          bean={firstBrewTarget}
+          lang={lang}
+          user={user}
+          onClose={()=>setFirstBrewTarget(null)}
+        />
+      )}
     </div>
   );
 }
