@@ -36,12 +36,125 @@ import { CoffeeBeanIcon, BrandInput, TagInput, FlavorRadar } from "../ui";
 import Timer from "../recipes/Timer";
 
 // ── OpenWeatherMap API ───────────────────────────────────────────
-const OWM_KEY = import.meta.env.VITE_OWM_KEY;
+const OWM_KEY    = import.meta.env.VITE_OWM_KEY;
+const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY;
 const WEATHER_ICONS = {
   Clear:"☀️", Clouds:"☁️", Rain:"🌧️", Drizzle:"🌦️",
   Thunderstorm:"⛈️", Snow:"❄️", Mist:"🌫️", Fog:"🌫️",
   Haze:"🌫️", Dust:"🌪️", Sand:"🌪️", Smoke:"🌫️",
 };
+
+// ── 날씨 팁 캐시 키 (오전/오후 2회 제한) ────────────────────────
+function getWeatherTipCacheKey(uid) {
+  const now    = new Date();
+  const date   = now.toISOString().slice(0, 10);          // 2026-06-18
+  const period = now.getHours() < 13 ? "AM" : "PM";      // 오전(~12시) / 오후(13시~)
+  return `brewlog_weather_tip_${uid}_${date}_${period}`;
+}
+
+// ── 규칙 기반 즉시 팁 생성 ───────────────────────────────────────
+function getRuleBasedTip(weather, lang) {
+  if (!weather) return null;
+  const { temp, humidity, condition } = weather;
+  const isKo = lang === "ko";
+  const tips = [];
+
+  // 온도 기반
+  if (temp >= 28) {
+    tips.push(isKo
+      ? `🌡️ ${temp}°C 고온 — 분쇄도 0.5단계 굵게, 추출량 3ml 줄이기 권장`
+      : `🌡️ ${temp}°C heat — coarser grind by 0.5, reduce yield by 3ml`);
+  } else if (temp <= 10) {
+    tips.push(isKo
+      ? `🥶 ${temp}°C 저온 — 머신 예열 30초 추가, 분쇄도 미세하게 조정`
+      : `🥶 ${temp}°C cold — extra 30s preheat, grind slightly finer`);
+  } else if (temp >= 23 && temp < 28) {
+    tips.push(isKo
+      ? `☀️ ${temp}°C 따뜻함 — 평소 레시피 유지, 추출 안정 조건`
+      : `☀️ ${temp}°C warm — stable conditions, usual recipe recommended`);
+  }
+
+  // 습도 기반
+  if (humidity >= 70) {
+    tips.push(isKo
+      ? `💧 습도 ${humidity}% — 원두 산화 주의, 밀봉 보관 확인`
+      : `💧 ${humidity}% humidity — check bean storage, risk of oxidation`);
+  } else if (humidity <= 30) {
+    tips.push(isKo
+      ? `🏜️ 건조 ${humidity}% — 원두가 빠르게 마름, 추출 시간 1초 단축 고려`
+      : `🏜️ Dry ${humidity}% — beans dry fast, consider 1s shorter extraction`);
+  }
+
+  // 날씨 상태 기반
+  if (condition === "Rain" || condition === "Drizzle") {
+    tips.push(isKo
+      ? `🌧️ 비 날씨 — 기압 낮아 추출 빨라질 수 있음, 분쇄도 미세하게`
+      : `🌧️ Rainy — lower pressure may speed extraction, grind slightly finer`);
+  } else if (condition === "Thunderstorm") {
+    tips.push(isKo
+      ? `⛈️ 폭풍 — 기압 급변 주의, 추출 시간 모니터링 권장`
+      : `⛈️ Storm — watch extraction time, pressure may vary`);
+  }
+
+  return tips.length > 0 ? tips.join("\n") : null;
+}
+
+// ── Gemini 날씨 팁 (오전/오후 2회 캐싱) ─────────────────────────
+async function fetchGeminiWeatherTip(weather, recentRecipes, lang, uid) {
+  if (!GEMINI_KEY || !weather || !uid) return null;
+  const cacheKey = getWeatherTipCacheKey(uid);
+  try {
+    const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+    if (cached) return cached;
+  } catch {}
+
+  const isKo = lang === "ko";
+  const avgGram     = recentRecipes.length
+    ? (recentRecipes.reduce((s,r)=>s+(parseFloat(r.gram)||0),0)/recentRecipes.length).toFixed(1) : null;
+  const avgSeconds  = recentRecipes.length
+    ? (recentRecipes.reduce((s,r)=>s+(parseFloat(r.seconds)||0),0)/recentRecipes.length).toFixed(0) : null;
+  const avgEspresso = recentRecipes.length
+    ? (recentRecipes.reduce((s,r)=>s+(parseFloat(r.espressoMl)||0),0)/recentRecipes.length).toFixed(0) : null;
+  const topMachine  = recentRecipes.find(r=>r.machine)?.machine || "";
+  const topBean     = recentRecipes.find(r=>r.bean)?.bean || "";
+
+  const prompt = isKo
+    ? `당신은 전문 바리스타 AI입니다. 현재 날씨와 유저의 평균 레시피를 보고, 오늘 추출에 맞는 파라미터 팁을 JSON으로만 응답하세요.
+현재 날씨: ${weather.descKo} ${weather.temp}°C, 습도 ${weather.humidity}%
+평균 레시피: 원두 ${avgGram}g / 추출 ${avgSeconds}초 / 추출량 ${avgEspresso}ml${topMachine?" / 머신 "+topMachine:""}${topBean?" / 원두 "+topBean:""}
+JSON 형식(반드시 이 형식만): {"tip":"2문장 이내 핵심 팁","grindAdjust":"굵게/미세하게/유지","timeAdjust":"단축/연장/유지","tempAdjust":"높이기/낮추기/유지"}`
+    : `You are a professional barista AI. Based on today's weather and the user's average recipe, respond in JSON only with extraction tips.
+Weather: ${weather.descKo||weather.condition} ${weather.temp}°C, humidity ${weather.humidity}%
+Avg recipe: ${avgGram}g dose / ${avgSeconds}s extraction / ${avgEspresso}ml yield${topMachine?" / machine "+topMachine:""}${topBean?" / bean "+topBean:""}
+JSON format only: {"tip":"Key tip in 2 sentences","grindAdjust":"coarser/finer/maintain","timeAdjust":"shorter/longer/maintain","tempAdjust":"higher/lower/maintain"}`;
+
+  try {
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 15000);
+    let res;
+    try {
+      res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`,
+        { method:"POST", headers:{"Content-Type":"application/json"}, signal:controller.signal,
+          body: JSON.stringify({
+            contents:[{ parts:[{ text:prompt }] }],
+            generationConfig:{ temperature:0.4, maxOutputTokens:256, thinkingConfig:{ thinkingLevel:"minimal" } },
+          }) }
+      );
+    } finally { clearTimeout(tid); }
+    const data   = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const parts  = data.candidates?.[0]?.content?.parts || [];
+    const text   = (parts.find(p => !p.thought && p.text) || parts[0] || {}).text || "";
+    const clean  = text.replace(/```json\s*/g,"").replace(/```/g,"").trim();
+    const parsed = JSON.parse(clean);
+    localStorage.setItem(cacheKey, JSON.stringify(parsed));
+    return parsed;
+  } catch (e) {
+    console.warn("[WeatherTip]", e.name === "AbortError" ? "timeout" : e.message);
+    return null;
+  }
+}
 
 async function fetchWeather() {
   return new Promise((resolve, reject) => {
@@ -82,7 +195,7 @@ async function fetchWeather() {
 
 // ─────────────────────────────────────────────────────────────────
 export default function RecipeModal({
-  onClose, onSave, user, editTarget, lang = "ko",
+  onClose, onSave, user, editTarget, lang = "ko", recipes = [],
 }) {
   const t      = I18N[lang];
   const isEdit = !!editTarget && !editTarget._isCopy;
@@ -244,6 +357,10 @@ export default function RecipeModal({
   const [weather, setWeather] = useState(isEdit ? (editTarget.weather || null) : null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError,   setWeatherError]   = useState(null);
+  // ── 날씨 팁 상태 ─────────────────────────────────────────────
+  const [ruleTip,     setRuleTip]     = useState(null); // 규칙 기반 즉시 팁
+  const [geminiTip,   setGeminiTip]   = useState(null); // Gemini AI 팁
+  const [tipLoading,  setTipLoading]  = useState(false);
 
   // 신규/복사 시 날씨 자동 획득
   useEffect(() => {
@@ -255,6 +372,26 @@ export default function RecipeModal({
         .finally(() => setWeatherLoading(false));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 날씨 획득 완료 → 팁 생성 (규칙 즉시 + Gemini 캐시/호출)
+  useEffect(() => {
+    if (!weather || isEdit) return;
+    // 1. 규칙 기반 즉시 표시
+    const rule = getRuleBasedTip(weather, lang);
+    setRuleTip(rule);
+    // 2. Gemini 팁 (캐시 확인 후 없으면 호출)
+    if (!GEMINI_KEY || !user?.uid) return;
+    const cacheKey = getWeatherTipCacheKey(user.uid);
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      if (cached) { setGeminiTip(cached); return; }
+    } catch {}
+    // 캐시 없으면 Gemini 호출
+    setTipLoading(true);
+    fetchGeminiWeatherTip(weather, recipes.slice(0,5), lang, user.uid)
+      .then(tip => { if (tip) setGeminiTip(tip); })
+      .finally(() => setTipLoading(false));
+  }, [weather]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 메뉴 선택 ───────────────────────────────────────────────────
   const [selectedMenu, setSelectedMenu] = useState(
@@ -1269,6 +1406,81 @@ export default function RecipeModal({
               </p>
             )}
           </div>
+
+          {/* ── 날씨 기반 파라미터 팁 ── */}
+          {!isEdit && (ruleTip || geminiTip || tipLoading) && (
+            <div className="field full">
+              <div style={{ background:"linear-gradient(135deg,#1A1A1A 0%,#2C1A0E 100%)", borderRadius:"12px", padding:"14px 16px", position:"relative", overflow:"hidden" }}>
+                {/* 배경 장식 */}
+                <div style={{ position:"absolute", right:-16, top:-16, width:72, height:72, borderRadius:"50%", background:"rgba(176,125,84,0.12)", pointerEvents:"none" }}/>
+                {/* 헤더 */}
+                <div style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"10px" }}>
+                  <div style={{ width:18, height:18, borderRadius:"50%", background:"var(--latte)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white"/></svg>
+                  </div>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--latte)" }}>
+                    {lang === "en" ? "AI Brew Tip · Today's Weather" : "AI 브루 팁 · 오늘 날씨 기반"}
+                  </span>
+                  {weather && (
+                    <span style={{ marginLeft:"auto", fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"rgba(255,255,255,0.45)" }}>
+                      {weather.icon} {weather.temp}°C · {weather.humidity}%
+                    </span>
+                  )}
+                </div>
+
+                {/* 규칙 기반 즉시 팁 */}
+                {ruleTip && (
+                  <div style={{ marginBottom: geminiTip||tipLoading ? "10px" : "0" }}>
+                    {ruleTip.split("\n").map((line, i) => (
+                      <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", color:"rgba(255,255,255,0.85)", lineHeight:1.6, marginBottom:"3px" }}>
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Gemini AI 팁 로딩 */}
+                {tipLoading && !geminiTip && (
+                  <div style={{ display:"flex", alignItems:"center", gap:"6px", padding:"8px 0" }}>
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" style={{ animation:"spin 1s linear infinite", flexShrink:0 }}>
+                      <circle cx="7" cy="7" r="5.5" stroke="rgba(176,125,84,0.8)" strokeWidth="1.5" strokeDasharray="10 22" strokeLinecap="round"/>
+                    </svg>
+                    <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"rgba(255,255,255,0.4)" }}>
+                      {lang === "en" ? "Personalizing based on your recipes…" : "내 레시피 기반으로 분석 중…"}
+                    </span>
+                  </div>
+                )}
+
+                {/* Gemini AI 팁 */}
+                {geminiTip && (
+                  <div style={{ borderTop:ruleTip?"1px solid rgba(255,255,255,0.08)":"none", paddingTop:ruleTip?"10px":"0" }}>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"rgba(255,255,255,0.75)", lineHeight:1.65, marginBottom:"10px" }}>
+                      {geminiTip.tip}
+                    </div>
+                    {/* 파라미터 조정 뱃지 */}
+                    <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                      {[
+                        { label: lang==="en"?"Grind":"분쇄도",   val: geminiTip.grindAdjust, map:{ "굵게":"↑", "미세하게":"↓", "유지":"─", coarser:"↑", finer:"↓", maintain:"─" } },
+                        { label: lang==="en"?"Time":"추출시간",  val: geminiTip.timeAdjust,  map:{ "단축":"↓", "연장":"↑", "유지":"─", shorter:"↓", longer:"↑", maintain:"─" } },
+                        { label: lang==="en"?"Temp":"물온도",    val: geminiTip.tempAdjust,  map:{ "높이기":"↑", "낮추기":"↓", "유지":"─", higher:"↑", lower:"↓", maintain:"─" } },
+                      ].map(({ label, val, map }) => {
+                        if (!val) return null;
+                        const arrow = map[val] || "─";
+                        const color = arrow==="↑"?"#27ae60":arrow==="↓"?"#e67e22":"rgba(255,255,255,0.3)";
+                        return (
+                          <div key={label} style={{ background:"rgba(255,255,255,0.07)", borderRadius:"8px", padding:"5px 10px", display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", minWidth:"60px" }}>
+                            <span style={{ fontSize:"0.6rem", color:"rgba(255,255,255,0.35)", textTransform:"uppercase", letterSpacing:"0.07em" }}>{label}</span>
+                            <span style={{ fontSize:"1rem", fontWeight:700, color, lineHeight:1 }}>{arrow}</span>
+                            <span style={{ fontSize:"0.6rem", color:"rgba(255,255,255,0.4)", whiteSpace:"nowrap" }}>{val}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Flavor 프로파일 */}
           <div className="field full flavor-radar-wrap">

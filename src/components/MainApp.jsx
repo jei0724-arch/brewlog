@@ -953,7 +953,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
         />
       )}
       {showModal && (
-        <RecipeModal user={user} editTarget={editTarget} lang={lang}
+        <RecipeModal user={user} editTarget={editTarget} lang={lang} recipes={recipes.filter(r=>r.uid===user?.uid).slice(0,5)}
           onClose={()=>{ window.history.go(-1); setShowModalWrapped(false); setEditTarget(null); }}
           onSave={()=>{ loadRecipes(); setShowModalWrapped(false); setEditTarget(null); }}/>
       )}
