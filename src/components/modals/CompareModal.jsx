@@ -245,33 +245,116 @@ async function shareCompareCard(recipeA, recipeB) {
     </svg>`;
   })();
 
-  // ── 수치 비교 행 HTML ────────────────────────────────────────
-  const rowsHtml = FIELDS.map((f) => {
-    const av = recipeA[f.key], bv = recipeB[f.key];
-    const d  = diffVal(av, bv);
-    const aColor  = d?.dir === "up"   ? "#B07D54" : "#8C8480";
-    const bColor  = d?.dir === "down" ? "#2980b9" : "#8C8480";
-    const aWeight = d?.dir === "up"   ? "700" : "400";
-    const bWeight = d?.dir === "down" ? "700" : "400";
-    const midHtml = d
-      ? `<div style="font-size:9px;font-weight:700;color:${d.dir === "up" ? "#27ae60" : "#e67e22"};">${d.dir === "up" ? "▲" : "▼"} ${d.delta}${f.unit}</div>`
-      : `<div style="font-size:11px;color:#DDD;">＝</div>`;
+  // ── 공유 카드 HTML 생성 ──────────────────────────────────────
+  const WATER_LABELS = { tap:"수돗물", filter:"정수기", bottle:"생수", other:"기타" };
+  const ROAST_NAMES  = {
+    green:"생두", cinnamon:"시나몬", medium:"미디엄", high:"하이",
+    city:"시티", full_city:"풀 시티", french:"프렌치", italian:"이탈리안",
+  };
 
-    return `
-      <tr style="border-top:1px solid #F0EFEF;">
-        <td style="width:50%;padding:10px 16px 10px 20px;font-size:13px;font-weight:${aWeight};color:${aColor};text-align:right;">${av ? `${av}${f.unit}` : "—"}</td>
-        <td style="width:0;padding:10px 0;text-align:center;">
-          <div style="font-size:9px;color:#BBB;margin-bottom:3px;white-space:nowrap;">${f.label}</div>
-          ${midHtml}
+  // 레시피별 전체 정보 행 빌더
+  const buildInfoRows = (ra, rb, colorA, colorB) => {
+    const ALL_FIELDS = [
+      { key:"gram",        label:"원두량",    unit:"g"  },
+      { key:"seconds",     label:"추출시간",  unit:"s"  },
+      { key:"espressoMl",  label:"추출량",    unit:"ml" },
+      { key:"waterTemp",   label:"물온도",    unit:"°C" },
+      { key:"grindSize",   label:"분쇄도",    unit:""   },
+      { key:"diluteMl",    label:"희석량",    unit:"ml" },
+      { key:"infusionSeconds", label:"인퓨전", unit:"s", skip0:true },
+      { key:"brewPressureBar", label:"추출압력", unit:"bar" },
+    ];
+
+    // 머신 / 그라인더 / 원두 정보
+    const metaRow = (label, va, vb) => {
+      if (!va && !vb) return "";
+      const d = va !== vb && va && vb;
+      return `<tr style="border-top:1px solid #F0EFEF;">
+        <td style="width:44%;padding:8px 12px 8px 18px;font-size:11px;color:${va?colorA:"#BBB"};text-align:right;word-break:break-all;">${va||"—"}</td>
+        <td style="width:12%;padding:8px 4px;text-align:center;">
+          <div style="font-size:8px;color:#BBB;margin-bottom:2px;white-space:nowrap;">${label}</div>
+          <div style="font-size:9px;color:${d?"#e67e22":"#DDD"};">${d?"≠":"＝"}</div>
         </td>
-        <td style="width:50%;padding:10px 20px 10px 16px;font-size:13px;font-weight:${bWeight};color:${bColor};text-align:left;">${bv ? `${bv}${f.unit}` : "—"}</td>
+        <td style="width:44%;padding:8px 18px 8px 12px;font-size:11px;color:${vb?colorB:"#BBB"};text-align:left;word-break:break-all;">${vb||"—"}</td>
       </tr>`;
-  }).join("");
+    };
+
+    const numRows = ALL_FIELDS.map(f => {
+      const av = ra[f.key], bv = rb[f.key];
+      if (f.skip0 && (!av || parseInt(av)===0) && (!bv || parseInt(bv)===0)) return "";
+      if (!av && !bv) return "";
+      const na = parseFloat(av), nb = parseFloat(bv);
+      const d  = (!isNaN(na) && !isNaN(nb) && na !== nb) ? (na > nb ? "up" : "down") : null;
+      const aC = d==="up"   ? colorA : "#8C8480";
+      const bC = d==="down" ? colorB : "#8C8480";
+      const aW = d==="up"   ? "700"  : "400";
+      const bW = d==="down" ? "700"  : "400";
+      const mid = d
+        ? `<div style="font-size:9px;font-weight:700;color:${d==="up"?"#27ae60":"#e67e22"};">${d==="up"?"▲":"▼"} ${Math.abs(na-nb)}${f.unit}</div>`
+        : `<div style="font-size:10px;color:#DDD;">＝</div>`;
+      return `<tr style="border-top:1px solid #F0EFEF;">
+        <td style="width:44%;padding:9px 12px 9px 18px;font-size:13px;font-weight:${aW};color:${aC};text-align:right;">${av?`${av}${f.unit}`:"—"}</td>
+        <td style="width:12%;padding:9px 4px;text-align:center;">
+          <div style="font-size:8px;color:#BBB;margin-bottom:2px;white-space:nowrap;">${f.label}</div>
+          ${mid}
+        </td>
+        <td style="width:44%;padding:9px 18px 9px 12px;font-size:13px;font-weight:${bW};color:${bC};text-align:left;">${bv?`${bv}${f.unit}`:"—"}</td>
+      </tr>`;
+    }).join("");
+
+    // 희석 타입
+    const diluteA = ra.diluteType === "기타우유" ? (ra.diluteCustom||"기타") : ra.diluteType;
+    const diluteB = rb.diluteType === "기타우유" ? (rb.diluteCustom||"기타") : rb.diluteType;
+
+    // 물 종류
+    const waterA = ra.waterType ? [WATER_LABELS[ra.waterType]||ra.waterType, ra.waterBrand].filter(Boolean).join(" ") : "";
+    const waterB = rb.waterType ? [WATER_LABELS[rb.waterType]||rb.waterType, rb.waterBrand].filter(Boolean).join(" ") : "";
+
+    return numRows
+      + metaRow("머신",    ra.machine,  rb.machine)
+      + metaRow("그라인더", ra.grinder,  rb.grinder)
+      + metaRow("분쇄도",  ra.grindSize, rb.grindSize)
+      + metaRow("물 종류", waterA,       waterB)
+      + metaRow("희석",    diluteA&&ra.diluteMl?`${diluteA} ${ra.diluteMl}ml`:"", diluteB&&rb.diluteMl?`${diluteB} ${rb.diluteMl}ml`:"")
+      + metaRow("배전도",  ra.roastLevel?ROAST_NAMES[ra.roastLevel]||ra.roastLevel:"", rb.roastLevel?ROAST_NAMES[rb.roastLevel]||rb.roastLevel:"")
+      + metaRow("가공법",  ra.process,   rb.process)
+      + metaRow("로스팅일", ra.roastDate, rb.roastDate)
+      + metaRow("기록일",  ra.recordDate, rb.recordDate);
+  };
+
+  const infoRows = buildInfoRows(recipeA, recipeB, "#B07D54", "#2980b9");
+
+  // 별점 HTML
+  const starsHtml = (recipe, color) => recipe.rating > 0
+    ? [1,2,3,4,5].map(s => `<span style="color:${s<=recipe.rating?color:"#E8E6E3"};font-size:12px;">${s<=recipe.rating?"★":"☆"}</span>`).join("")
+    : "";
+
+  // 메모 HTML
+  const noteRow = (ra, rb) => {
+    if (!ra.note && !rb.note) return "";
+    return `<tr style="border-top:1px solid #F0EFEF;">
+      <td style="padding:10px 12px 10px 18px;font-size:10px;color:#8C8480;font-style:italic;text-align:right;vertical-align:top;">${ra.note?`"${ra.note}"`:""}</td>
+      <td style="padding:10px 4px;text-align:center;"><div style="font-size:8px;color:#BBB;">메모</div></td>
+      <td style="padding:10px 18px 10px 12px;font-size:10px;color:#8C8480;font-style:italic;text-align:left;vertical-align:top;">${rb.note?`"${rb.note}"`:""}</td>
+    </tr>`;
+  };
+
+  // 날씨 HTML
+  const weatherRow = (ra, rb) => {
+    if (!ra.weather && !rb.weather) return "";
+    const wa = ra.weather ? `${ra.weather.icon||""} ${ra.weather.temp||""}°C` : "";
+    const wb = rb.weather ? `${rb.weather.icon||""} ${rb.weather.temp||""}°C` : "";
+    return `<tr style="border-top:1px solid #F0EFEF;">
+      <td style="padding:8px 12px 8px 18px;font-size:11px;color:#8C8480;text-align:right;">${wa||"—"}</td>
+      <td style="padding:8px 4px;text-align:center;"><div style="font-size:8px;color:#BBB;">날씨</div></td>
+      <td style="padding:8px 18px 8px 12px;font-size:11px;color:#8C8480;text-align:left;">${wb||"—"}</td>
+    </tr>`;
+  };
 
   // ── DOM 엘리먼트 조립 ────────────────────────────────────────
   const el = document.createElement("div");
   el.style.cssText =
-    "position:absolute;left:-9999px;top:0;font-family:'DM Sans',Arial,sans-serif;width:420px;overflow:hidden;background:#FBFBFA;border-radius:16px;box-sizing:border-box;";
+    "position:absolute;left:-9999px;top:0;font-family:'DM Sans',Arial,sans-serif;width:460px;overflow:hidden;background:#FBFBFA;border-radius:16px;box-sizing:border-box;";
 
   el.innerHTML = `
     <!-- 헤더 -->
@@ -283,36 +366,44 @@ async function shareCompareCard(recipeA, recipeB) {
         </svg>
         <span style="font-size:11px;color:#FBFBFA80;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;">Brewlog Note — Recipe Compare</span>
       </div>
+      <!-- 레시피 A / B 헤더 -->
       <table style="width:100%;border-collapse:collapse;">
         <tr>
           <td style="width:45%;vertical-align:top;">
-            <div style="font-size:9px;font-weight:700;color:#B07D54;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">A</div>
-            <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.3;margin-bottom:4px;">${recipeA.bean || "—"}</div>
-            <div style="font-size:10px;color:#FBFBFA70;line-height:1.5;">${[recipeA.company, recipeA.menuLabel, `@${recipeA.author}`].filter(Boolean).join(" · ")}</div>
+            <div style="font-size:9px;font-weight:700;color:#B07D54;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">A</div>
+            <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.3;margin-bottom:3px;">${recipeA.bean||"—"}</div>
+            <div style="font-size:9px;color:#FBFBFA60;line-height:1.5;">${[recipeA.company, recipeA.menuLabel, `@${recipeA.author}`].filter(Boolean).join(" · ")}</div>
+            ${recipeA.rating>0?`<div style="margin-top:5px;">${starsHtml(recipeA,"#B07D54")}</div>`:""}
           </td>
           <td style="width:10%;text-align:center;vertical-align:middle;">
-            <div style="font-size:12px;font-weight:900;color:#555;">vs</div>
+            <div style="font-size:12px;font-weight:900;color:#666;">vs</div>
           </td>
           <td style="width:45%;vertical-align:top;">
-            <div style="font-size:9px;font-weight:700;color:#2980b9;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">B</div>
-            <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.3;margin-bottom:4px;">${recipeB.bean || "—"}</div>
-            <div style="font-size:10px;color:#FBFBFA70;line-height:1.5;">${[recipeB.company, recipeB.menuLabel, `@${recipeB.author}`].filter(Boolean).join(" · ")}</div>
+            <div style="font-size:9px;font-weight:700;color:#2980b9;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px;">B</div>
+            <div style="font-size:15px;font-weight:700;color:#FBFBFA;font-family:'Georgia',serif;line-height:1.3;margin-bottom:3px;">${recipeB.bean||"—"}</div>
+            <div style="font-size:9px;color:#FBFBFA60;line-height:1.5;">${[recipeB.company, recipeB.menuLabel, `@${recipeB.author}`].filter(Boolean).join(" · ")}</div>
+            ${recipeB.rating>0?`<div style="margin-top:5px;">${starsHtml(recipeB,"#2980b9")}</div>`:""}
           </td>
         </tr>
       </table>
     </div>
+
     <!-- 컬럼 레이블 -->
     <table style="width:100%;border-collapse:collapse;background:#ECEAE7;table-layout:fixed;">
       <tr>
-        <td style="width:50%;padding:7px 14px 7px 20px;font-size:9px;font-weight:700;color:#B07D54;text-align:right;">레시피 A</td>
-        <td style="width:0;"></td>
-        <td style="width:50%;padding:7px 20px 7px 14px;font-size:9px;font-weight:700;color:#2980b9;text-align:left;">레시피 B</td>
+        <td style="width:44%;padding:6px 12px 6px 18px;font-size:9px;font-weight:700;color:#B07D54;text-align:right;">레시피 A</td>
+        <td style="width:12%;"></td>
+        <td style="width:44%;padding:6px 18px 6px 12px;font-size:9px;font-weight:700;color:#2980b9;text-align:left;">레시피 B</td>
       </tr>
     </table>
-    <!-- 수치 비교 -->
+
+    <!-- 전체 수치 + 장비 + 메타 비교 -->
     <table style="width:100%;border-collapse:collapse;background:#FAFAF9;table-layout:fixed;">
-      ${rowsHtml}
+      ${infoRows}
+      ${noteRow(recipeA, recipeB)}
+      ${weatherRow(recipeA, recipeB)}
     </table>
+
     <!-- 플레이버 레이더 -->
     ${hasRadar ? `
     <div style="background:#FAFAF9;padding:16px 0 8px;border-top:1px solid #ECEAE7;">
@@ -323,6 +414,7 @@ async function shareCompareCard(recipeA, recipeB) {
       </div>
       <div style="width:100%;display:flex;justify-content:center;overflow:visible;">${radarSVG}</div>
     </div>` : ""}
+
     <!-- 푸터 -->
     <div style="background:#ECEAE7;padding:10px 20px;border-radius:0 0 16px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <div style="display:flex;flex-direction:column;gap:2px;">
