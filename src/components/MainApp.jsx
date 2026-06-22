@@ -926,7 +926,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
           lang={lang}
           onClose={()=>{ window.history.go(-1); setDetailRecipeWrapped(null); }}
           onLike={r=>{ handleLike(r); }}
-          onEdit={r=>{ setEditTarget(r); openModal(); setDetailRecipeWrapped(null); }}
+          onEdit={r=>{ setEditTarget(r); setDetailRecipeWrapped(null); window.history.go(-1); setTimeout(()=>openModal(), 50); }}
           onDelete={id=>{ handleDelete(id); setDetailRecipeWrapped(null); }}
           onFollow={toggleFollow}
           isFollowing={detailRecipe&&(following.includes(detailRecipe.uid)||following.includes(detailRecipe.author))}

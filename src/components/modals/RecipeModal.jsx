@@ -241,7 +241,18 @@ export default function RecipeModal({
           const newSelected = {};
           if (pHanddrip) { applyEquipment(pHanddrip); newSelected.handdrip = pHanddrip.id; }
           else if (pMachine) { applyEquipment(pMachine); newSelected.machine = pMachine.id; }
+          else {
+            // isPrimary 없지만 단 1개뿐인 경우 자동 선택
+            const onlyMachine  = list.filter(e => e.category === "machine");
+            const onlyHanddrip = list.filter(e => e.category === "handdrip");
+            if (!pHanddrip && onlyHanddrip.length === 1) { applyEquipment(onlyHanddrip[0]); newSelected.handdrip = onlyHanddrip[0].id; }
+            else if (!pMachine && onlyMachine.length === 1) { applyEquipment(onlyMachine[0]); newSelected.machine = onlyMachine[0].id; }
+          }
           if (pGrinder)  { applyEquipment(pGrinder);  newSelected.grinder  = pGrinder.id; }
+          else {
+            const onlyGrinder = list.filter(e => e.category === "grinder");
+            if (!pGrinder && onlyGrinder.length === 1) { applyEquipment(onlyGrinder[0]); newSelected.grinder = onlyGrinder[0].id; }
+          }
           setSelectedEquipIds(newSelected);
         }
       }).catch(() => {});
@@ -259,8 +270,18 @@ export default function RecipeModal({
               (a.createdAt?.toDate?.()?.getTime() ?? 0)
           );
         setMyBeans(list);
+        // 신규 작성 + 원두 1개면 자동 선택
+        if (!isEdit && !isCopy && list.length === 1) {
+          const b = list[0];
+          setLinkedBeanId(b.id);
+          setForm(f => ({ ...f,
+            company:   b.roastery  || "",
+            bean:      b.name      || "",
+            roastDate: b.roastDate || "",
+          }));
+        }
       }).catch(() => {});
-  }, [user]);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 머신 상태 ───────────────────────────────────────────────────
   const savedMachine = loadMyMachine();
@@ -531,7 +552,15 @@ export default function RecipeModal({
       alert(lang === "en" ? "Please enter a valid preset name." : "프리셋 이름을 정확히 입력해 주세요.");
       return;
     }
-    if (presets.length >= PRESET_LIMIT) {
+    // 같은 이름 있으면 덮어쓰기 confirm
+    const existing = presets.find(p => p.name === trimmed);
+    if (existing) {
+      const ok = window.confirm(lang === "en"
+        ? `Preset "${trimmed}" already exists. Overwrite?`
+        : `"${trimmed}" 프리셋이 이미 있어요. 덮어씌울까요?`);
+      if (!ok) return;
+    }
+    if (!existing && presets.length >= PRESET_LIMIT) {
       alert(lang === "en"
         ? `You can save up to ${PRESET_LIMIT} presets.`
         : `프리셋은 최대 ${PRESET_LIMIT}개까지 저장할 수 있어요.`);
@@ -539,7 +568,7 @@ export default function RecipeModal({
     }
     const hdMode = machineType === "handdrip";
     const newPreset = {
-      id: `preset_${Date.now()}`,
+      id: existing ? existing.id : `preset_${Date.now()}`,
       name: trimmed,
       menuId:          selectedMenu,
       isIced:          form.isIced  || false,
@@ -566,7 +595,9 @@ export default function RecipeModal({
       continuousMemo:  form.continuousMemo  || "",
       createdAt: new Date().toISOString(),
     };
-    const updated = [...presets, newPreset];
+    const updated = existing
+      ? presets.map(p => p.id === existing.id ? newPreset : p)
+      : [...presets, newPreset];
     savePresets(user?.uid, updated);
     setPresets(updated);
     setPresetName(""); setShowPresetSave(false);
@@ -1506,7 +1537,12 @@ export default function RecipeModal({
                       </span>
                     </div>
                     <input type="range" min="0" max="5" step="1"
-                      value={val} onChange={(e) => set(ax.key, parseInt(e.target.value))}
+                      value={val}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setForm(f => ({ ...f, [ax.key]: parseInt(e.target.value) }));
+                      }}
+                      onFocus={(e) => e.target.blur()}
                       className="flavor-range" style={{ "--pct": `${pct}%` }}/>
                     <div style={{ fontSize:"0.62rem", color:"var(--muted)", opacity:0.65, lineHeight:1.3, marginTop:"1px" }}>
                       {lang === "en" ? ax.desc_en : ax.desc_ko}

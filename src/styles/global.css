@@ -627,8 +627,8 @@ html {
 
 .card-footer {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.5rem;
   font-family: 'DM Sans', sans-serif;
   font-size: 0.75rem;
   color: var(--muted);
@@ -638,7 +638,12 @@ html {
 }
 .card-author { font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--roast); }
 .card-author:hover { text-decoration: underline; text-underline-offset: 2px; }
-.card-actions { display: flex; gap: 0; align-items: center; }
+.card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
 .card-action-btn {
   background: none;
   border: none;
@@ -648,10 +653,12 @@ html {
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: 50%;
+  min-width: 40px;
+  border-radius: 8px;
   transition: background 0.15s, color 0.15s;
   color: var(--muted);
   padding: 0;
+  flex-shrink: 0;
 }
 @media (hover: hover) and (pointer: fine) {
   .card-action-btn:hover { background: rgba(0,0,0,0.05); }
