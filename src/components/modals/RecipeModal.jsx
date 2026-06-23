@@ -873,31 +873,80 @@ export default function RecipeModal({
         {showPresetSave && (
           <div style={{ position:"fixed", inset:0, background:"#0005", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}
             onClick={(e) => e.target === e.currentTarget && setShowPresetSave(false)}>
-            <div style={{ background:"var(--foam)", borderRadius:"12px", padding:"24px", width:"100%", maxWidth:"360px", boxShadow:"0 8px 32px #0003" }}>
-              <h3 style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", marginBottom:"16px", color:"var(--espresso)" }}>
+            <div style={{ background:"var(--foam)", borderRadius:"12px", padding:"24px", width:"100%", maxWidth:"380px", boxShadow:"0 8px 32px #0003" }}>
+              <h3 style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", marginBottom:"8px", color:"var(--espresso)" }}>
                 {lang === "en" ? "Save as Preset" : "프리셋으로 저장"}
               </h3>
-              <p style={{ fontSize:"0.78rem", color:"var(--muted)", marginBottom:"14px", lineHeight:1.6 }}>
+              <p style={{ fontSize:"0.78rem", color:"var(--muted)", marginBottom:"16px", lineHeight:1.6 }}>
                 {lang === "en"
-                  ? "Current settings will be saved: menu, dose, time, yield, temperature, and grind size."
-                  : "현재 입력된 메뉴, 원두량, 시간, 추출량, 온도, 분쇄도가 저장돼요."}
+                  ? "Save current settings as a new preset, or overwrite an existing one."
+                  : "새 프리셋으로 저장하거나, 기존 프리셋을 선택해서 덮어씌울 수 있어요."}
               </p>
-              <div className="field full" style={{ marginBottom:"14px" }}>
-                <label>{lang === "en" ? "Preset Name" : "프리셋 이름"}</label>
+
+              {/* ── 기존 프리셋 덮어쓰기 선택 ── */}
+              {presets.length > 0 && (
+                <div style={{ marginBottom:"16px" }}>
+                  <div style={{ fontSize:"0.72rem", fontWeight:700, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"8px" }}>
+                    {lang === "en" ? "Overwrite existing preset" : "기존 프리셋 덮어쓰기"}
+                  </div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", marginBottom:"4px" }}>
+                    {presets.map((p) => {
+                      const isSelected = presetName === p.name;
+                      return (
+                        <button key={p.id} type="button"
+                          onClick={() => setPresetName(isSelected ? "" : p.name)}
+                          style={{ padding:"5px 12px", borderRadius:"8px", border:`1px solid ${isSelected ? "var(--latte)" : "var(--steam)"}`,
+                            background: isSelected ? "var(--latte)" : "var(--foam)",
+                            color: isSelected ? "var(--cream)" : "var(--muted)",
+                            fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem",
+                            fontWeight: isSelected ? 600 : 400, cursor:"pointer", transition:"all 0.15s" }}>
+                          {p.name}
+                          {isSelected && <span style={{ marginLeft:"4px", fontSize:"0.7rem" }}>✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p style={{ fontSize:"0.68rem", color:"var(--muted)", opacity:0.7 }}>
+                    {lang === "en" ? "Tap to select → will overwrite" : "탭해서 선택하면 해당 프리셋을 덮어씌워요"}
+                  </p>
+                </div>
+              )}
+
+              {/* ── 구분선 ── */}
+              {presets.length > 0 && (
+                <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"14px" }}>
+                  <div style={{ flex:1, height:"1px", background:"var(--divider)" }}/>
+                  <span style={{ fontSize:"0.68rem", color:"var(--muted)", whiteSpace:"nowrap" }}>
+                    {lang === "en" ? "or create new" : "또는 새로 만들기"}
+                  </span>
+                  <div style={{ flex:1, height:"1px", background:"var(--divider)" }}/>
+                </div>
+              )}
+
+              {/* ── 새 프리셋 이름 입력 ── */}
+              <div className="field full" style={{ marginBottom:"16px" }}>
+                <label style={{ fontSize:"0.72rem", fontWeight:700, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.07em" }}>
+                  {lang === "en" ? "New preset name" : "새 프리셋 이름"}
+                </label>
                 <input
                   value={presetName}
                   onChange={(e) => setPresetName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") savePreset(); if (e.key === "Escape") setShowPresetSave(false); }}
                   placeholder={lang === "en" ? "e.g. Morning Espresso" : "예) 아침 에스프레소"}
-                  autoFocus
+                  autoFocus={presets.length === 0}
                 />
               </div>
+
               <div style={{ display:"flex", gap:"8px", justifyContent:"flex-end" }}>
                 <button className="btn-cancel" onClick={() => { setShowPresetSave(false); setPresetName(""); }}>
                   {lang === "en" ? "Cancel" : "취소"}
                 </button>
                 <button className="btn-save-sm" onClick={savePreset} disabled={!presetName.trim()}>
-                  {lang === "en" ? "Save" : "저장"}
+                  {(() => {
+                    const exists = presets.find(p => p.name === presetName.trim());
+                    if (exists) return lang === "en" ? "Overwrite" : "덮어쓰기";
+                    return lang === "en" ? "Save" : "저장";
+                  })()}
                 </button>
               </div>
             </div>
@@ -1380,233 +1429,12 @@ export default function RecipeModal({
             </div>
           )}
 
-          {/* ── 섹션: 기록 & 평가 ── */}
-          <div style={{ gridColumn:"1 / -1", margin:"36px 0 16px" }}>
-            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>기록 & 평가</span>
+
+          {/* ── 섹션 구분선 ── */}
+          <div style={{ gridColumn:"1 / -1", margin:"28px 0 14px" }}>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Brew Details" : "추출 세부 기록"}</span>
             <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
           </div>
-
-          {/* 기록 날짜 */}
-          <div className="field full">
-            <label>{lang === "en" ? "Brew Date" : "기록 날짜"}</label>
-            <input type="date" value={form.recordDate || ""}
-              onChange={(e) => set("recordDate", e.target.value)}
-              max={new Date().toISOString().split("T")[0]}/>
-          </div>
-
-          {/* 날씨 */}
-          <div className="field full">
-            <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              <span>{lang === "en" ? "Weather at Brew Time" : "추출 시점 날씨"}</span>
-              {!weatherLoading && (
-                <button type="button" onClick={() => {
-                  setWeatherError(null); setWeatherLoading(true);
-                  fetchWeather().then((w) => { setWeather(w); setWeatherError(null); })
-                    .catch((e) => { setWeatherError(typeof e === "string" ? e : e.message); })
-                    .finally(() => setWeatherLoading(false));
-                }} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--muted)", display:"inline-flex", alignItems:"center", gap:"4px", fontSize:"0.7rem", fontFamily:"'DM Sans',sans-serif", padding:0 }}>
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13.5 8a5.5 5.5 0 1 1-1.1-3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M13.5 3v2.5H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  {lang === "en" ? "Refresh" : "새로고침"}
-                </button>
-              )}
-            </label>
-            {weatherLoading && (
-              <div className="weather-loading">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation:"spin 1s linear infinite" }}>
-                  <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 25" strokeLinecap="round"/>
-                </svg>
-                {lang === "en" ? "Getting weather…" : "날씨 불러오는 중…"}
-              </div>
-            )}
-            {!weatherLoading && weather && (
-              <div className="weather-box">
-                <span className="weather-icon">{weather.icon}</span>
-                <div className="weather-info">
-                  <span className="weather-main">{weather.descKo} {weather.temp}°C</span>
-                  <span className="weather-detail">
-                    {lang === "en" ? "Humidity" : "습도"} {weather.humidity}% · {weather.country}
-                  </span>
-                </div>
-              </div>
-            )}
-            {!weatherLoading && !weather && !weatherError && (
-              <p style={{ fontSize:"0.78rem", color:"var(--muted)", opacity:0.7 }}>
-                {lang === "en" ? "Location permission required." : "위치 권한이 필요해요."}
-              </p>
-            )}
-            {weatherError && (
-              <p style={{ fontSize:"0.78rem", color:"#e67e22", marginTop:"0.3rem" }}>
-                ⚠️ {lang === "en" ? "Could not get weather. " : "날씨를 가져올 수 없어요. "}{weatherError}
-              </p>
-            )}
-          </div>
-
-          {/* ── 날씨 기반 파라미터 팁 ── */}
-          {!isEdit && (ruleTip || geminiTip || tipLoading) && (
-            <div className="field full">
-              <div style={{ background:"linear-gradient(135deg,#1A1A1A 0%,#2C1A0E 100%)", borderRadius:"12px", padding:"14px 16px", position:"relative", overflow:"hidden" }}>
-                {/* 배경 장식 */}
-                <div style={{ position:"absolute", right:-16, top:-16, width:72, height:72, borderRadius:"50%", background:"rgba(176,125,84,0.12)", pointerEvents:"none" }}/>
-                {/* 헤더 */}
-                <div style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"10px" }}>
-                  <div style={{ width:18, height:18, borderRadius:"50%", background:"var(--latte)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white"/></svg>
-                  </div>
-                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--latte)" }}>
-                    {lang === "en" ? "AI Brew Tip · Today's Weather" : "AI 브루 팁 · 오늘 날씨 기반"}
-                  </span>
-                  {weather && (
-                    <span style={{ marginLeft:"auto", fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"rgba(255,255,255,0.45)" }}>
-                      {weather.icon} {weather.temp}°C · {weather.humidity}%
-                    </span>
-                  )}
-                </div>
-
-                {/* 규칙 기반 즉시 팁 */}
-                {ruleTip && (
-                  <div style={{ marginBottom: geminiTip||tipLoading ? "10px" : "0" }}>
-                    {ruleTip.split("\n").map((line, i) => (
-                      <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", color:"rgba(255,255,255,0.85)", lineHeight:1.6, marginBottom:"3px" }}>
-                        {line}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Gemini AI 팁 로딩 */}
-                {tipLoading && !geminiTip && (
-                  <div style={{ display:"flex", alignItems:"center", gap:"6px", padding:"8px 0" }}>
-                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" style={{ animation:"spin 1s linear infinite", flexShrink:0 }}>
-                      <circle cx="7" cy="7" r="5.5" stroke="rgba(176,125,84,0.8)" strokeWidth="1.5" strokeDasharray="10 22" strokeLinecap="round"/>
-                    </svg>
-                    <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"rgba(255,255,255,0.4)" }}>
-                      {lang === "en" ? "Personalizing based on your recipes…" : "내 레시피 기반으로 분석 중…"}
-                    </span>
-                  </div>
-                )}
-
-                {/* Gemini AI 팁 */}
-                {geminiTip && (
-                  <div style={{ borderTop:ruleTip?"1px solid rgba(255,255,255,0.08)":"none", paddingTop:ruleTip?"10px":"0" }}>
-                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"rgba(255,255,255,0.75)", lineHeight:1.65, marginBottom:"10px" }}>
-                      {geminiTip.tip}
-                    </div>
-                    {/* 파라미터 조정 뱃지 */}
-                    <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
-                      {[
-                        { label: lang==="en"?"Grind":"분쇄도",   val: geminiTip.grindAdjust, map:{ "굵게":"↑", "미세하게":"↓", "유지":"─", coarser:"↑", finer:"↓", maintain:"─" } },
-                        { label: lang==="en"?"Time":"추출시간",  val: geminiTip.timeAdjust,  map:{ "단축":"↓", "연장":"↑", "유지":"─", shorter:"↓", longer:"↑", maintain:"─" } },
-                        { label: lang==="en"?"Temp":"물온도",    val: geminiTip.tempAdjust,  map:{ "높이기":"↑", "낮추기":"↓", "유지":"─", higher:"↑", lower:"↓", maintain:"─" } },
-                      ].map(({ label, val, map }) => {
-                        if (!val) return null;
-                        const arrow = map[val] || "─";
-                        const color = arrow==="↑"?"#27ae60":arrow==="↓"?"#e67e22":"rgba(255,255,255,0.3)";
-                        return (
-                          <div key={label} style={{ background:"rgba(255,255,255,0.07)", borderRadius:"8px", padding:"5px 10px", display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", minWidth:"60px" }}>
-                            <span style={{ fontSize:"0.6rem", color:"rgba(255,255,255,0.35)", textTransform:"uppercase", letterSpacing:"0.07em" }}>{label}</span>
-                            <span style={{ fontSize:"1rem", fontWeight:700, color, lineHeight:1 }}>{arrow}</span>
-                            <span style={{ fontSize:"0.6rem", color:"rgba(255,255,255,0.4)", whiteSpace:"nowrap" }}>{val}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Flavor 프로파일 */}
-          <div className="field full flavor-radar-wrap">
-            <label style={{ marginBottom:"16px", display:"block" }}>
-              {lang === "en" ? "Flavor Profile" : "플레이버 프로파일"}
-            </label>
-            <div style={{ display:"flex", justifyContent:"center", marginBottom:"20px" }}>
-              <FlavorRadar values={form} size={200} lang={lang}/>
-            </div>
-            <div className="flavor-grid-2col" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"12px 24px" }}>
-              {FLAVOR_AXES.map((ax) => {
-                const val = form[ax.key] || 0;
-                const pct = (val / 5) * 100;
-                return (
-                  <div key={ax.key} className="flavor-slider-row">
-                    <div className="flavor-slider-label">
-                      <span className="flavor-slider-name">{lang === "en" ? ax.en : ax.ko}</span>
-                      <span className={`flavor-slider-val${val === 0 ? " zero" : ""}`}>
-                        {val === 0 ? "—" : `${val} / 5`}
-                      </span>
-                    </div>
-                    <input type="range" min="0" max="5" step="1"
-                      value={val}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        setForm(f => ({ ...f, [ax.key]: parseInt(e.target.value) }));
-                      }}
-                      onFocus={(e) => e.target.blur()}
-                      className="flavor-range" style={{ "--pct": `${pct}%` }}/>
-                    <div style={{ fontSize:"0.62rem", color:"var(--muted)", opacity:0.65, lineHeight:1.3, marginTop:"1px" }}>
-                      {lang === "en" ? ax.desc_en : ax.desc_ko}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 별점 */}
-          <div className="field full">
-            <label>{t.rating}</label>
-            <div className="star-rating">
-              {[1,2,3,4,5].map((star) => (
-                <button key={star} type="button"
-                  className={`star-btn ${star <= (form.rating || 0) ? "active" : ""}`}
-                  onClick={() => set("rating", form.rating === star ? 0 : star)}>
-                  {star <= (form.rating || 0) ? "★" : "☆"}
-                </button>
-              ))}
-              <span className="star-label">{t.ratingLabels[form.rating || 0]}</span>
-            </div>
-          </div>
-
-          {/* 예상 압력 */}
-          {machineType !== "handdrip" && pressureData && (
-            <div className={`pressure-box ${pressureData.status} field full`} style={{ marginBottom:0 }}>
-              <div className="pressure-title">{t.pressureTitle}</div>
-              <div className="pressure-row">
-                <span style={{ color:"var(--muted)" }}>{t.brewPressure}</span>
-                <span className={`pressure-val pressure-${pressureData.status}`}>
-                  {pressureData.status === "high"
-                    ? `9 bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${pressureData.pumpBar} bar)`
-                    : `${pressureData.showerBar} bar`}
-                </span>
-              </div>
-              <div style={{ marginTop:"0.3rem", fontSize:"0.78rem", color:"var(--muted)" }}>
-                {pressureData.status === "good" ? t.pressureGood : pressureData.status === "high" ? t.pressureHigh : t.pressureLow}
-                {" "}({t.pressureRange})
-              </div>
-            </div>
-          )}
-
-          {/* 맛 노트 */}
-          <div className="field full">
-            <label>{t.note}</label>
-            <textarea value={form.note} onChange={(e) => set("note", e.target.value)}
-              placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"}/>
-          </div>
-
-          {/* 태그 */}
-          <div className="field full">
-            <label style={{ display:"flex", alignItems:"center", gap:"6px" }}>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                <path d="M2 2h6l6 6-6 6-6-6V2z" stroke="var(--latte)" strokeWidth="1.3" strokeLinejoin="round"/>
-                <circle cx="5.5" cy="5.5" r="1" fill="var(--latte)"/>
-              </svg>
-              {lang === "en" ? "Tags" : "태그"}
-            </label>
-            <TagInput tags={form.tags || []} onChange={(tags) => set("tags", tags)} lang={lang}/>
-          </div>
-
-          {/* 추출 세부 기록 (압력 + 연속추출 메모) */}
           {machineType !== "handdrip" && (
             <div className="field full" style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"var(--r-card)", padding:"16px", display:"flex", flexDirection:"column", gap:"14px" }}>
               <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
@@ -1765,9 +1593,224 @@ export default function RecipeModal({
             </div>
           )}
 
-          {/* 공개 설정 */}
+          {/* ── 섹션 구분선 ── */}
+          <div style={{ gridColumn:"1 / -1", margin:"28px 0 14px" }}>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Environment & AI Tips" : "환경 & AI 팁"}</span>
+            <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
+          </div>
+          {/* 날씨 */}
           <div className="field full">
-            <label>{lang === "en" ? "Visibility" : "공개 설정"}</label>
+            <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <span>{lang === "en" ? "Weather at Brew Time" : "추출 시점 날씨"}</span>
+              {!weatherLoading && (
+                <button type="button" onClick={() => {
+                  setWeatherError(null); setWeatherLoading(true);
+                  fetchWeather().then((w) => { setWeather(w); setWeatherError(null); })
+                    .catch((e) => { setWeatherError(typeof e === "string" ? e : e.message); })
+                    .finally(() => setWeatherLoading(false));
+                }} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--muted)", display:"inline-flex", alignItems:"center", gap:"4px", fontSize:"0.7rem", fontFamily:"'DM Sans',sans-serif", padding:0 }}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13.5 8a5.5 5.5 0 1 1-1.1-3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M13.5 3v2.5H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  {lang === "en" ? "Refresh" : "새로고침"}
+                </button>
+              )}
+            </label>
+            {weatherLoading && (
+              <div className="weather-loading">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation:"spin 1s linear infinite" }}>
+                  <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 25" strokeLinecap="round"/>
+                </svg>
+                {lang === "en" ? "Getting weather…" : "날씨 불러오는 중…"}
+              </div>
+            )}
+            {!weatherLoading && weather && (
+              <div className="weather-box">
+                <span className="weather-icon">{weather.icon}</span>
+                <div className="weather-info">
+                  <span className="weather-main">{weather.descKo} {weather.temp}°C</span>
+                  <span className="weather-detail">
+                    {lang === "en" ? "Humidity" : "습도"} {weather.humidity}% · {weather.country}
+                  </span>
+                </div>
+              </div>
+            )}
+            {!weatherLoading && !weather && !weatherError && (
+              <p style={{ fontSize:"0.78rem", color:"var(--muted)", opacity:0.7 }}>
+                {lang === "en" ? "Location permission required." : "위치 권한이 필요해요."}
+              </p>
+            )}
+            {weatherError && (
+              <p style={{ fontSize:"0.78rem", color:"#e67e22", marginTop:"0.3rem" }}>
+                ⚠️ {lang === "en" ? "Could not get weather. " : "날씨를 가져올 수 없어요. "}{weatherError}
+              </p>
+            )}
+          </div>
+
+          {/* ── 날씨 기반 파라미터 팁 ── */}
+          {!isEdit && (ruleTip || geminiTip || tipLoading) && (
+            <div className="field full">
+              <div style={{ background:"linear-gradient(135deg,#1A1A1A 0%,#2C1A0E 100%)", borderRadius:"12px", padding:"14px 16px", position:"relative", overflow:"hidden" }}>
+                {/* 배경 장식 */}
+                <div style={{ position:"absolute", right:-16, top:-16, width:72, height:72, borderRadius:"50%", background:"rgba(176,125,84,0.12)", pointerEvents:"none" }}/>
+                {/* 헤더 */}
+                <div style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"10px" }}>
+                  <div style={{ width:18, height:18, borderRadius:"50%", background:"var(--latte)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white"/></svg>
+                  </div>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"var(--latte)" }}>
+                    {lang === "en" ? "AI Brew Tip · Today's Weather" : "AI 브루 팁 · 오늘 날씨 기반"}
+                  </span>
+                  {weather && (
+                    <span style={{ marginLeft:"auto", fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"rgba(255,255,255,0.45)" }}>
+                      {weather.icon} {weather.temp}°C · {weather.humidity}%
+                    </span>
+                  )}
+                </div>
+
+                {/* 규칙 기반 즉시 팁 */}
+                {ruleTip && (
+                  <div style={{ marginBottom: geminiTip||tipLoading ? "10px" : "0" }}>
+                    {ruleTip.split("\n").map((line, i) => (
+                      <div key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", color:"rgba(255,255,255,0.85)", lineHeight:1.6, marginBottom:"3px" }}>
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Gemini AI 팁 로딩 */}
+                {tipLoading && !geminiTip && (
+                  <div style={{ display:"flex", alignItems:"center", gap:"6px", padding:"8px 0" }}>
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" style={{ animation:"spin 1s linear infinite", flexShrink:0 }}>
+                      <circle cx="7" cy="7" r="5.5" stroke="rgba(176,125,84,0.8)" strokeWidth="1.5" strokeDasharray="10 22" strokeLinecap="round"/>
+                    </svg>
+                    <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"rgba(255,255,255,0.4)" }}>
+                      {lang === "en" ? "Personalizing based on your recipes…" : "내 레시피 기반으로 분석 중…"}
+                    </span>
+                  </div>
+                )}
+
+                {/* Gemini AI 팁 */}
+                {geminiTip && (
+                  <div style={{ borderTop:ruleTip?"1px solid rgba(255,255,255,0.08)":"none", paddingTop:ruleTip?"10px":"0" }}>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"rgba(255,255,255,0.75)", lineHeight:1.65, marginBottom:"10px" }}>
+                      {geminiTip.tip}
+                    </div>
+                    {/* 파라미터 조정 뱃지 */}
+                    <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                      {[
+                        { label: lang==="en"?"Grind":"분쇄도",   val: geminiTip.grindAdjust, map:{ "굵게":"↑", "미세하게":"↓", "유지":"─", coarser:"↑", finer:"↓", maintain:"─" } },
+                        { label: lang==="en"?"Time":"추출시간",  val: geminiTip.timeAdjust,  map:{ "단축":"↓", "연장":"↑", "유지":"─", shorter:"↓", longer:"↑", maintain:"─" } },
+                        { label: lang==="en"?"Temp":"물온도",    val: geminiTip.tempAdjust,  map:{ "높이기":"↑", "낮추기":"↓", "유지":"─", higher:"↑", lower:"↓", maintain:"─" } },
+                      ].map(({ label, val, map }) => {
+                        if (!val) return null;
+                        const arrow = map[val] || "─";
+                        const color = arrow==="↑"?"#27ae60":arrow==="↓"?"#e67e22":"rgba(255,255,255,0.3)";
+                        return (
+                          <div key={label} style={{ background:"rgba(255,255,255,0.07)", borderRadius:"8px", padding:"5px 10px", display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", minWidth:"60px" }}>
+                            <span style={{ fontSize:"0.6rem", color:"rgba(255,255,255,0.35)", textTransform:"uppercase", letterSpacing:"0.07em" }}>{label}</span>
+                            <span style={{ fontSize:"1rem", fontWeight:700, color, lineHeight:1 }}>{arrow}</span>
+                            <span style={{ fontSize:"0.6rem", color:"rgba(255,255,255,0.4)", whiteSpace:"nowrap" }}>{val}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Flavor 프로파일 */}
+
+          {/* ── 섹션 구분선 ── */}
+          <div style={{ gridColumn:"1 / -1", margin:"28px 0 14px" }}>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Rating & Notes" : "평가"}</span>
+            <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
+          </div>
+          {/* 기록 날짜 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Brew Date" : "기록 날짜"}</label>
+            <input type="date" value={form.recordDate || ""}
+              onChange={(e) => set("recordDate", e.target.value)}
+              max={new Date().toISOString().split("T")[0]}/>
+          </div>
+
+          <div className="field full flavor-radar-wrap">
+            <label style={{ marginBottom:"16px", display:"block" }}>
+              {lang === "en" ? "Flavor Profile" : "플레이버 프로파일"}
+            </label>
+            <div style={{ display:"flex", justifyContent:"center", marginBottom:"20px" }}>
+              <FlavorRadar values={form} size={200} lang={lang}/>
+            </div>
+            <div className="flavor-grid-2col" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"12px 24px" }}>
+              {FLAVOR_AXES.map((ax) => {
+                const val = form[ax.key] || 0;
+                const pct = (val / 5) * 100;
+                return (
+                  <div key={ax.key} className="flavor-slider-row">
+                    <div className="flavor-slider-label">
+                      <span className="flavor-slider-name">{lang === "en" ? ax.en : ax.ko}</span>
+                      <span className={`flavor-slider-val${val === 0 ? " zero" : ""}`}>
+                        {val === 0 ? "—" : `${val} / 5`}
+                      </span>
+                    </div>
+                    <input type="range" min="0" max="5" step="1"
+                      value={val}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setForm(f => ({ ...f, [ax.key]: parseInt(e.target.value) }));
+                      }}
+                      onFocus={(e) => e.target.blur()}
+                      className="flavor-range" style={{ "--pct": `${pct}%` }}/>
+                    <div style={{ fontSize:"0.62rem", color:"var(--muted)", opacity:0.65, lineHeight:1.3, marginTop:"1px" }}>
+                      {lang === "en" ? ax.desc_en : ax.desc_ko}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 별점 */}
+          <div className="field full">
+            <label>{t.rating}</label>
+            <div className="star-rating">
+              {[1,2,3,4,5].map((star) => (
+                <button key={star} type="button"
+                  className={`star-btn ${star <= (form.rating || 0) ? "active" : ""}`}
+                  onClick={() => set("rating", form.rating === star ? 0 : star)}>
+                  {star <= (form.rating || 0) ? "★" : "☆"}
+                </button>
+              ))}
+              <span className="star-label">{t.ratingLabels[form.rating || 0]}</span>
+            </div>
+          </div>
+
+          {/* 예상 압력 */}
+          <div className="field full">
+            <label>{t.note}</label>
+            <textarea value={form.note} onChange={(e) => set("note", e.target.value)}
+              placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"}/>
+          </div>
+
+          {/* 태그 */}
+          <div className="field full">
+            <label style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                <path d="M2 2h6l6 6-6 6-6-6V2z" stroke="var(--latte)" strokeWidth="1.3" strokeLinejoin="round"/>
+                <circle cx="5.5" cy="5.5" r="1" fill="var(--latte)"/>
+              </svg>
+              {lang === "en" ? "Tags" : "태그"}
+            </label>
+            <TagInput tags={form.tags || []} onChange={(tags) => set("tags", tags)} lang={lang}/>
+          </div>
+
+          {/* ── 섹션 구분선 ── */}
+          <div style={{ gridColumn:"1 / -1", margin:"28px 0 14px" }}>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Visibility" : "공개 설정"}</span>
+            <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
+          </div>
+          <div className="field full">
             <div style={{ display:"flex", gap:"0.5rem" }}>
               {[
                 { pub:true,  label: lang === "en" ? "Public"  : "공개",   desc: lang === "en" ? "Visible to everyone" : "피드에 공개됩니다" },
