@@ -2545,7 +2545,7 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
-  const [step, setStep] = useState(1);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [weather, setWeather] = useState(isEdit ? (editTarget.weather || null) : null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState(null);
@@ -2765,29 +2765,9 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  const validateStep = (s) => {
-    const newErrors = {};
-    if (s === 1) {
-      if (!selectedMenu) newErrors.menu = true;
-      if (!form.bean && !linkedBeanId) newErrors.bean = true;
-    }
-    if (s === 2) {
-      if (!form.gram) newErrors.gram = true;
-      if (!form.seconds) newErrors.seconds = true;
-      if (!form.espressoMl) newErrors.espressoMl = true;
-    }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const goNext = () => {
-    if (validateStep(step)) setStep(s => Math.min(s + 1, 4));
-  };
-  const goPrev = () => setStep(s => Math.max(s - 1, 1));
-
-  const STEPS = lang === "en"
-    ? ["Menu & Bean", "Extraction", "Tasting", "Save"]
-    : ["메뉴 · 원두", "추출 설정", "테이스팅", "저장"];
+  const SECTIONS = lang === "en"
+    ? ["Menu & Bean", "Equipment", "Extraction", "Tasting & Notes"]
+    : ["메뉴 · 원두", "장비", "추출 파라미터", "테이스팅 & 메모"];
 
   const save = async () => {
     const newErrors = {};
@@ -2955,12 +2935,12 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
 
   return (
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal" ref={modalRef} style={{ paddingBottom: 0 }}>
+      <div className="modal" ref={modalRef} style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
-        {/* ── 헤더 ── */}
-        <div style={{ padding: "20px 20px 0" }}>
+        {/* ── 고정 헤더 + 진행 바 ── */}
+        <div style={{ padding: "18px 20px 0", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
-            <h2 style={{ margin: 0, fontSize: "1.15rem" }}>
+            <h2 style={{ margin: 0, fontSize: "1.1rem" }}>
               {isEdit ? t.editTitle : editTarget?._isCopy ? (lang === "en" ? "Copy Recipe" : "레시피 복사하기") : t.recordTitle}
             </h2>
             <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "4px", display: "flex", alignItems: "center" }}>
@@ -2968,30 +2948,26 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
             </button>
           </div>
 
-          {/* 스텝 인디케이터 */}
-          <div style={{ display: "flex", gap: "6px", marginBottom: "6px" }}>
-            {[1,2,3,4].map(s => (
-              <div key={s} style={{ flex: 1, height: "3px", borderRadius: "2px", background: s < step ? "var(--latte)" : s === step ? "var(--espresso)" : "var(--steam)", transition: "background 0.3s" }} />
-            ))}
+          {/* 스크롤 진행 바 */}
+          <div style={{ position: "relative", height: "32px", marginBottom: "4px" }}>
+            <div style={{ position: "absolute", top: "8px", left: 0, right: 0, height: "3px", background: "var(--steam)", borderRadius: "2px" }} />
+            <div style={{ position: "absolute", top: "8px", left: 0, height: "3px", background: "var(--espresso)", borderRadius: "2px", width: `${scrollProgress}%`, transition: "width 0.15s ease" }} />
+            {SECTIONS.map((label, i) => {
+              const pct = (i / (SECTIONS.length - 1)) * 100;
+              const passed = scrollProgress >= pct - 1;
+              return (
+                <div key={i} style={{ position: "absolute", top: 0, left: `${pct}%`, transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", marginTop: "4px", background: passed ? "var(--espresso)" : "var(--foam)", border: `2px solid ${passed ? "var(--espresso)" : "var(--steam)"}`, transition: "all 0.2s", flexShrink: 0 }} />
+                  <span style={{ fontSize: "0.58rem", marginTop: "4px", color: passed ? "var(--espresso)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontWeight: passed ? 600 : 400, whiteSpace: "nowrap", transition: "color 0.2s" }}>
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
-            {STEPS.map((label, i) => (
-              <span key={i} style={{ fontSize: "0.65rem", fontFamily: "'DM Sans',sans-serif", color: i + 1 === step ? "var(--espresso)" : i + 1 < step ? "var(--latte)" : "var(--muted)", fontWeight: i + 1 === step ? 600 : 400, transition: "color 0.3s" }}>
-                {i + 1 < step ? "✓ " : ""}{label}
-              </span>
-            ))}
-          </div>
-
-          {/* 복사 모드 안내 */}
-          {editTarget?._isCopy && step === 1 && (
-            <div style={{ background:"#EBF5FB", border:"1px solid #AED6F1", borderRadius:"8px", padding:"10px 14px", marginBottom:"14px", fontSize:"0.8rem", color:"#2980b9", display:"flex", alignItems:"center", gap:"8px" }}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-              {lang === "en" ? "Copied from another recipe. Edit and save to create your own." : "다른 레시피를 복사했어요. 내용을 수정하고 저장하면 내 새 레시피로 등록됩니다."}
-            </div>
-          )}
         </div>
 
-        {/* ── 프리셋 오버레이 ── */}
+        {/* ── 프리셋 저장 오버레이 ── */}
         {showPresetSave && (
           <div style={{ position: "fixed", inset: 0, background: "#0005", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
             onClick={e => e.target === e.currentTarget && setShowPresetSave(false)}>
@@ -3016,558 +2992,524 @@ function RecipeModal({ onClose, onSave, user, editTarget, lang = "ko" }) {
           </div>
         )}
 
-        {/* ── 스텝 패널 본문 ── */}
-        <div style={{ padding: "0 20px", overflowY: "auto", maxHeight: "62vh" }}>
-
-          {/* ════ STEP 1: 메뉴 · 원두 ════ */}
-          {step === 1 && (
-            <div>
-              {/* 프리셋 */}
-              {presets.length > 0 && (
-                <div style={{ marginBottom: "20px", paddingBottom: "16px", borderBottom: "1px solid var(--divider)" }}>
-                  <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "8px" }}>
-                    {lang === "en" ? "Presets" : "프리셋"}
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                    {presets.map(p => {
-                      const compatible = !p.equipType || p.equipType === (isHandDrip ? "handdrip" : "machine");
-                      return (
-                        <button key={p.id} type="button"
-                          onClick={() => { if (compatible) { applyPreset(p); setActivePresetId(p.id); } }}
-                          disabled={!compatible}
-                          style={{ padding: "5px 12px", borderRadius: "8px", border: `1px solid ${!compatible ? "var(--steam)" : activePresetId === p.id ? "var(--espresso)" : "var(--latte)"}`, background: !compatible ? "var(--cream)" : activePresetId === p.id ? "var(--espresso)" : "#FDF6EF", color: !compatible ? "var(--muted)" : activePresetId === p.id ? "var(--cream)" : "var(--latte)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", cursor: compatible ? "pointer" : "not-allowed", opacity: compatible ? 1 : 0.45, fontWeight: 500, transition: "all 0.15s" }}>
-                          {p.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* 커피 메뉴 */}
-              <div className="field full" data-field="menu" style={{ marginBottom: "20px" }}>
-                <label style={{ color: errors.menu ? "#c0392b" : undefined }}>{t.coffeeMenu}</label>
-                <div className="menu-selector" style={{ border: errors.menu ? "1px solid #c0392b" : "none", borderRadius: "8px", padding: errors.menu ? "0.5rem" : "0" }}>
-                  {COFFEE_MENUS.map(m => (
-                    <button key={m.id} type="button" className={`menu-btn ${selectedMenu === m.id ? "selected" : ""}`}
-                      onClick={() => { selectMenu(m); setErrors(p => ({...p, menu: false})); }}>
-                      {MenuIcons[m.id]}
-                      {lang === "en" ? m.labelEn : m.label}
-                    </button>
-                  ))}
-                </div>
-                {errors.menu && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ {lang === "en" ? "Please select a menu." : "커피 메뉴를 선택해주세요"}</p>}
-              </div>
-
-              {/* HOT / ICE 토글 */}
-              {canIce && (
-                <div className="field full" style={{ marginBottom: "20px" }}>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button type="button" onClick={() => { set("isIced", false); if (!form.waterTemp) set("waterTemp", "93"); }}
-                      style={{ flex: 1, height: "44px", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", fontWeight: form.isIced ? 400 : 600, transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", borderColor: !form.isIced ? "#e67e22" : "var(--steam)", background: !form.isIced ? "#FEF3E8" : "var(--foam)", color: !form.isIced ? "#e67e22" : "var(--muted)" }}>
-                      <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M9 1v2M9 15v2M1 9h2M15 9h2M3.2 3.2l1.4 1.4M13.4 13.4l1.4 1.4M3.2 14.8l1.4-1.4M13.4 4.6l1.4-1.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                      HOT
-                    </button>
-                    <button type="button" onClick={() => { set("isIced", true); }}
-                      style={{ flex: 1, height: "44px", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", fontWeight: form.isIced ? 600 : 400, transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", borderColor: form.isIced ? "#2980b9" : "var(--steam)", background: form.isIced ? "#EBF5FB" : "var(--foam)", color: form.isIced ? "#2980b9" : "var(--muted)" }}>
-                      <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M9 2v14M2 9h14M4.5 4.5l9 9M13.5 4.5l-9 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><circle cx="9" cy="9" r="2.5" fill="currentColor" opacity="0.25"/></svg>
-                      ICE
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* 원두 선택 */}
-              {myBeans.length === 0 ? (
-                <div style={{ background: "var(--cream)", border: "1px solid var(--divider)", borderRadius: "10px", padding: "14px 16px", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.6, marginBottom: "20px" }}>
-                  {lang === "en" ? "No beans registered. Add beans in the My Beans tab first." : "등록된 원두가 없어요. 내 원두 탭에서 원두를 먼저 추가해주세요."}
-                </div>
-              ) : (
-                <div className="field full" style={{ marginBottom: "20px" }}>
-                  <label style={{ color: errors.bean ? "#c0392b" : undefined }}>{lang === "en" ? "Select Bean *" : "원두 선택 *"}</label>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                    {myBeans.map(b => {
-                      const roastDays = b.roastDate ? Math.floor((Date.now() - new Date(b.roastDate)) / 86400000) : null;
-                      const isExhausted = b.status === "empty";
-                      const isSelected = linkedBeanId === b.id;
-                      return (
-                        <button key={b.id} type="button" disabled={isExhausted}
-                          onClick={() => {
-                            if (isSelected) { setLinkedBeanId(null); set("company", ""); set("bean", ""); set("roastDate", ""); }
-                            else { setLinkedBeanId(b.id); set("company", b.roastery || ""); set("bean", b.name || ""); set("roastDate", b.roastDate || ""); setErrors(p => ({ ...p, bean: false, company: false })); }
-                          }}
-                          style={{ padding: "7px 12px", border: "1px solid", borderRadius: "10px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", cursor: isExhausted ? "not-allowed" : "pointer", borderColor: isSelected ? "var(--espresso)" : "var(--steam)", background: isSelected ? "var(--espresso)" : isExhausted ? "var(--divider)" : "var(--foam)", color: isSelected ? "var(--cream)" : isExhausted ? "var(--muted)" : "var(--espresso)", opacity: isExhausted ? 0.5 : 1, textAlign: "left", lineHeight: 1.4, transition: "all 0.15s" }}>
-                          <span style={{ fontWeight: 600 }}>{b.name}</span>
-                          <span style={{ marginLeft: "4px", fontSize: "0.72rem", opacity: 0.7 }}>· {b.roastery}</span>
-                          {roastDays !== null && <span style={{ marginLeft: "4px", fontSize: "0.65rem", opacity: 0.6 }}>({roastDays}{lang === "en" ? "d" : "일"})</span>}
-                          {b.usedCount > 0 && <span style={{ marginLeft: "3px", fontSize: "0.65rem", color: isSelected ? "var(--cream)" : "var(--latte)", opacity: 0.8 }}>×{b.usedCount}</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {errors.bean && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.4rem" }}>⚠️ {lang === "en" ? "Please select a bean." : "원두를 선택해주세요."}</p>}
-                </div>
-              )}
-
-              {/* 기록 날짜 */}
-              <div className="field full" style={{ marginBottom: "8px" }}>
-                <label>{lang === "en" ? "Brew Date" : "기록 날짜"}</label>
-                <input type="date" value={form.recordDate || ""} onChange={e => set("recordDate", e.target.value)} max={new Date().toISOString().split("T")[0]} />
-              </div>
+        {/* ── 스크롤 본문 ── */}
+        <div
+          style={{ overflowY: "auto", flex: 1, padding: "16px 20px 24px" }}
+          onScroll={e => {
+            const el = e.currentTarget;
+            const pct = el.scrollHeight <= el.clientHeight
+              ? 100
+              : Math.min(100, Math.round((el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100));
+            setScrollProgress(pct);
+          }}
+        >
+          {/* 복사 모드 안내 */}
+          {editTarget?._isCopy && (
+            <div style={{ background:"#EBF5FB", border:"1px solid #AED6F1", borderRadius:"8px", padding:"10px 14px", marginBottom:"16px", fontSize:"0.8rem", color:"#2980b9", display:"flex", alignItems:"center", gap:"8px" }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              {lang === "en" ? "Copied from another recipe. Edit and save to create your own." : "다른 레시피를 복사했어요. 내용을 수정하고 저장하면 내 새 레시피로 등록됩니다."}
             </div>
           )}
 
-          {/* ════ STEP 2: 장비 · 추출 파라미터 ════ */}
-          {step === 2 && (
-            <div>
-              {/* 섹션: 장비 */}
-              <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--espresso)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "10px" }}>
-                {lang === "en" ? "Equipment" : "장비"}
-              </div>
+          {/* ════ 섹션 1: 메뉴 · 원두 ════ */}
+          <div style={{ marginBottom: "8px" }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--espresso)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ display: "inline-flex", width: "18px", height: "18px", background: "var(--espresso)", borderRadius: "50%", alignItems: "center", justifyContent: "center", color: "var(--cream)", fontSize: "0.62rem", flexShrink: 0 }}>1</span>
+              {SECTIONS[0]}
+            </div>
 
-              {/* 내 장비에서 선택 */}
-              {myEquips.length > 0 && (
-                <div className="field full" style={{ marginBottom: "16px" }}>
-                  {[
-                    { cat: "machine",  labelKo: "커피 머신",    labelEn: "Machine" },
-                    { cat: "handdrip", labelKo: "핸드드립 기구", labelEn: "Hand Drip" },
-                    { cat: "grinder",  labelKo: "그라인더",     labelEn: "Grinder" },
-                    { cat: "other",    labelKo: "기타",         labelEn: "Other" },
-                  ].map(({ cat, labelKo, labelEn }) => {
-                    if (cat === "machine" && selectedMenu === "hand_drip") return null;
-                    if (cat === "handdrip" && selectedMenu && selectedMenu !== "hand_drip" && selectedMenu !== "other") return null;
-                    const catEquips = myEquips.filter(e => e.category === cat);
-                    if (!catEquips.length) return null;
+            {/* 프리셋 */}
+            {presets.length > 0 && (
+              <div style={{ marginBottom: "16px", paddingBottom: "14px", borderBottom: "1px solid var(--divider)" }}>
+                <div style={{ fontSize: "0.65rem", color: "var(--muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "8px" }}>
+                  {lang === "en" ? "Presets" : "프리셋"}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {presets.map(p => {
+                    const compatible = !p.equipType || p.equipType === (isHandDrip ? "handdrip" : "machine");
                     return (
-                      <div key={cat} style={{ marginBottom: "10px" }}>
-                        <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>{lang === "en" ? labelEn : labelKo}</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                          {catEquips.map(eq => {
-                            const isSelected = selectedEquipIds[eq.category] === eq.id;
-                            return (
-                              <button key={eq.id} type="button"
-                                onClick={() => {
-                                  const newIds = { ...selectedEquipIds };
-                                  if (isSelected) { delete newIds[eq.category]; setSelectedEquipIds(newIds); }
-                                  else {
-                                    if (eq.category === "machine") delete newIds.handdrip;
-                                    if (eq.category === "handdrip") delete newIds.machine;
-                                    newIds[eq.category] = eq.id;
-                                    setSelectedEquipIds(newIds);
-                                    applyEquipment(eq);
-                                  }
-                                }}
-                                style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: "5px", borderColor: isSelected ? "var(--espresso)" : "var(--steam)", background: isSelected ? "var(--espresso)" : "var(--foam)" }}>
-                                <span style={{ fontWeight: 600, color: isSelected ? "var(--cream)" : "var(--espresso)" }}>{eq.brand}</span>
-                                {eq.isPrimary && !isSelected && <span style={{ fontSize: "0.6rem", color: "var(--latte)" }}>★</span>}
-                                {eq.model && <span style={{ color: isSelected ? "var(--cream)" : "var(--muted)", fontSize: "0.72rem", opacity: isSelected ? 0.8 : 1 }}>{eq.model}</span>}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* 장비 미등록: 머신/핸드드립 직접 입력 */}
-              {!myEquips.some(e => e.category === "machine" || e.category === "handdrip") && (
-                <div className="field full" style={{ marginBottom: "16px" }}>
-                  <label>{machineType === "handdrip" ? (lang === "en" ? "Hand Drip Equipment" : "핸드드립 기구") : (t ? t.machine : "커피 머신")}</label>
-                  <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-                    <button type="button" onClick={() => { setMachineType("auto"); setMachineBrand(savedMachine?.equipType !== "handdrip" ? (savedMachine?.brand || "") : ""); setMachineModel(savedMachine?.equipType !== "handdrip" ? (savedMachine?.model || "") : ""); setMachineLocked(false); }}
-                      style={{ flex: 1, height: "42px", border: "1px solid", borderRadius: "8px", borderColor: machineType !== "handdrip" ? "var(--espresso)" : "var(--steam)", background: machineType !== "handdrip" ? "var(--espresso)" : "var(--foam)", color: machineType !== "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", fontWeight: machineType !== "handdrip" ? 600 : 400, cursor: "pointer", transition: "all 0.2s" }}>
-                      {lang === "en" ? "Coffee Machine" : "커피 머신"}
-                    </button>
-                    <button type="button" onClick={() => { setMachineType("handdrip"); setMachineBrand(""); setMachineModel(""); setMachineLocked(false); const hd = COFFEE_MENUS.find(m => m.id === "hand_drip"); if (hd) selectMenu(hd); }}
-                      style={{ flex: 1, height: "42px", border: "1px solid", borderRadius: "8px", borderColor: machineType === "handdrip" ? "var(--espresso)" : "var(--steam)", background: machineType === "handdrip" ? "var(--espresso)" : "var(--foam)", color: machineType === "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", fontWeight: machineType === "handdrip" ? 600 : 400, cursor: "pointer", transition: "all 0.2s" }}>
-                      {lang === "en" ? "Hand Drip" : "핸드드립"}
-                    </button>
-                  </div>
-                  {machineType === "handdrip" ? (
-                    <input value={handDripName} onChange={e => setHandDripName(e.target.value)} placeholder={lang === "en" ? "e.g. Hario V60, Chemex …" : "예) 하리오 V60, 케멕스 …"} style={{ width: "100%", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }} />
-                  ) : machineLocked ? (
-                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                      <div style={{ flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>{machineDisplay}</div>
-                      <button onClick={() => setMachineLocked(false)} style={{ height: "42px", padding: "0 16px", background: "none", border: "1px solid var(--steam)", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", cursor: "pointer" }}>{lang === "en" ? "Edit" : "변경"}</button>
-                    </div>
-                  ) : (
-                    <>
-                      <BrandInput value={machineBrand} onChange={v => { setMachineBrand(v); setMachineModel(""); }} brands={MACHINE_BRANDS} placeholder="브랜드 입력 또는 검색 (예: Breville, 드롱기…)" />
-                      {machineBrand && (
-                        <>
-                          {isBothModeBrand(machineBrand) && (
-                            <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
-                              {[{ val: "auto", label: t.autoType }, { val: "manual", label: t.manualType }].map(({ val, label }) => (
-                                <button key={val} type="button" onClick={() => setMachineType(val)}
-                                  style={{ flex: 1, height: "42px", border: "1px solid", borderRadius: "8px", borderColor: machineType === val ? "var(--espresso)" : "var(--steam)", background: machineType === val ? "var(--espresso)" : "var(--foam)", color: machineType === val ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", fontWeight: machineType === val ? 600 : 400, cursor: "pointer", transition: "all 0.2s" }}>{label}</button>
-                              ))}
-                            </div>
-                          )}
-                          <input value={machineModel} onChange={e => setMachineModel(e.target.value)} placeholder={isCustomBrand ? "브랜드명과 모델명 입력" : "예) Barista Express, Dedica …"} style={{ width: "100%", marginTop: "8px", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }} />
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* 그라인더 */}
-              {!myEquips.some(e => e.category === "grinder") && !isAutoMode && (
-                grinderLocked ? (
-                  <div className="field full" style={{ marginBottom: "16px" }}>
-                    <label>{t ? t.grinder : "그라인더"}</label>
-                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                      <div style={{ flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>{grinderDisplay}</div>
-                      <button onClick={() => setGrinderLocked(false)} style={{ height: "42px", padding: "0 16px", background: "none", border: "1px solid var(--steam)", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", cursor: "pointer" }}>{lang === "en" ? "Edit" : "변경"}</button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="field full" style={{ marginBottom: "8px" }}>
-                      <label>{t ? t.grinderBrand : "그라인더 브랜드"}</label>
-                      <BrandInput value={grinderBrand} onChange={v => { setGrinderBrand(v); setGrinderModel(""); }} brands={GRINDER_BRANDS} placeholder="브랜드 입력 또는 검색 (예: Mahlkönig, 마쩌…)" />
-                    </div>
-                    {grinderBrand && (
-                      <div className="field full" style={{ marginBottom: "16px" }}>
-                        <label>{t ? t.machineModel : "세부 모델명"}</label>
-                        <input value={grinderModel} onChange={e => setGrinderModel(e.target.value)} placeholder={isCustomGrinderBrand ? "브랜드명과 모델명 입력" : "예) Encore, C40, Nano …"} />
-                      </div>
-                    )}
-                  </>
-                )
-              )}
-
-              {/* 분쇄도 */}
-              {!isAutoMode && (
-                <div className="field full" style={{ marginBottom: "16px" }}>
-                  <label>{lang === "en" ? "Grind Size" : "분쇄도"}</label>
-                  <input value={form.grindSize} onChange={e => set("grindSize", e.target.value)} placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"} />
-                </div>
-              )}
-
-              <div style={{ height: "1px", background: "var(--divider)", margin: "8px 0 16px" }} />
-              <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--espresso)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "12px" }}>
-                {lang === "en" ? "Extraction Parameters" : "추출 파라미터"}
-              </div>
-
-              {/* 파라미터 카드 그리드 */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "16px" }}>
-                {/* 원두량 */}
-                {isAutoMode ? (
-                  <div style={{ gridColumn: "1 / -1", background: "var(--foam)", borderRadius: "10px", padding: "12px 14px", border: "1px solid var(--steam)" }}>
-                    <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "6px" }}>{t.gramAuto} <span style={{ fontSize: "0.6rem", background: "var(--latte)", color: "var(--cream)", borderRadius: "4px", padding: "1px 5px", marginLeft: "4px" }}>전자동</span></div>
-                    <div className="bean-counter">
-                      <div className="bean-counter-display">
-                        <div className="bean-icons">
-                          {Array.from({ length: Number(form.gram) || 0 }).map((_, i) => (
-                            <span key={i} className="bean-icon" onClick={() => set("gram", String(Math.max(0, (Number(form.gram)||0) - 1)))}><CoffeeBeanIcon size={22} /></span>
-                          ))}
-                          {(!form.gram || Number(form.gram) === 0) && <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>{lang === "ko" ? "콩을 추가해주세요" : "Add beans"}</span>}
-                        </div>
-                        <div className="bean-counter-btns">
-                          <button type="button" className="bean-btn" onClick={() => set("gram", String(Math.max(0, (Number(form.gram)||0) - 1)))}>−</button>
-                          <button type="button" className="bean-btn" onClick={() => set("gram", String((Number(form.gram)||0) + 1))}>+</button>
-                        </div>
-                      </div>
-                      <span className="bean-count-text">{form.gram || 0}개</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div data-field="gram" style={{ background: "var(--foam)", borderRadius: "10px", padding: "12px 14px", border: `1px solid ${errors.gram ? "#c0392b" : "var(--steam)"}` }}>
-                    <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "4px" }}>{t.gram}</div>
-                    <input type="number" value={form.gram} onChange={e => { set("gram", String(Math.max(0, Number(e.target.value)))); setErrors(p => ({...p, gram: false})); }} placeholder="18" min="0"
-                      style={{ width: "100%", border: "none", background: "transparent", fontFamily: "'Playfair Display',serif", fontSize: "1.4rem", fontWeight: 700, color: "var(--espresso)", outline: "none", padding: 0 }} />
-                    <div style={{ fontSize: "0.7rem", color: "var(--muted)" }}>g</div>
-                    {errors.gram && <p style={{ color: "#c0392b", fontSize: "0.7rem", marginTop: "2px" }}>⚠️ 필수</p>}
-                  </div>
-                )}
-
-                {/* 추출시간 */}
-                <div data-field="seconds" style={{ background: "var(--foam)", borderRadius: "10px", padding: "12px 14px", border: `1px solid ${errors.seconds ? "#c0392b" : "var(--steam)"}` }}>
-                  <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "4px" }}>{t.seconds}</div>
-                  <TimerField value={form.seconds} infusionValue={form.infusionSeconds || "0"} onChange={v => { set("seconds", v); setErrors(p => ({...p, seconds: false})); }} onInfusionChange={v => set("infusionSeconds", v)} lang={lang} t={t} />
-                  {errors.seconds && <p style={{ color: "#c0392b", fontSize: "0.7rem", marginTop: "2px" }}>⚠️ 필수</p>}
-                </div>
-
-                {/* 추출량 */}
-                <div data-field="espressoMl" style={{ background: "var(--foam)", borderRadius: "10px", padding: "12px 14px", border: `1px solid ${errors.espressoMl ? "#c0392b" : "var(--steam)"}` }}>
-                  <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "4px" }}>{t.espressoMl}</div>
-                  <input type="number" value={form.espressoMl} onChange={e => { set("espressoMl", String(Math.max(0, Number(e.target.value)))); setErrors(p => ({...p, espressoMl: false})); }} placeholder="36" min="0"
-                    style={{ width: "100%", border: "none", background: "transparent", fontFamily: "'Playfair Display',serif", fontSize: "1.4rem", fontWeight: 700, color: "var(--espresso)", outline: "none", padding: 0 }} />
-                  <div style={{ fontSize: "0.7rem", color: "var(--muted)" }}>ml</div>
-                  {errors.espressoMl && <p style={{ color: "#c0392b", fontSize: "0.7rem", marginTop: "2px" }}>⚠️ 필수</p>}
-                </div>
-
-                {/* 물온도 */}
-                <div style={{ background: "var(--foam)", borderRadius: "10px", padding: "12px 14px", border: "1px solid var(--steam)" }}>
-                  <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "4px" }}>{lang === "en" ? "Water Temp" : "물온도"}</div>
-                  <input type="number" value={form.waterTemp} onChange={e => set("waterTemp", String(Math.max(0, Number(e.target.value))))} placeholder="93" min="0" max="100"
-                    style={{ width: "100%", border: "none", background: "transparent", fontFamily: "'Playfair Display',serif", fontSize: "1.4rem", fontWeight: 700, color: "var(--espresso)", outline: "none", padding: 0 }} />
-                  <div style={{ fontSize: "0.7rem", color: "var(--muted)" }}>°C</div>
-                </div>
-              </div>
-
-              {/* 물 종류 */}
-              <div className="field full" style={{ marginBottom: "14px" }}>
-                <label>{lang === "en" ? "Water Type" : "물 종류"}</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
-                  {[{ id:"tap",ko:"수돗물",en:"Tap Water"},{ id:"filter",ko:"정수기",en:"Filtered"},{ id:"bottle",ko:"생수",en:"Bottled"},{ id:"other",ko:"기타",en:"Other"}].map(w => {
-                    const isSelected = form.waterType === w.id;
-                    return (
-                      <button key={w.id} type="button" onClick={() => set("waterType", isSelected ? "" : w.id)}
-                        style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s", borderColor: isSelected ? "var(--espresso)" : "var(--steam)", background: isSelected ? "var(--espresso)" : "var(--foam)", color: isSelected ? "var(--cream)" : "var(--espresso)" }}>
-                        {lang === "en" ? w.en : w.ko}
+                      <button key={p.id} type="button"
+                        onClick={() => { if (compatible) { applyPreset(p); setActivePresetId(p.id); } }}
+                        disabled={!compatible}
+                        style={{ padding: "5px 12px", borderRadius: "8px", border: `1px solid ${!compatible ? "var(--steam)" : activePresetId === p.id ? "var(--espresso)" : "var(--latte)"}`, background: !compatible ? "var(--cream)" : activePresetId === p.id ? "var(--espresso)" : "#FDF6EF", color: !compatible ? "var(--muted)" : activePresetId === p.id ? "var(--cream)" : "var(--latte)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", cursor: compatible ? "pointer" : "not-allowed", opacity: compatible ? 1 : 0.45, fontWeight: 500, transition: "all 0.15s" }}>
+                        {p.name}
                       </button>
                     );
                   })}
                 </div>
-                {(form.waterType === "filter" || form.waterType === "bottle" || form.waterType === "other") && (
-                  <input value={form.waterBrand || ""} onChange={e => set("waterBrand", e.target.value)}
-                    placeholder={form.waterType === "filter" ? (lang === "en" ? "e.g. Coway, Brita…" : "예) 코웨이, 브리타, 직수…") : form.waterType === "bottle" ? (lang === "en" ? "e.g. Evian, Volvic…" : "예) 삼다수, 에비앙…") : (lang === "en" ? "Specify…" : "직접 입력…")} />
-                )}
               </div>
+            )}
 
-              {/* 희석 */}
-              {needsDilute && (
-                <>
-                  <div className="field full" style={{ marginBottom: "8px" }}>
-                    <label>{t ? t.diluteType : "희석 종류"}</label>
-                    {diluteCategory !== "milk" && (
-                      <div style={{ marginBottom: "8px" }}>
-                        <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>{lang === "en" ? "Water" : "물"}</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                          <button type="button" onClick={() => set("diluteType", form.diluteType === "물" ? "" : "물")}
-                            style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s", borderColor: form.diluteType === "물" ? "var(--espresso)" : "var(--steam)", background: form.diluteType === "물" ? "var(--espresso)" : "var(--foam)", color: form.diluteType === "물" ? "var(--cream)" : "var(--espresso)" }}>
-                            {lang === "en" ? "Water" : "물"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    <div>
-                      <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>{lang === "en" ? "Milk" : "우유"}</div>
+            {/* 커피 메뉴 */}
+            <div className="field full" data-field="menu" style={{ marginBottom: "16px" }}>
+              <label style={{ color: errors.menu ? "#c0392b" : undefined }}>{t.coffeeMenu}</label>
+              <div className="menu-selector" style={{ border: errors.menu ? "1px solid #c0392b" : "none", borderRadius: "8px", padding: errors.menu ? "0.5rem" : "0" }}>
+                {COFFEE_MENUS.map(m => (
+                  <button key={m.id} type="button" className={`menu-btn ${selectedMenu === m.id ? "selected" : ""}`}
+                    onClick={() => { selectMenu(m); setErrors(p => ({...p, menu: false})); }}>
+                    {MenuIcons[m.id]}
+                    {lang === "en" ? m.labelEn : m.label}
+                  </button>
+                ))}
+              </div>
+              {errors.menu && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.3rem" }}>⚠️ {lang === "en" ? "Please select a menu." : "커피 메뉴를 선택해주세요"}</p>}
+            </div>
+
+            {/* HOT / ICE */}
+            {canIce && (
+              <div className="field full" style={{ marginBottom: "16px" }}>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button type="button" onClick={() => { set("isIced", false); if (!form.waterTemp) set("waterTemp", "93"); }}
+                    style={{ flex: 1, height: "44px", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", fontWeight: form.isIced ? 400 : 600, transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", borderColor: !form.isIced ? "#e67e22" : "var(--steam)", background: !form.isIced ? "#FEF3E8" : "var(--foam)", color: !form.isIced ? "#e67e22" : "var(--muted)" }}>
+                    <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M9 1v2M9 15v2M1 9h2M15 9h2M3.2 3.2l1.4 1.4M13.4 13.4l1.4 1.4M3.2 14.8l1.4-1.4M13.4 4.6l1.4-1.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    HOT
+                  </button>
+                  <button type="button" onClick={() => set("isIced", true)}
+                    style={{ flex: 1, height: "44px", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", fontWeight: form.isIced ? 600 : 400, transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", borderColor: form.isIced ? "#2980b9" : "var(--steam)", background: form.isIced ? "#EBF5FB" : "var(--foam)", color: form.isIced ? "#2980b9" : "var(--muted)" }}>
+                    <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M9 2v14M2 9h14M4.5 4.5l9 9M13.5 4.5l-9 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><circle cx="9" cy="9" r="2.5" fill="currentColor" opacity="0.25"/></svg>
+                    ICE
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 원두 선택 */}
+            {myBeans.length === 0 ? (
+              <div style={{ background: "var(--cream)", border: "1px solid var(--divider)", borderRadius: "10px", padding: "14px 16px", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.6, marginBottom: "16px" }}>
+                {lang === "en" ? "No beans registered. Add beans in the My Beans tab first." : "등록된 원두가 없어요. 내 원두 탭에서 원두를 먼저 추가해주세요."}
+              </div>
+            ) : (
+              <div className="field full" data-field="bean" style={{ marginBottom: "16px" }}>
+                <label style={{ color: errors.bean ? "#c0392b" : undefined }}>{lang === "en" ? "Select Bean *" : "원두 선택 *"}</label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {myBeans.map(b => {
+                    const roastDays = b.roastDate ? Math.floor((Date.now() - new Date(b.roastDate)) / 86400000) : null;
+                    const isExhausted = b.status === "empty";
+                    const isSelected = linkedBeanId === b.id;
+                    return (
+                      <button key={b.id} type="button" disabled={isExhausted}
+                        onClick={() => {
+                          if (isSelected) { setLinkedBeanId(null); set("company", ""); set("bean", ""); set("roastDate", ""); }
+                          else { setLinkedBeanId(b.id); set("company", b.roastery || ""); set("bean", b.name || ""); set("roastDate", b.roastDate || ""); setErrors(p => ({ ...p, bean: false, company: false })); }
+                        }}
+                        style={{ padding: "7px 12px", border: "1px solid", borderRadius: "10px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", cursor: isExhausted ? "not-allowed" : "pointer", borderColor: isSelected ? "var(--espresso)" : "var(--steam)", background: isSelected ? "var(--espresso)" : isExhausted ? "var(--divider)" : "var(--foam)", color: isSelected ? "var(--cream)" : isExhausted ? "var(--muted)" : "var(--espresso)", opacity: isExhausted ? 0.5 : 1, textAlign: "left", lineHeight: 1.4, transition: "all 0.15s" }}>
+                        <span style={{ fontWeight: 600 }}>{b.name}</span>
+                        <span style={{ marginLeft: "4px", fontSize: "0.72rem", opacity: 0.7 }}>· {b.roastery}</span>
+                        {roastDays !== null && <span style={{ marginLeft: "4px", fontSize: "0.65rem", opacity: 0.6 }}>({roastDays}{lang === "en" ? "d" : "일"})</span>}
+                        {b.usedCount > 0 && <span style={{ marginLeft: "3px", fontSize: "0.65rem", color: isSelected ? "var(--cream)" : "var(--latte)", opacity: 0.8 }}>×{b.usedCount}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                {errors.bean && <p style={{ color: "#c0392b", fontSize: "0.78rem", marginTop: "0.4rem" }}>⚠️ {lang === "en" ? "Please select a bean." : "원두를 선택해주세요."}</p>}
+              </div>
+            )}
+
+            {/* 기록 날짜 */}
+            <div className="field full" style={{ marginBottom: "8px" }}>
+              <label>{lang === "en" ? "Brew Date" : "기록 날짜"}</label>
+              <input type="date" value={form.recordDate || ""} onChange={e => set("recordDate", e.target.value)} max={new Date().toISOString().split("T")[0]} />
+            </div>
+          </div>
+
+          <div style={{ height: "1px", background: "var(--divider)", margin: "20px 0" }} />
+
+          {/* ════ 섹션 2: 장비 ════ */}
+          <div style={{ marginBottom: "8px" }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--espresso)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ display: "inline-flex", width: "18px", height: "18px", background: "var(--espresso)", borderRadius: "50%", alignItems: "center", justifyContent: "center", color: "var(--cream)", fontSize: "0.62rem", flexShrink: 0 }}>2</span>
+              {SECTIONS[1]}
+            </div>
+
+            {/* 내 장비에서 선택 */}
+            {myEquips.length > 0 && (
+              <div className="field full" style={{ marginBottom: "14px" }}>
+                {[
+                  { cat: "machine",  labelKo: "커피 머신",     labelEn: "Machine" },
+                  { cat: "handdrip", labelKo: "핸드드립 기구", labelEn: "Hand Drip" },
+                  { cat: "grinder",  labelKo: "그라인더",      labelEn: "Grinder" },
+                  { cat: "other",    labelKo: "기타",          labelEn: "Other" },
+                ].map(({ cat, labelKo, labelEn }) => {
+                  if (cat === "machine" && selectedMenu === "hand_drip") return null;
+                  if (cat === "handdrip" && selectedMenu && selectedMenu !== "hand_drip" && selectedMenu !== "other") return null;
+                  const catEquips = myEquips.filter(e => e.category === cat);
+                  if (!catEquips.length) return null;
+                  return (
+                    <div key={cat} style={{ marginBottom: "10px" }}>
+                      <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>{lang === "en" ? labelEn : labelKo}</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {[{id:"우유",en:"Whole Milk"},{id:"저지방우유",en:"Low-fat Milk"},{id:"두유",en:"Soy Milk"},{id:"귀리우유",en:"Oat Milk"},{id:"아몬드우유",en:"Almond Milk"},{id:"코코넛우유",en:"Coconut Milk"},{id:"기타우유",en:"Other Milk"}].map(m => {
-                          const isSelected = form.diluteType === m.id;
+                        {catEquips.map(eq => {
+                          const isSelected = selectedEquipIds[eq.category] === eq.id;
                           return (
-                            <button key={m.id} type="button" onClick={() => { set("diluteType", isSelected ? "" : m.id); if (m.id !== "기타우유") set("diluteCustom", ""); }}
-                              style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s", borderColor: isSelected ? "var(--espresso)" : "var(--steam)", background: isSelected ? "var(--espresso)" : "var(--foam)", color: isSelected ? "var(--cream)" : "var(--espresso)" }}>
-                              {lang === "en" ? m.en : m.id === "기타우유" ? "기타" : m.id}
+                            <button key={eq.id} type="button"
+                              onClick={() => {
+                                const newIds = { ...selectedEquipIds };
+                                if (isSelected) { delete newIds[eq.category]; setSelectedEquipIds(newIds); }
+                                else {
+                                  if (eq.category === "machine") delete newIds.handdrip;
+                                  if (eq.category === "handdrip") delete newIds.machine;
+                                  newIds[eq.category] = eq.id; setSelectedEquipIds(newIds); applyEquipment(eq);
+                                }
+                              }}
+                              style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s", display: "flex", alignItems: "center", gap: "5px", borderColor: isSelected ? "var(--espresso)" : "var(--steam)", background: isSelected ? "var(--espresso)" : "var(--foam)" }}>
+                              <span style={{ fontWeight: 600, color: isSelected ? "var(--cream)" : "var(--espresso)" }}>{eq.brand}</span>
+                              {eq.isPrimary && !isSelected && <span style={{ fontSize: "0.6rem", color: "var(--latte)" }}>★</span>}
+                              {eq.model && <span style={{ color: isSelected ? "var(--cream)" : "var(--muted)", fontSize: "0.72rem", opacity: isSelected ? 0.8 : 1 }}>{eq.model}</span>}
                             </button>
                           );
                         })}
                       </div>
-                      {form.diluteType === "기타우유" && (
-                        <input style={{ marginTop: "6px" }} value={form.diluteCustom || ""} onChange={e => set("diluteCustom", e.target.value)} placeholder={lang === "en" ? "e.g. Rice milk, Macadamia milk…" : "예) 쌀우유, 마카다미아 우유…"} />
-                      )}
                     </div>
-                  </div>
-                  <div className="field full" style={{ marginBottom: "14px" }}>
-                    <label>{t.diluteMl}</label>
-                    <input type="number" value={form.diluteMl} onChange={e => set("diluteMl", String(Math.max(0, Number(e.target.value))))} placeholder="150" min="0" />
-                  </div>
-                </>
-              )}
-
-              {/* 시럽 */}
-              {hasSyrup && (
-                <div className="field full" style={{ marginBottom: "8px" }}>
-                  <label>{t ? t.syrup : "시럽 / 추가 재료"}</label>
-                  <input value={form.syrup || ""} onChange={e => set("syrup", e.target.value)} placeholder="바닐라 시럽 1펌프, 카라멜 시럽 2펌프 …" />
-                </div>
-              )}
-
-              {/* 예상 압력 */}
-              {machineType !== "handdrip" && (() => {
-                const p = calcPressure(form.espressoMl, form.seconds);
-                if (!p) return null;
-                return (
-                  <div className={`pressure-box ${p.status} field full`} style={{ marginBottom: 0, marginTop: "8px" }}>
-                    <div className="pressure-title">{t.pressureTitle}</div>
-                    <div className="pressure-row">
-                      <span style={{ color: "var(--muted)" }}>{t.brewPressure}</span>
-                      <span className={`pressure-val pressure-${p.status}`}>
-                        {p.status === "high" ? `9 bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${p.pumpBar} bar)` : p.status === "low" ? `${p.showerBar} bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${p.pumpBar} bar)` : `${p.showerBar} bar`}
-                      </span>
-                    </div>
-                    <div style={{ marginTop: "0.3rem", fontSize: "0.78rem", color: "var(--muted)" }}>
-                      {p.status === "good" ? t.pressureGood : p.status === "high" ? t.pressureHigh : t.pressureLow} ({t.pressureRange})
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* ════ STEP 3: 테이스팅 ════ */}
-          {step === 3 && (
-            <div>
-              {/* 플레이버 레이더 */}
-              <div className="field full flavor-radar-wrap" style={{ marginBottom: "20px" }}>
-                <label style={{ marginBottom: "16px", display: "block" }}>{lang === "en" ? "Flavor Profile" : "플레이버 프로파일"}</label>
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
-                  <FlavorRadar values={form} size={200} lang={lang} />
-                </div>
-                <div className="flavor-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
-                  {FLAVOR_AXES.map(ax => {
-                    const val = form[ax.key] || 0;
-                    const pct = (val / 5) * 100;
-                    return (
-                      <div key={ax.key} className="flavor-slider-row">
-                        <div className="flavor-slider-label">
-                          <span className="flavor-slider-name">{lang === "en" ? ax.en : ax.ko}</span>
-                          <span className={`flavor-slider-val${val === 0 ? " zero" : ""}`}>{val === 0 ? "—" : `${val} / 5`}</span>
-                        </div>
-                        <input type="range" min="0" max="5" step="1" value={val} onChange={e => set(ax.key, parseInt(e.target.value))} className="flavor-range" style={{ "--pct": `${pct}%` }} />
-                        <div style={{ fontSize: "0.62rem", color: "var(--muted)", opacity: 0.65, lineHeight: 1.3, marginTop: "1px" }}>{lang === "en" ? ax.desc_en : ax.desc_ko}</div>
-                      </div>
-                    );
-                  })}
-                </div>
+                  );
+                })}
               </div>
+            )}
 
-              {/* 별점 */}
-              <div className="field full" style={{ marginBottom: "16px" }}>
-                <label>{t ? t.rating : "레시피 평가"}</label>
-                <div className="star-rating">
-                  {[1,2,3,4,5].map(star => (
-                    <button key={star} type="button" className={`star-btn ${star <= (form.rating || 0) ? "active" : ""}`} onClick={() => set("rating", form.rating === star ? 0 : star)}>
-                      {star <= (form.rating || 0) ? "★" : "☆"}
-                    </button>
-                  ))}
-                  <span className="star-label">{t.ratingLabels[form.rating || 0]}</span>
-                </div>
-              </div>
-
-              {/* 맛 노트 */}
-              <div className="field full" style={{ marginBottom: "8px" }}>
-                <label>{t ? t.note : "맛 노트 · 메모"}</label>
-                <textarea value={form.note} onChange={e => set("note", e.target.value)} placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"} />
-              </div>
-
-              {/* 날씨 */}
-              <div className="field full" style={{ marginBottom: "8px" }}>
-                <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span>{lang === "en" ? "Weather at Brew Time" : "추출 시점 날씨"}</span>
-                  {!weatherLoading && (
-                    <button type="button" onClick={() => { setWeatherError(null); setWeatherLoading(true); fetchWeather().then(w => { setWeather(w); setWeatherError(null); }).catch(e => { setWeatherError(typeof e === "string" ? e : e.message); }).finally(() => setWeatherLoading(false)); }}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.7rem", fontFamily: "'DM Sans',sans-serif", padding: 0 }}>
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13.5 8a5.5 5.5 0 1 1-1.1-3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M13.5 3v2.5H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      {lang === "en" ? "Refresh" : "새로고침"}
-                    </button>
-                  )}
-                </label>
-                {weatherLoading && <div className="weather-loading"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation: "spin 1s linear infinite" }}><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 25" strokeLinecap="round"/></svg>{lang === "en" ? "Getting weather…" : "날씨 불러오는 중…"}</div>}
-                {!weatherLoading && weather && (
-                  <div className="weather-box">
-                    <span className="weather-icon">{weather.icon}</span>
-                    <div className="weather-info">
-                      <span className="weather-main">{weather.descKo} {weather.temp}°C</span>
-                      <span className="weather-detail" style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                        <svg width="11" height="13" viewBox="0 0 11 14" fill="none"><path d="M5.5 1C5.5 1 1 5.5 1 8.5a4.5 4.5 0 0 0 9 0C10 5.5 5.5 1 5.5 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>
-                        {lang === "en" ? "Humidity" : "습도"} {weather.humidity}%
-                        <span style={{ opacity: 0.4 }}>·</span>
-                        <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 1.5C7 1.5 9 4 9 7s-2 5.5-2 5.5M7 1.5C7 1.5 5 4 5 7s2 5.5 2 5.5M1.5 7h11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-                        {weather.country}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                {!weatherLoading && !weather && !weatherError && <p style={{ fontSize: "0.78rem", color: "var(--muted)", opacity: 0.7 }}>{lang === "en" ? "Location permission required." : "위치 권한이 필요해요."}</p>}
-                {weatherError && <p style={{ fontSize: "0.78rem", color: "#e67e22", marginTop: "0.3rem" }}>⚠️ {lang === "en" ? "Could not get weather. " : "날씨를 가져올 수 없어요. "}{weatherError}</p>}
-              </div>
-            </div>
-          )}
-
-          {/* ════ STEP 4: 확인 · 저장 ════ */}
-          {step === 4 && (
-            <div>
-              {/* 요약 카드 */}
-              <div style={{ background: "var(--foam)", border: "1px solid var(--steam)", borderRadius: "12px", padding: "16px", marginBottom: "20px" }}>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "12px" }}>
-                  {COFFEE_MENUS.find(m => m.id === selectedMenu)?.[lang === "en" ? "labelEn" : "label"] || (lang === "en" ? "No menu selected" : "메뉴 미선택")}
-                  {form.isIced && <span style={{ marginLeft: "6px", fontSize: "0.72rem", background: "#EBF5FB", color: "#2980b9", borderRadius: "4px", padding: "2px 6px" }}>ICE</span>}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                  {[
-                    { label: lang === "en" ? "Bean" : "원두", value: form.bean || "—" },
-                    { label: lang === "en" ? "Roastery" : "로스터리", value: form.company || "—" },
-                    { label: lang === "en" ? "Dose" : "원두량", value: form.gram ? `${form.gram}g` : "—" },
-                    { label: lang === "en" ? "Yield" : "추출량", value: form.espressoMl ? `${form.espressoMl}ml` : "—" },
-                    { label: lang === "en" ? "Time" : "추출시간", value: form.seconds ? `${form.seconds}s` : "—" },
-                    { label: lang === "en" ? "Temp" : "물온도", value: form.waterTemp ? `${form.waterTemp}°C` : "—" },
-                  ].map(({ label, value }) => (
-                    <div key={label} style={{ background: "var(--cream)", borderRadius: "8px", padding: "8px 10px" }}>
-                      <div style={{ fontSize: "0.65rem", color: "var(--muted)", marginBottom: "2px" }}>{label}</div>
-                      <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--espresso)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
-                    </div>
-                  ))}
-                </div>
-                {form.rating > 0 && (
-                  <div style={{ marginTop: "10px", fontSize: "0.8rem", color: "var(--latte)" }}>
-                    {"★".repeat(form.rating)}{"☆".repeat(5 - form.rating)} {t.ratingLabels[form.rating]}
-                  </div>
-                )}
-              </div>
-
-              {/* 공개 설정 */}
+            {/* 장비 직접 입력 */}
+            {!myEquips.some(e => e.category === "machine" || e.category === "handdrip") && (
               <div className="field full" style={{ marginBottom: "14px" }}>
-                <label>{lang === "en" ? "Visibility" : "공개 설정"}</label>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button type="button" onClick={() => set("isPublic", true)}
-                    style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", borderColor: form.isPublic !== false ? "var(--espresso)" : "var(--steam)", background: form.isPublic !== false ? "var(--espresso)" : "var(--foam)", color: form.isPublic !== false ? "var(--cream)" : "var(--muted)", fontWeight: form.isPublic !== false ? 600 : 400 }}>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3"/><path d="M8 2C8 2 10 5 10 8s-2 6-2 6M8 2C8 2 6 5 6 8s2 6 2 6M2 8h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-                    {lang === "en" ? "Public" : "공개"}
+                <label>{machineType === "handdrip" ? (lang === "en" ? "Hand Drip Equipment" : "핸드드립 기구") : (t ? t.machine : "커피 머신")}</label>
+                <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+                  <button type="button" onClick={() => { setMachineType("auto"); setMachineBrand(savedMachine?.equipType !== "handdrip" ? (savedMachine?.brand || "") : ""); setMachineModel(savedMachine?.equipType !== "handdrip" ? (savedMachine?.model || "") : ""); setMachineLocked(false); }}
+                    style={{ flex: 1, height: "42px", border: "1px solid", borderRadius: "8px", borderColor: machineType !== "handdrip" ? "var(--espresso)" : "var(--steam)", background: machineType !== "handdrip" ? "var(--espresso)" : "var(--foam)", color: machineType !== "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", fontWeight: machineType !== "handdrip" ? 600 : 400, cursor: "pointer", transition: "all 0.2s" }}>
+                    {lang === "en" ? "Coffee Machine" : "커피 머신"}
                   </button>
-                  <button type="button" onClick={() => set("isPublic", false)}
-                    style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", borderColor: form.isPublic === false ? "var(--espresso)" : "var(--steam)", background: form.isPublic === false ? "var(--espresso)" : "var(--foam)", color: form.isPublic === false ? "var(--cream)" : "var(--muted)", fontWeight: form.isPublic === false ? 600 : 400 }}>
-                    <svg width="13" height="14" viewBox="0 0 14 16" fill="none"><rect x="2" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-                    {lang === "en" ? "Private" : "비공개"}
+                  <button type="button" onClick={() => { setMachineType("handdrip"); setMachineBrand(""); setMachineModel(""); setMachineLocked(false); const hd = COFFEE_MENUS.find(m => m.id === "hand_drip"); if (hd) selectMenu(hd); }}
+                    style={{ flex: 1, height: "42px", border: "1px solid", borderRadius: "8px", borderColor: machineType === "handdrip" ? "var(--espresso)" : "var(--steam)", background: machineType === "handdrip" ? "var(--espresso)" : "var(--foam)", color: machineType === "handdrip" ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", fontWeight: machineType === "handdrip" ? 600 : 400, cursor: "pointer", transition: "all 0.2s" }}>
+                    {lang === "en" ? "Hand Drip" : "핸드드립"}
                   </button>
                 </div>
-                <p style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: "0.4rem" }}>{form.isPublic !== false ? (lang === "en" ? "Visible to everyone in the feed" : "피드에 공개됩니다") : (lang === "en" ? "Only visible to you" : "나만 볼 수 있어요")}</p>
+                {machineType === "handdrip" ? (
+                  <input value={handDripName} onChange={e => setHandDripName(e.target.value)} placeholder={lang === "en" ? "e.g. Hario V60, Chemex …" : "예) 하리오 V60, 케멕스 …"} style={{ width: "100%", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }} />
+                ) : machineLocked ? (
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <div style={{ flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>{machineDisplay}</div>
+                    <button onClick={() => setMachineLocked(false)} style={{ height: "42px", padding: "0 16px", background: "none", border: "1px solid var(--steam)", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", cursor: "pointer" }}>{lang === "en" ? "Edit" : "변경"}</button>
+                  </div>
+                ) : (
+                  <>
+                    <BrandInput value={machineBrand} onChange={v => { setMachineBrand(v); setMachineModel(""); }} brands={MACHINE_BRANDS} placeholder="브랜드 입력 또는 검색 (예: Breville, 드롱기…)" />
+                    {machineBrand && (
+                      <>
+                        {isBothModeBrand(machineBrand) && (
+                          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                            {[{ val: "auto", label: t.autoType }, { val: "manual", label: t.manualType }].map(({ val, label }) => (
+                              <button key={val} type="button" onClick={() => setMachineType(val)}
+                                style={{ flex: 1, height: "42px", border: "1px solid", borderRadius: "8px", borderColor: machineType === val ? "var(--espresso)" : "var(--steam)", background: machineType === val ? "var(--espresso)" : "var(--foam)", color: machineType === val ? "var(--cream)" : "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", fontWeight: machineType === val ? 600 : 400, cursor: "pointer", transition: "all 0.2s" }}>{label}</button>
+                            ))}
+                          </div>
+                        )}
+                        <input value={machineModel} onChange={e => setMachineModel(e.target.value)} placeholder={isCustomBrand ? "브랜드명과 모델명 입력" : "예) Barista Express, Dedica …"} style={{ width: "100%", marginTop: "8px", padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.95rem", color: "var(--espresso)", outline: "none" }} />
+                      </>
+                    )}
+                  </>
+                )}
               </div>
+            )}
 
-              {/* 프리셋 저장 */}
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "8px" }}>
-                <button type="button" onClick={() => setShowPresetSave(true)}
-                  style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "8px", padding: "7px 14px", cursor: "pointer", fontSize: "0.78rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", gap: "5px", transition: "all 0.2s" }}>
-                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                  {lang === "en" ? "Save as Preset" : "현재 설정 프리셋으로 저장"}
+            {/* 그라인더 */}
+            {!myEquips.some(e => e.category === "grinder") && !isAutoMode && (
+              grinderLocked ? (
+                <div className="field full" style={{ marginBottom: "14px" }}>
+                  <label>{t ? t.grinder : "그라인더"}</label>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <div style={{ flex: 1, padding: "0.75rem 1rem", border: "1px solid var(--steam)", borderRadius: "8px", background: "var(--cream)", fontSize: "0.95rem", color: "var(--espresso)", fontWeight: 500 }}>{grinderDisplay}</div>
+                    <button onClick={() => setGrinderLocked(false)} style={{ height: "42px", padding: "0 16px", background: "none", border: "1px solid var(--steam)", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", cursor: "pointer" }}>{lang === "en" ? "Edit" : "변경"}</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="field full" style={{ marginBottom: "8px" }}>
+                    <label>{t ? t.grinderBrand : "그라인더 브랜드"}</label>
+                    <BrandInput value={grinderBrand} onChange={v => { setGrinderBrand(v); setGrinderModel(""); }} brands={GRINDER_BRANDS} placeholder="브랜드 입력 또는 검색 (예: Mahlkönig, 마쩌…)" />
+                  </div>
+                  {grinderBrand && (
+                    <div className="field full" style={{ marginBottom: "14px" }}>
+                      <label>{t ? t.machineModel : "세부 모델명"}</label>
+                      <input value={grinderModel} onChange={e => setGrinderModel(e.target.value)} placeholder={isCustomGrinderBrand ? "브랜드명과 모델명 입력" : "예) Encore, C40, Nano …"} />
+                    </div>
+                  )}
+                </>
+              )
+            )}
+
+            {/* 분쇄도 */}
+            {!isAutoMode && (
+              <div className="field full" style={{ marginBottom: "8px" }}>
+                <label>{lang === "en" ? "Grind Size" : "분쇄도"}</label>
+                <input value={form.grindSize} onChange={e => set("grindSize", e.target.value)} placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"} />
+              </div>
+            )}
+          </div>
+
+          <div style={{ height: "1px", background: "var(--divider)", margin: "20px 0" }} />
+
+          {/* ════ 섹션 3: 추출 파라미터 ════ */}
+          <div style={{ marginBottom: "8px" }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--espresso)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ display: "inline-flex", width: "18px", height: "18px", background: "var(--espresso)", borderRadius: "50%", alignItems: "center", justifyContent: "center", color: "var(--cream)", fontSize: "0.62rem", flexShrink: 0 }}>3</span>
+              {SECTIONS[2]}
+            </div>
+
+            {/* 파라미터 카드 그리드 */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "14px" }}>
+              {isAutoMode ? (
+                <div style={{ gridColumn: "1 / -1", background: "var(--foam)", borderRadius: "10px", padding: "12px 14px", border: "1px solid var(--steam)" }}>
+                  <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "6px" }}>{t.gramAuto} <span style={{ fontSize: "0.6rem", background: "var(--latte)", color: "var(--cream)", borderRadius: "4px", padding: "1px 5px", marginLeft: "4px" }}>전자동</span></div>
+                  <div className="bean-counter">
+                    <div className="bean-counter-display">
+                      <div className="bean-icons">
+                        {Array.from({ length: Number(form.gram) || 0 }).map((_, i) => (
+                          <span key={i} className="bean-icon" onClick={() => set("gram", String(Math.max(0, (Number(form.gram)||0) - 1)))}><CoffeeBeanIcon size={22} /></span>
+                        ))}
+                        {(!form.gram || Number(form.gram) === 0) && <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>{lang === "ko" ? "콩을 추가해주세요" : "Add beans"}</span>}
+                      </div>
+                      <div className="bean-counter-btns">
+                        <button type="button" className="bean-btn" onClick={() => set("gram", String(Math.max(0, (Number(form.gram)||0) - 1)))}>−</button>
+                        <button type="button" className="bean-btn" onClick={() => set("gram", String((Number(form.gram)||0) + 1))}>+</button>
+                      </div>
+                    </div>
+                    <span className="bean-count-text">{form.gram || 0}개</span>
+                  </div>
+                </div>
+              ) : (
+                <div data-field="gram" style={{ background: "var(--foam)", borderRadius: "10px", padding: "12px 14px", border: `1px solid ${errors.gram ? "#c0392b" : "var(--steam)"}` }}>
+                  <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "4px" }}>{t.gram}</div>
+                  <input type="number" value={form.gram} onChange={e => { set("gram", String(Math.max(0, Number(e.target.value)))); setErrors(p => ({...p, gram: false})); }} placeholder="18" min="0"
+                    style={{ width: "100%", border: "none", background: "transparent", fontFamily: "'Playfair Display',serif", fontSize: "1.4rem", fontWeight: 700, color: "var(--espresso)", outline: "none", padding: 0 }} />
+                  <div style={{ fontSize: "0.7rem", color: "var(--muted)" }}>g {errors.gram && <span style={{ color: "#c0392b" }}>⚠️ 필수</span>}</div>
+                </div>
+              )}
+              <div data-field="seconds" style={{ background: "var(--foam)", borderRadius: "10px", padding: "12px 14px", border: `1px solid ${errors.seconds ? "#c0392b" : "var(--steam)"}` }}>
+                <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "4px" }}>{t.seconds}</div>
+                <TimerField value={form.seconds} infusionValue={form.infusionSeconds || "0"} onChange={v => { set("seconds", v); setErrors(p => ({...p, seconds: false})); }} onInfusionChange={v => set("infusionSeconds", v)} lang={lang} t={t} />
+                {errors.seconds && <div style={{ fontSize: "0.7rem", color: "#c0392b" }}>⚠️ 필수</div>}
+              </div>
+              <div data-field="espressoMl" style={{ background: "var(--foam)", borderRadius: "10px", padding: "12px 14px", border: `1px solid ${errors.espressoMl ? "#c0392b" : "var(--steam)"}` }}>
+                <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "4px" }}>{t.espressoMl}</div>
+                <input type="number" value={form.espressoMl} onChange={e => { set("espressoMl", String(Math.max(0, Number(e.target.value)))); setErrors(p => ({...p, espressoMl: false})); }} placeholder="36" min="0"
+                  style={{ width: "100%", border: "none", background: "transparent", fontFamily: "'Playfair Display',serif", fontSize: "1.4rem", fontWeight: 700, color: "var(--espresso)", outline: "none", padding: 0 }} />
+                <div style={{ fontSize: "0.7rem", color: "var(--muted)" }}>ml {errors.espressoMl && <span style={{ color: "#c0392b" }}>⚠️ 필수</span>}</div>
+              </div>
+              <div style={{ background: "var(--foam)", borderRadius: "10px", padding: "12px 14px", border: "1px solid var(--steam)" }}>
+                <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "4px" }}>{lang === "en" ? "Water Temp" : "물온도"}</div>
+                <input type="number" value={form.waterTemp} onChange={e => set("waterTemp", String(Math.max(0, Number(e.target.value))))} placeholder="93" min="0" max="100"
+                  style={{ width: "100%", border: "none", background: "transparent", fontFamily: "'Playfair Display',serif", fontSize: "1.4rem", fontWeight: 700, color: "var(--espresso)", outline: "none", padding: 0 }} />
+                <div style={{ fontSize: "0.7rem", color: "var(--muted)" }}>°C</div>
+              </div>
+            </div>
+
+            {/* 물 종류 */}
+            <div className="field full" style={{ marginBottom: "14px" }}>
+              <label>{lang === "en" ? "Water Type" : "물 종류"}</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
+                {[{id:"tap",ko:"수돗물",en:"Tap Water"},{id:"filter",ko:"정수기",en:"Filtered"},{id:"bottle",ko:"생수",en:"Bottled"},{id:"other",ko:"기타",en:"Other"}].map(w => {
+                  const isSel = form.waterType === w.id;
+                  return (
+                    <button key={w.id} type="button" onClick={() => set("waterType", isSel ? "" : w.id)}
+                      style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s", borderColor: isSel ? "var(--espresso)" : "var(--steam)", background: isSel ? "var(--espresso)" : "var(--foam)", color: isSel ? "var(--cream)" : "var(--espresso)" }}>
+                      {lang === "en" ? w.en : w.ko}
+                    </button>
+                  );
+                })}
+              </div>
+              {(form.waterType === "filter" || form.waterType === "bottle" || form.waterType === "other") && (
+                <input value={form.waterBrand || ""} onChange={e => set("waterBrand", e.target.value)}
+                  placeholder={form.waterType === "filter" ? (lang === "en" ? "e.g. Coway, Brita…" : "예) 코웨이, 브리타, 직수…") : form.waterType === "bottle" ? (lang === "en" ? "e.g. Evian, Volvic…" : "예) 삼다수, 에비앙…") : (lang === "en" ? "Specify…" : "직접 입력…")} />
+              )}
+            </div>
+
+            {/* 희석 */}
+            {needsDilute && (
+              <>
+                <div className="field full" style={{ marginBottom: "8px" }}>
+                  <label>{t ? t.diluteType : "희석 종류"}</label>
+                  {diluteCategory !== "milk" && (
+                    <div style={{ marginBottom: "8px" }}>
+                      <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>{lang === "en" ? "Water" : "물"}</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        <button type="button" onClick={() => set("diluteType", form.diluteType === "물" ? "" : "물")}
+                          style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s", borderColor: form.diluteType === "물" ? "var(--espresso)" : "var(--steam)", background: form.diluteType === "물" ? "var(--espresso)" : "var(--foam)", color: form.diluteType === "물" ? "var(--cream)" : "var(--espresso)" }}>
+                          {lang === "en" ? "Water" : "물"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "5px" }}>{lang === "en" ? "Milk" : "우유"}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {[{id:"우유",en:"Whole Milk"},{id:"저지방우유",en:"Low-fat Milk"},{id:"두유",en:"Soy Milk"},{id:"귀리우유",en:"Oat Milk"},{id:"아몬드우유",en:"Almond Milk"},{id:"코코넛우유",en:"Coconut Milk"},{id:"기타우유",en:"Other Milk"}].map(m => {
+                        const isSel = form.diluteType === m.id;
+                        return (
+                          <button key={m.id} type="button" onClick={() => { set("diluteType", isSel ? "" : m.id); if (m.id !== "기타우유") set("diluteCustom", ""); }}
+                            style={{ padding: "5px 12px", border: "1px solid", borderRadius: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer", transition: "all 0.15s", borderColor: isSel ? "var(--espresso)" : "var(--steam)", background: isSel ? "var(--espresso)" : "var(--foam)", color: isSel ? "var(--cream)" : "var(--espresso)" }}>
+                            {lang === "en" ? m.en : m.id === "기타우유" ? "기타" : m.id}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {form.diluteType === "기타우유" && (
+                      <input style={{ marginTop: "6px" }} value={form.diluteCustom || ""} onChange={e => set("diluteCustom", e.target.value)} placeholder={lang === "en" ? "e.g. Rice milk, Macadamia milk…" : "예) 쌀우유, 마카다미아 우유…"} />
+                    )}
+                  </div>
+                </div>
+                <div className="field full" style={{ marginBottom: "14px" }}>
+                  <label>{t.diluteMl}</label>
+                  <input type="number" value={form.diluteMl} onChange={e => set("diluteMl", String(Math.max(0, Number(e.target.value))))} placeholder="150" min="0" />
+                </div>
+              </>
+            )}
+
+            {/* 시럽 */}
+            {hasSyrup && (
+              <div className="field full" style={{ marginBottom: "8px" }}>
+                <label>{t ? t.syrup : "시럽 / 추가 재료"}</label>
+                <input value={form.syrup || ""} onChange={e => set("syrup", e.target.value)} placeholder="바닐라 시럽 1펌프, 카라멜 시럽 2펌프 …" />
+              </div>
+            )}
+
+            {/* 예상 압력 */}
+            {machineType !== "handdrip" && (() => {
+              const p = calcPressure(form.espressoMl, form.seconds);
+              if (!p) return null;
+              return (
+                <div className={`pressure-box ${p.status} field full`} style={{ marginBottom: 0, marginTop: "8px" }}>
+                  <div className="pressure-title">{t.pressureTitle}</div>
+                  <div className="pressure-row">
+                    <span style={{ color: "var(--muted)" }}>{t.brewPressure}</span>
+                    <span className={`pressure-val pressure-${p.status}`}>
+                      {p.status === "high" ? `9 bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${p.pumpBar} bar)` : p.status === "low" ? `${p.showerBar} bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${p.pumpBar} bar)` : `${p.showerBar} bar`}
+                    </span>
+                  </div>
+                  <div style={{ marginTop: "0.3rem", fontSize: "0.78rem", color: "var(--muted)" }}>
+                    {p.status === "good" ? t.pressureGood : p.status === "high" ? t.pressureHigh : t.pressureLow} ({t.pressureRange})
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          <div style={{ height: "1px", background: "var(--divider)", margin: "20px 0" }} />
+
+          {/* ════ 섹션 4: 테이스팅 & 메모 ════ */}
+          <div style={{ marginBottom: "8px" }}>
+            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--espresso)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{ display: "inline-flex", width: "18px", height: "18px", background: "var(--espresso)", borderRadius: "50%", alignItems: "center", justifyContent: "center", color: "var(--cream)", fontSize: "0.62rem", flexShrink: 0 }}>4</span>
+              {SECTIONS[3]}
+            </div>
+
+            {/* 플레이버 레이더 */}
+            <div className="field full flavor-radar-wrap" style={{ marginBottom: "20px" }}>
+              <label style={{ marginBottom: "16px", display: "block" }}>{lang === "en" ? "Flavor Profile" : "플레이버 프로파일"}</label>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
+                <FlavorRadar values={form} size={200} lang={lang} />
+              </div>
+              <div className="flavor-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
+                {FLAVOR_AXES.map(ax => {
+                  const val = form[ax.key] || 0;
+                  const pct = (val / 5) * 100;
+                  return (
+                    <div key={ax.key} className="flavor-slider-row">
+                      <div className="flavor-slider-label">
+                        <span className="flavor-slider-name">{lang === "en" ? ax.en : ax.ko}</span>
+                        <span className={`flavor-slider-val${val === 0 ? " zero" : ""}`}>{val === 0 ? "—" : `${val} / 5`}</span>
+                      </div>
+                      <input type="range" min="0" max="5" step="1" value={val} onChange={e => set(ax.key, parseInt(e.target.value))} className="flavor-range" style={{ "--pct": `${pct}%` }} />
+                      <div style={{ fontSize: "0.62rem", color: "var(--muted)", opacity: 0.65, lineHeight: 1.3, marginTop: "1px" }}>{lang === "en" ? ax.desc_en : ax.desc_ko}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 별점 */}
+            <div className="field full" style={{ marginBottom: "16px" }}>
+              <label>{t ? t.rating : "레시피 평가"}</label>
+              <div className="star-rating">
+                {[1,2,3,4,5].map(star => (
+                  <button key={star} type="button" className={`star-btn ${star <= (form.rating || 0) ? "active" : ""}`} onClick={() => set("rating", form.rating === star ? 0 : star)}>
+                    {star <= (form.rating || 0) ? "★" : "☆"}
+                  </button>
+                ))}
+                <span className="star-label">{t.ratingLabels[form.rating || 0]}</span>
+              </div>
+            </div>
+
+            {/* 맛 노트 */}
+            <div className="field full" style={{ marginBottom: "14px" }}>
+              <label>{t ? t.note : "맛 노트 · 메모"}</label>
+              <textarea value={form.note} onChange={e => set("note", e.target.value)} placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"} />
+            </div>
+
+            {/* 날씨 */}
+            <div className="field full" style={{ marginBottom: "14px" }}>
+              <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span>{lang === "en" ? "Weather at Brew Time" : "추출 시점 날씨"}</span>
+                {!weatherLoading && (
+                  <button type="button" onClick={() => { setWeatherError(null); setWeatherLoading(true); fetchWeather().then(w => { setWeather(w); setWeatherError(null); }).catch(e => { setWeatherError(typeof e === "string" ? e : e.message); }).finally(() => setWeatherLoading(false)); }}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.7rem", fontFamily: "'DM Sans',sans-serif", padding: 0 }}>
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M13.5 8a5.5 5.5 0 1 1-1.1-3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M13.5 3v2.5H11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    {lang === "en" ? "Refresh" : "새로고침"}
+                  </button>
+                )}
+              </label>
+              {weatherLoading && <div className="weather-loading"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ animation: "spin 1s linear infinite" }}><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 25" strokeLinecap="round"/></svg>{lang === "en" ? "Getting weather…" : "날씨 불러오는 중…"}</div>}
+              {!weatherLoading && weather && (
+                <div className="weather-box">
+                  <span className="weather-icon">{weather.icon}</span>
+                  <div className="weather-info">
+                    <span className="weather-main">{weather.descKo} {weather.temp}°C</span>
+                    <span className="weather-detail" style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                      <svg width="11" height="13" viewBox="0 0 11 14" fill="none"><path d="M5.5 1C5.5 1 1 5.5 1 8.5a4.5 4.5 0 0 0 9 0C10 5.5 5.5 1 5.5 1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>
+                      {lang === "en" ? "Humidity" : "습도"} {weather.humidity}%
+                      <span style={{ opacity: 0.4 }}>·</span>
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2"/><path d="M7 1.5C7 1.5 9 4 9 7s-2 5.5-2 5.5M7 1.5C7 1.5 5 4 5 7s2 5.5 2 5.5M1.5 7h11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                      {weather.country}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {!weatherLoading && !weather && !weatherError && <p style={{ fontSize: "0.78rem", color: "var(--muted)", opacity: 0.7 }}>{lang === "en" ? "Location permission required." : "위치 권한이 필요해요."}</p>}
+              {weatherError && <p style={{ fontSize: "0.78rem", color: "#e67e22", marginTop: "0.3rem" }}>⚠️ {lang === "en" ? "Could not get weather. " : "날씨를 가져올 수 없어요. "}{weatherError}</p>}
+            </div>
+
+            {/* 공개 설정 */}
+            <div className="field full" style={{ marginBottom: "14px" }}>
+              <label>{lang === "en" ? "Visibility" : "공개 설정"}</label>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button type="button" onClick={() => set("isPublic", true)}
+                  style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", borderColor: form.isPublic !== false ? "var(--espresso)" : "var(--steam)", background: form.isPublic !== false ? "var(--espresso)" : "var(--foam)", color: form.isPublic !== false ? "var(--cream)" : "var(--muted)", fontWeight: form.isPublic !== false ? 600 : 400 }}>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3"/><path d="M8 2C8 2 10 5 10 8s-2 6-2 6M8 2C8 2 6 5 6 8s2 6 2 6M2 8h12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                  {lang === "en" ? "Public" : "공개"}
+                </button>
+                <button type="button" onClick={() => set("isPublic", false)}
+                  style={{ flex: 1, padding: "0.65rem", border: "1px solid", borderRadius: "8px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", borderColor: form.isPublic === false ? "var(--espresso)" : "var(--steam)", background: form.isPublic === false ? "var(--espresso)" : "var(--foam)", color: form.isPublic === false ? "var(--cream)" : "var(--muted)", fontWeight: form.isPublic === false ? 600 : 400 }}>
+                  <svg width="13" height="14" viewBox="0 0 14 16" fill="none"><rect x="2" y="7" width="10" height="8" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                  {lang === "en" ? "Private" : "비공개"}
                 </button>
               </div>
+              <p style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: "0.4rem" }}>{form.isPublic !== false ? (lang === "en" ? "Visible to everyone in the feed" : "피드에 공개됩니다") : (lang === "en" ? "Only visible to you" : "나만 볼 수 있어요")}</p>
             </div>
-          )}
 
-        </div>
+            {/* 프리셋 저장 버튼 */}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "12px" }}>
+              <button type="button" onClick={() => setShowPresetSave(true)}
+                style={{ background: "none", border: "1px solid var(--steam)", borderRadius: "8px", padding: "7px 14px", cursor: "pointer", fontSize: "0.78rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", gap: "5px", transition: "all 0.2s" }}>
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                {lang === "en" ? "Save as Preset" : "현재 설정 프리셋으로 저장"}
+              </button>
+            </div>
+          </div>
 
-        {/* ── 하단 네비게이션 ── */}
-        <div style={{ display: "flex", gap: "10px", padding: "16px 20px", borderTop: "1px solid var(--divider)", background: "var(--foam)", borderRadius: "0 0 16px 16px", marginTop: "12px" }}>
-          {step > 1 ? (
-            <button type="button" onClick={goPrev}
-              style={{ flex: 1, padding: "0.75rem", border: "1px solid var(--steam)", borderRadius: "10px", background: "transparent", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", cursor: "pointer", transition: "all 0.2s" }}>
-              ← {lang === "en" ? "Back" : "이전"}
-            </button>
-          ) : (
-            <button type="button" onClick={onClose}
-              style={{ flex: 1, padding: "0.75rem", border: "1px solid var(--steam)", borderRadius: "10px", background: "transparent", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", cursor: "pointer" }}>
-              {t.cancel}
-            </button>
-          )}
-          {step < 4 ? (
-            <button type="button" onClick={goNext}
-              style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: "var(--espresso)", color: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}>
-              {STEPS[step]} →
-            </button>
-          ) : (
-            <button type="button" onClick={save} disabled={saving}
-              style={{ flex: 2, padding: "0.75rem", border: "none", borderRadius: "10px", background: saving ? "var(--muted)" : "var(--espresso)", color: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", transition: "all 0.2s" }}>
+          {/* 저장 버튼 */}
+          <div className="modal-actions">
+            <button className="btn-cancel" onClick={onClose}>{t.cancel}</button>
+            <button className="btn-primary" style={{ width: "auto", marginTop: 0, padding: "0.7rem 2rem" }} onClick={save} disabled={saving}>
               {saving ? t.saving : isEdit ? t.update : t.save}
             </button>
-          )}
-        </div>
+          </div>
 
+        </div>{/* 스크롤 본문 끝 */}
       </div>
     </div>
   );
