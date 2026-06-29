@@ -1234,7 +1234,43 @@ textarea:focus { border-color: var(--latte); box-shadow: 0 0 0 3px rgba(176,125,
   justify-content: center;
   background: var(--cream);
 }
-.loading-wrap p { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--muted); }
+
+/* 커피 브루 로더 */
+.brew-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.brew-loader-text {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--latte);
+  letter-spacing: 0.06em;
+  animation: brewPulse 1.6s ease-in-out infinite;
+}
+
+/* 커피 채워지는 애니메이션 */
+@keyframes brewFill {
+  0%   { transform: scaleY(0); opacity: 0.3; }
+  60%  { transform: scaleY(1); opacity: 0.6; }
+  80%  { transform: scaleY(1); opacity: 0.5; }
+  100% { transform: scaleY(0); opacity: 0.3; }
+}
+
+/* 증기 올라오는 애니메이션 */
+@keyframes steamRise {
+  0%   { opacity: 0;   transform: translateY(0); }
+  30%  { opacity: 0.7; transform: translateY(-4px); }
+  100% { opacity: 0;   transform: translateY(-10px); }
+}
+
+/* 텍스트 페이드 */
+@keyframes brewPulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1;   }
+}
 
 /* ── MY modal ── */
 .my-section {

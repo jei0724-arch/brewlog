@@ -103,19 +103,35 @@ export default function App() {
     return unsub;
   }, []);
 
-  // ── 로딩 스피너 ──────────────────────────────────────────────────
+  // ── 로딩 화면 ──────────────────────────────────────────────────
   if (user === undefined) {
     return (
       <LangContext.Provider value={lang}>
         <div className="loading-wrap">
-          <p style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"
-              style={{ animation:"spin 1s linear infinite", color:"var(--muted)" }}>
-              <circle cx="9" cy="9" r="7" stroke="currentColor"
-                strokeWidth="1.8" strokeDasharray="14 30" strokeLinecap="round"/>
+          <div className="brew-loader">
+            {/* 커피잔 SVG */}
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* 잔 테두리 */}
+              <path d="M12 20h32l-4 22H16L12 20z" stroke="var(--latte)" strokeWidth="1.8" strokeLinejoin="round" fill="none"/>
+              {/* 잔 손잡이 */}
+              <path d="M44 26h4a4 4 0 0 1 0 8h-4" stroke="var(--latte)" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+              {/* 커피 채워지는 애니메이션 */}
+              <clipPath id="fillClip">
+                <rect x="13" y="20" width="30" height="22" rx="1"/>
+              </clipPath>
+              <rect x="13" y="20" width="30" height="22" fill="var(--latte)" opacity="0.15" rx="1"/>
+              <rect className="brew-fill" x="13" y="20" width="30" height="22" fill="var(--latte)" opacity="0.5" rx="1"
+                style={{ transformOrigin:"13px 42px", transform:"scaleY(0)", animation:"brewFill 1.6s ease-in-out infinite" }}/>
+              {/* 증기 */}
+              <path className="brew-steam" d="M22 16c0 0 2-3 0-6" stroke="var(--latte)" strokeWidth="1.5" strokeLinecap="round" opacity="0"
+                style={{ animation:"steamRise 1.6s ease-out 0.4s infinite" }}/>
+              <path className="brew-steam" d="M28 14c0 0 2-3 0-6" stroke="var(--latte)" strokeWidth="1.5" strokeLinecap="round" opacity="0"
+                style={{ animation:"steamRise 1.6s ease-out 0.7s infinite" }}/>
+              <path className="brew-steam" d="M34 16c0 0 2-3 0-6" stroke="var(--latte)" strokeWidth="1.5" strokeLinecap="round" opacity="0"
+                style={{ animation:"steamRise 1.6s ease-out 1.0s infinite" }}/>
             </svg>
-            로딩 중…
-          </p>
+            <span className="brew-loader-text">Brewlog Note</span>
+          </div>
         </div>
       </LangContext.Provider>
     );
