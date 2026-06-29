@@ -354,7 +354,7 @@ async function shareCompareCard(recipeA, recipeB) {
   // ── DOM 엘리먼트 조립 ────────────────────────────────────────
   const el = document.createElement("div");
   el.style.cssText =
-    "position:absolute;left:-9999px;top:0;font-family:'DM Sans',Arial,sans-serif;width:460px;overflow:hidden;background:#FBFBFA;border-radius:16px;box-sizing:border-box;";
+    "position:absolute;left:-9999px;top:0;font-family:'DM Sans',Arial,sans-serif;width:920px;overflow:hidden;background:#FBFBFA;border-radius:32px;box-sizing:border-box;";
 
   el.innerHTML = `
     <!-- 헤더 -->
@@ -436,7 +436,7 @@ async function shareCompareCard(recipeA, recipeB) {
   await new Promise((r) => setTimeout(r, 900));
 
   const canvas = await html2canvas(el, {
-    scale: 2, useCORS: true, allowTaint: false,
+    scale: 3, useCORS: true, allowTaint: false,
     backgroundColor: "#FBFBFA", logging: false,
   });
   document.body.removeChild(el);
