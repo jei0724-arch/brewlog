@@ -966,24 +966,27 @@ html {
 
 .follow-btn {
   background: none;
-  border: 1px solid var(--steam);
+  border: none;
   border-radius: 8px;
-  padding: 0 10px;
-  height: 24px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.7rem;
+  padding: 0;
+  width: 32px;
+  height: 32px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
   color: var(--muted);
-  white-space: nowrap;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 @media (hover: hover) and (pointer: fine) {
-  .follow-btn:hover { border-color: var(--espresso); color: var(--espresso); }
+  .follow-btn:hover { background: rgba(0,0,0,0.05); color: var(--espresso); }
 }
-.follow-btn.following { background: var(--espresso); color: var(--cream); border-color: var(--espresso); }
-.follow-btn.following:hover { background: #c0392b; border-color: #c0392b; }
+@media (hover: none) and (pointer: coarse) {
+  .follow-btn:active { transform: scale(0.88); }
+}
+.follow-btn.following { color: var(--espresso); }
+.follow-btn.following svg .follow-inner { fill: var(--espresso); }
 
 /* ── Bookmark tabs ── */
 .bookmark-tab { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }

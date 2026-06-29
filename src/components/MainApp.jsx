@@ -535,22 +535,69 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
           <div style={{ maxWidth:"900px", margin:"0 auto", display:"flex", flexDirection:"column", gap:"6px" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:"8px", flexWrap:"wrap" }}>
               <div style={{ display:"flex", gap:"4px", flexShrink:0 }}>
-                {[["all",t.allRecipes],["following",`${t.followingFeed}${following.length>0?` (${following.length})`:""}`],["bookmarks",`${t.myBookmarks}${Object.keys(collections).length>0?` (${Object.keys(collections).length})`:""}`]].map(([v,lbl])=>(
-                  <button key={v} className={`bookmark-tab-btn ${feedTab===v&&!showRanking?"active":""}`}
-                    onClick={()=>{ setFeedTab(v); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
-                    {lbl}
-                  </button>
-                ))}
+                {/* 전체 */}
+                <button className={`bookmark-tab-btn ${feedTab==="all"&&!showRanking?"active":""}`}
+                  onClick={()=>{ setFeedTab("all"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                    <rect x="1" y="1" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                    <rect x="8" y="1" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                    <rect x="1" y="8" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                    <rect x="8" y="8" width="5" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                  </svg>
+                  {t.allRecipes}
+                </button>
+                {/* 구독 */}
+                <button className={`bookmark-tab-btn ${feedTab==="following"&&!showRanking?"active":""}`}
+                  onClick={()=>{ setFeedTab("following"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                    <circle cx="5.5" cy="4" r="2.5" stroke="currentColor" strokeWidth="1.3"/>
+                    <path d="M1 12c0-2.5 2-4 4.5-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                    <path d="M10 8v4M8 10h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                  </svg>
+                  {t.followingFeed}{following.length>0?` (${following.length})`:""}
+                </button>
+                {/* 즐겨찾기 */}
+                <button className={`bookmark-tab-btn ${feedTab==="bookmarks"&&!showRanking?"active":""}`}
+                  onClick={()=>{ setFeedTab("bookmarks"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                  <svg width="13" height="13" viewBox="0 0 12 15" fill="none">
+                    <path d="M1 1.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 .5.5v12l-5-3-5 3v-12z"
+                      stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"
+                      fill={feedTab==="bookmarks"&&!showRanking?"currentColor":"none"}/>
+                  </svg>
+                  {t.myBookmarks}{Object.keys(collections).length>0?` (${Object.keys(collections).length})`:""}
+                </button>
               </div>
               {user && <div style={{ width:"1px", height:"20px", background:"var(--divider)", flexShrink:0 }}/>}
               {user && (
                 <div style={{ display:"flex", gap:"4px", overflowX:"auto", WebkitOverflowScrolling:"touch", scrollbarWidth:"none", flexShrink:1 }}>
-                  {[["mine",t.myRecipes],["beans",t.myBeans],["equip",t.myEquip]].map(([v,lbl])=>(
-                    <button key={v} className={`bookmark-tab-btn ${feedTab===v&&!showRanking?"active":""}`}
-                      onClick={()=>{ setFeedTab(v); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
-                      {lbl}
-                    </button>
-                  ))}
+                  {/* 내 레시피 */}
+                  <button className={`bookmark-tab-btn ${feedTab==="mine"&&!showRanking?"active":""}`}
+                    onClick={()=>{ setFeedTab("mine"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                      <rect x="2" y="1" width="10" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/>
+                      <path d="M4.5 5h5M4.5 7.5h5M4.5 10h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                    </svg>
+                    {t.myRecipes}
+                  </button>
+                  {/* 원두 */}
+                  <button className={`bookmark-tab-btn ${feedTab==="beans"&&!showRanking?"active":""}`}
+                    onClick={()=>{ setFeedTab("beans"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                      <ellipse cx="7" cy="10" rx="4.5" ry="2" stroke="currentColor" strokeWidth="1.3"/>
+                      <path d="M2.5 10C2.5 6.5 4.5 3 7 2s4.5 2 4.5 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                    </svg>
+                    {t.myBeans}
+                  </button>
+                  {/* 장비 */}
+                  <button className={`bookmark-tab-btn ${feedTab==="equip"&&!showRanking?"active":""}`}
+                    onClick={()=>{ setFeedTab("equip"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                      <rect x="2" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                      <path d="M10 6h1.5a2 2 0 0 1 0 4H10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                      <path d="M4 11v2M7 11v2M3 13h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                    </svg>
+                    {t.myEquip}
+                  </button>
                 </div>
               )}
             </div>

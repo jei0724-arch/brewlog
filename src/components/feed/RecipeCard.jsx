@@ -129,8 +129,20 @@ export default function RecipeCard({
           </span>
           {recipe.author && recipe.uid!==currentUid && onFollow && (
             <button className={`follow-btn ${isFollowing?"following":""}`}
-              onClick={e=>{ e.stopPropagation(); onFollow(recipe.uid||recipe.author); }}>
-              {isFollowing?t.following:t.follow}
+              onClick={e=>{ e.stopPropagation(); onFollow(recipe.uid||recipe.author); }}
+              title={isFollowing?t.following:t.follow}>
+              {isFollowing
+                ? <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                    <circle cx="8" cy="6" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M2 17c0-3.314 2.686-5 6-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <path d="M13 13l2 2 3-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                : <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                    <circle cx="8" cy="6" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M2 17c0-3.314 2.686-5 6-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <path d="M15 11v5M12.5 13.5h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                  </svg>
+              }
             </button>
           )}
           <span style={{ color:"var(--muted)", fontSize:"0.72rem" }}>· {date}</span>
