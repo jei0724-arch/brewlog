@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Brewlog Note — 나만의 커피 레시피 아카이브</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:    #0F0B09;
+  --crema:  #C8973A;
+  --shot:   #3D1F0E;
+  --foam:   #F7F3EE;
+  --muted:  #7A6A5E;
+  --dim:    #1C1410;
+  --border: rgba(200,151,58,0.18);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', 'Apple SD Gothic Neo', sans-serif;
+  background: var(--ink);
+  color: var(--foam);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* PC: 모바일 폰 느낌으로 중앙 정렬 */
+.page-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--ink);
+  position: relative;
+  box-shadow: 0 0 80px rgba(0,0,0,0.6);
+  overflow-x: clip; /* clip: 스크롤바 없이 잘라냄, 단 자식 overflow-x:auto는 살아있음 */
+}
+
+/* PC에서만 좌우 여백 배경 */
+@media (min-width: 520px) {
+  body {
+    background: #070503;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(200,151,58,0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(200,151,58,0.03) 0%, transparent 50%);
+  }
+}
+
+/* ── HERO ─────────────────────────────────── */
+.hero {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 24px 56px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 배경 — 에스프레소 링 */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.hero-bg::before {
+  content: '';
+  position: absolute;
+  top: -20vw;
+  right: -20vw;
+  width: 90vw;
+  height: 90vw;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  opacity: 0.6;
+}
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  top: -30vw;
+  right: -30vw;
+  width: 120vw;
+  height: 120vw;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  opacity: 0.3;
+}
+.hero-crema-ring {
+  position: absolute;
+  top: 6vw;
+  right: -8vw;
+  width: 60vw;
+  height: 60vw;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, rgba(200,151,58,0.22) 0%, transparent 70%);
+}
+
+/* 플로팅 레시피 카드들 */
+.float-cards {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 58svh;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 60%, transparent 100%);
+}
+.float-track {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 24px;
+  animation: floatUp 18s linear infinite;
+}
+@keyframes floatUp {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+.mini-card {
+  background: var(--dim);
+  border: 1px solid rgba(200,151,58,0.12);
+  border-radius: 12px;
+  padding: 14px 16px;
+  width: 100%;
+  max-width: 320px;
+}
+.mini-card-bean {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 13px;
+  color: var(--foam);
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+.mini-card-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.mini-card-stats {
+  display: flex;
+  gap: 10px;
+}
+.mini-stat {
+  text-align: center;
+  background: rgba(200,151,58,0.08);
+  border-radius: 6px;
+  padding: 5px 8px;
+  flex: 1;
+}
+.mini-stat-val {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--crema);
+  line-height: 1;
+}
+.mini-stat-lbl {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+
+/* 헤드라인 */
+.hero-label {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--crema);
+  font-weight: 500;
+  margin-bottom: 18px;
+}
+
+.hero-title {
+  font-family: 'Noto Serif KR', serif;
+  font-size: clamp(32px, 9vw, 52px);
+  font-weight: 900;
+  line-height: 1.2;
+  color: var(--foam);
+  margin-bottom: 14px;
+}
+.hero-title em {
+  font-style: normal;
+  color: var(--crema);
+}
+
+/* 타이핑 수치 — 시그니처 요소 */
+.recipe-typing {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.recipe-num {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--crema);
+  background: rgba(200,151,58,0.1);
+  border: 1px solid rgba(200,151,58,0.2);
+  border-radius: 6px;
+  padding: 4px 10px;
+  opacity: 0;
+  animation: fadeSlideIn 0.5s ease forwards;
+}
+.recipe-num:nth-child(1) { animation-delay: 0.6s; }
+.recipe-num:nth-child(2) { animation-delay: 1.1s; }
+.recipe-num:nth-child(3) { animation-delay: 1.6s; }
+.recipe-num:nth-child(4) { animation-delay: 2.1s; }
+.recipe-sep {
+  color: var(--muted);
+  font-size: 12px;
+  opacity: 0;
+  animation: fadeSlideIn 0.4s ease forwards;
+}
+.recipe-sep:nth-child(2) { animation-delay: 0.9s; }
+.recipe-sep:nth-child(4) { animation-delay: 1.4s; }
+.recipe-sep:nth-child(6) { animation-delay: 1.9s; }
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero-sub {
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-bottom: 36px;
+  max-width: 300px;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--crema);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 16px 28px;
+  border-radius: 100px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: transform 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary svg { flex-shrink: 0; }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 16px 20px;
+  border-radius: 100px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hero-cta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+/* ── STATS BAR ────────────────────────────── */
+.stats-bar {
+  background: var(--dim);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.stat-item {
+  text-align: center;
+  flex: 1;
+}
+.stat-big {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--crema);
+  display: block;
+  line-height: 1;
+}
+.stat-desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  letter-spacing: 0.05em;
+  display: block;
+}
+.stat-divider {
+  width: 1px;
+  background: var(--border);
+  align-self: stretch;
+}
+
+/* ── FEATURES ─────────────────────────────── */
+.features {
+  padding: 64px 24px 48px;
+}
+.section-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--crema);
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-family: 'Noto Serif KR', serif;
+  font-size: clamp(22px, 6vw, 32px);
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--foam);
+  margin-bottom: 36px;
+}
+
+/* 피처 카드 스크롤 */
+.feature-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin: 0 -24px;
+  padding: 0 24px 16px;
+  cursor: grab;
+}
+.feature-scroll:active { cursor: grabbing; }
+.feature-scroll::-webkit-scrollbar { display: none; }
+
+.feature-card {
+  flex: 0 0 260px;
+  scroll-snap-align: start;
+  background: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,151,58,0.12) 0%, transparent 70%);
+}
+.feature-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: rgba(200,151,58,0.1);
+  border: 1px solid rgba(200,151,58,0.2);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+}
+.feature-icon svg { color: var(--crema); }
+
+.feature-name {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--foam);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.feature-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+.feature-tag {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--crema);
+  background: rgba(200,151,58,0.08);
+  border: 1px solid rgba(200,151,58,0.15);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+/* 화살표 버튼 */
+.feature-nav {
+  display: none; /* 모바일에서 숨김 */
+}
+@media (min-width: 520px) {
+  .feature-nav {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 16px;
+  }
+}
+.nav-arrow {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--dim);
+  color: var(--foam);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.nav-arrow:hover { background: var(--shot); border-color: var(--crema); }
+.nav-arrow:disabled { opacity: 0.25; cursor: default; }
+
+/* 스크롤 인디케이터 */
+.scroll-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 16px;
+}
+.scroll-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.scroll-dot.active { background: var(--crema); width: 16px; border-radius: 3px; }
+
+/* ── HOW IT WORKS ─────────────────────────── */
+.how {
+  padding: 0 24px 64px;
+}
+.how-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+.how-steps::before {
+  content: '';
+  position: absolute;
+  left: 19px; top: 24px; bottom: 24px;
+  width: 1px;
+  background: var(--border);
+}
+.how-step {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 20px 0;
+}
+.step-circle {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--dim);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.step-circle span {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--crema);
+}
+.step-body { padding-top: 8px; }
+.step-name {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--foam);
+  margin-bottom: 6px;
+}
+.step-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+/* ── FLAVOR PREVIEW ───────────────────────── */
+.flavor-section {
+  margin: 0 24px 64px;
+  background: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 28px 24px;
+  overflow: hidden;
+  position: relative;
+}
+.flavor-section::after {
+  content: '';
+  position: absolute;
+  bottom: -40px; right: -40px;
+  width: 160px; height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,151,58,0.08) 0%, transparent 70%);
+}
+.flavor-label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--crema);
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+.flavor-headline {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--foam);
+  line-height: 1.45;
+  margin-bottom: 24px;
+}
+.flavor-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.flavor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.flavor-name {
+  font-size: 12px;
+  color: var(--muted);
+  width: 44px;
+  flex-shrink: 0;
+}
+.flavor-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(200,151,58,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.flavor-fill {
+  height: 100%;
+  background: var(--crema);
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1s cubic-bezier(0.4,0,0.2,1);
+}
+.flavor-fill.animated { transform: scaleX(1); }
+.flavor-val {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--crema);
+  width: 20px;
+  text-align: right;
+}
+
+/* ── CTA BOTTOM ───────────────────────────── */
+.cta-section {
+  padding: 0 24px 80px;
+  text-align: center;
+}
+.cta-eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+.cta-title {
+  font-family: 'Noto Serif KR', serif;
+  font-size: clamp(26px, 7vw, 40px);
+  font-weight: 900;
+  color: var(--foam);
+  line-height: 1.3;
+  margin-bottom: 14px;
+}
+.cta-title .accent { color: var(--crema); }
+.cta-sub {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-bottom: 36px;
+}
+.cta-btn-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.cta-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── FOOTER ───────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 28px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.footer-logo {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--foam);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.footer-logo svg { color: var(--crema); }
+.footer-copy {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* ── REDUCED MOTION ───────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .float-track { animation: none; }
+  .recipe-num, .recipe-sep { animation: none; opacity: 1; }
+  .flavor-fill { transition: none; }
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<!-- ── HERO ───────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-bg">
+    <div class="hero-crema-ring"></div>
+  </div>
+
+  <!-- 플로팅 레시피 카드 -->
+  <div class="float-cards">
+    <div class="float-track" id="floatTrack">
+      <!-- 카드 8개 × 2 (루프용) -->
+      <div class="mini-card">
+        <div class="mini-card-bean">에티오피아 예가체프 코체레</div>
+        <div class="mini-card-meta">라떼 · 브레빌 870 · @나시고랭</div>
+        <div class="mini-card-stats">
+          <div class="mini-stat"><span class="mini-stat-val">18g</span><span class="mini-stat-lbl">원두</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">27s</span><span class="mini-stat-lbl">시간</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">36ml</span><span class="mini-stat-lbl">추출</span></div>
+        </div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-card-bean">콜롬비아 후일라 워시드</div>
+        <div class="mini-card-meta">에스프레소 · 가찌아 · @망고</div>
+        <div class="mini-card-stats">
+          <div class="mini-stat"><span class="mini-stat-val">19g</span><span class="mini-stat-lbl">원두</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">29s</span><span class="mini-stat-lbl">시간</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">40ml</span><span class="mini-stat-lbl">추출</span></div>
+        </div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-card-bean">게이샤 파나마 엘리다</div>
+        <div class="mini-card-meta">핸드드립 · 하리오 V60 · @brewmaster</div>
+        <div class="mini-card-stats">
+          <div class="mini-stat"><span class="mini-stat-val">15g</span><span class="mini-stat-lbl">원두</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">3m</span><span class="mini-stat-lbl">시간</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">250ml</span><span class="mini-stat-lbl">추출</span></div>
+        </div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-card-bean">케냐 키암부 AA</div>
+        <div class="mini-card-meta">아메리카노 · 드롱기 · @커피덕후</div>
+        <div class="mini-card-stats">
+          <div class="mini-stat"><span class="mini-stat-val">17g</span><span class="mini-stat-lbl">원두</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">25s</span><span class="mini-stat-lbl">시간</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">35ml</span><span class="mini-stat-lbl">추출</span></div>
+        </div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-card-bean">과테말라 안티구아 내추럴</div>
+        <div class="mini-card-meta">카푸치노 · 세코 · @homecafe</div>
+        <div class="mini-card-stats">
+          <div class="mini-stat"><span class="mini-stat-val">18g</span><span class="mini-stat-lbl">원두</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">28s</span><span class="mini-stat-lbl">시간</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">38ml</span><span class="mini-stat-lbl">추출</span></div>
+        </div>
+      </div>
+      <!-- 루프용 복사 -->
+      <div class="mini-card">
+        <div class="mini-card-bean">에티오피아 예가체프 코체레</div>
+        <div class="mini-card-meta">라떼 · 브레빌 870 · @나시고랭</div>
+        <div class="mini-card-stats">
+          <div class="mini-stat"><span class="mini-stat-val">18g</span><span class="mini-stat-lbl">원두</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">27s</span><span class="mini-stat-lbl">시간</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">36ml</span><span class="mini-stat-lbl">추출</span></div>
+        </div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-card-bean">콜롬비아 후일라 워시드</div>
+        <div class="mini-card-meta">에스프레소 · 가찌아 · @망고</div>
+        <div class="mini-card-stats">
+          <div class="mini-stat"><span class="mini-stat-val">19g</span><span class="mini-stat-lbl">원두</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">29s</span><span class="mini-stat-lbl">시간</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">40ml</span><span class="mini-stat-lbl">추출</span></div>
+        </div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-card-bean">게이샤 파나마 엘리다</div>
+        <div class="mini-card-meta">핸드드립 · 하리오 V60 · @brewmaster</div>
+        <div class="mini-card-stats">
+          <div class="mini-stat"><span class="mini-stat-val">15g</span><span class="mini-stat-lbl">원두</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">3m</span><span class="mini-stat-lbl">시간</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">250ml</span><span class="mini-stat-lbl">추출</span></div>
+        </div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-card-bean">케냐 키암부 AA</div>
+        <div class="mini-card-meta">아메리카노 · 드롱기 · @커피덕후</div>
+        <div class="mini-card-stats">
+          <div class="mini-stat"><span class="mini-stat-val">17g</span><span class="mini-stat-lbl">원두</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">25s</span><span class="mini-stat-lbl">시간</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">35ml</span><span class="mini-stat-lbl">추출</span></div>
+        </div>
+      </div>
+      <div class="mini-card">
+        <div class="mini-card-bean">과테말라 안티구아 내추럴</div>
+        <div class="mini-card-meta">카푸치노 · 세코 · @homecafe</div>
+        <div class="mini-card-stats">
+          <div class="mini-stat"><span class="mini-stat-val">18g</span><span class="mini-stat-lbl">원두</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">28s</span><span class="mini-stat-lbl">시간</span></div>
+          <div class="mini-stat"><span class="mini-stat-val">38ml</span><span class="mini-stat-lbl">추출</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 헤드라인 콘텐츠 -->
+  <div class="hero-content" style="position:relative;z-index:2;">
+    <p class="hero-label">Brewlog Note</p>
+    <h1 class="hero-title">
+      매일의 커피를<br>
+      <em>레시피로 남긴다</em>
+    </h1>
+
+    <!-- 시그니처: 실제 추출 수치 타이핑 -->
+    <div class="recipe-typing" role="text" aria-label="레시피 예시: 원두 18g, 추출 27초, 추출량 36ml, 수율 19.0%">
+      <span class="recipe-num">원두 18g</span>
+      <span class="recipe-sep">·</span>
+      <span class="recipe-num">27초</span>
+      <span class="recipe-sep">·</span>
+      <span class="recipe-num">36ml</span>
+      <span class="recipe-sep">·</span>
+      <span class="recipe-num">수율 19.0%</span>
+    </div>
+
+    <p class="hero-sub">
+      원두, 머신, 추출 수치를 기록하고<br>커뮤니티와 레시피를 나눠보세요.
+    </p>
+
+    <div class="hero-cta">
+      <a href="https://brewlog-jade.vercel.app" class="btn-primary">
+        지금 무료로 시작하기
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+      <a href="https://brewlog-jade.vercel.app" class="btn-ghost">
+        둘러보기
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── STATS BAR ────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <span class="stat-big">3,200+</span>
+    <span class="stat-desc">기록된 레시피</span>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat-item">
+    <span class="stat-big">11종</span>
+    <span class="stat-desc">커피 메뉴</span>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat-item">
+    <span class="stat-big">무료</span>
+    <span class="stat-desc">영원히</span>
+  </div>
+</div>
+
+<!-- ── FEATURES ─────────────────────────────────── -->
+<section class="features">
+  <p class="section-label">주요 기능</p>
+  <h2 class="section-title">좋은 커피는<br>기록에서 시작된다</h2>
+
+  <div class="feature-scroll" id="featureScroll">
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="3" y="2" width="14" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M6 7h8M6 10h8M6 13h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h3 class="feature-name">정밀한 레시피 기록</h3>
+      <p class="feature-desc">원두량·추출시간·추출량·물온도·분쇄도를 한 번에. TDS 굴절계 연동으로 추출 수율까지 자동 계산.</p>
+      <span class="feature-tag">TDS 수율 계산</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M10 2L12.7 7.6L19 8.5L14.5 12.9L15.6 19.1L10 16.2L4.4 19.1L5.5 12.9L1 8.5L7.3 7.6L10 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h3 class="feature-name">AI 브루 팁</h3>
+      <p class="feature-desc">오늘 날씨와 내 레시피 히스토리를 분석해 "오늘은 분쇄도 0.5단계 굵게" 같은 파라미터를 자동 제안.</p>
+      <span class="feature-tag">날씨 기반 AI</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M10 5v5.5l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h3 class="feature-name">커뮤니티 피드</h3>
+      <p class="feature-desc">다른 홈바리스타의 레시피를 구경하고, 마음에 드는 레시피는 내 기록으로 바로 복사.</p>
+      <span class="feature-tag">레시피 공유</span>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M4 6h12M4 10h8M4 14h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="15" cy="14" r="3" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M17.5 16.5l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h3 class="feature-name">원두 창고</h3>
+      <p class="feature-desc">Bean Vault로 원두별 신선도, 잔여량, 추출 단가를 추적. 새 원두 등록 시 AI 첫 추출 파라미터 제안.</p>
+      <span class="feature-tag">AI 파라미터 제안</span>
+    </div>
+  </div>
+  <div class="scroll-dots">
+    <div class="scroll-dot active" id="dot0"></div>
+    <div class="scroll-dot" id="dot1"></div>
+    <div class="scroll-dot" id="dot2"></div>
+    <div class="scroll-dot" id="dot3"></div>
+  </div>
+  <!-- PC 전용 화살표 -->
+  <div class="feature-nav">
+    <button class="nav-arrow" id="prevBtn" aria-label="이전" disabled>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <button class="nav-arrow" id="nextBtn" aria-label="다음">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ──────────────────────────────── -->
+<section class="how">
+  <p class="section-label">사용 방법</p>
+  <h2 class="section-title" style="margin-bottom:32px;">추출하고, 기록하고<br>나눠보세요</h2>
+
+  <div class="how-steps">
+    <div class="how-step">
+      <div class="step-circle"><span>1</span></div>
+      <div class="step-body">
+        <h3 class="step-name">머신·원두 설정</h3>
+        <p class="step-desc">머신과 그라인더를 한 번만 등록해두면 다음엔 자동으로 불러옵니다.</p>
+      </div>
+    </div>
+    <div class="how-step">
+      <div class="step-circle"><span>2</span></div>
+      <div class="step-body">
+        <h3 class="step-name">추출 후 수치 입력</h3>
+        <p class="step-desc">원두량·시간·추출량·분쇄도를 입력. 날씨는 자동으로 기록돼요.</p>
+      </div>
+    </div>
+    <div class="how-step">
+      <div class="step-circle"><span>3</span></div>
+      <div class="step-body">
+        <h3 class="step-name">플레이버 & 별점</h3>
+        <p class="step-desc">산미·단맛·바디 등 7축 레이더로 풍미를 시각화해서 기록합니다.</p>
+      </div>
+    </div>
+    <div class="how-step">
+      <div class="step-circle"><span>4</span></div>
+      <div class="step-body">
+        <h3 class="step-name">공유 & 비교</h3>
+        <p class="step-desc">레시피 이미지 카드로 공유하거나, 다른 레시피와 나란히 비교해보세요.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FLAVOR PREVIEW ────────────────────────────── -->
+<div class="flavor-section" id="flavorSection">
+  <p class="flavor-label">플레이버 레이더</p>
+  <h3 class="flavor-headline">내 커피의 맛을<br>숫자로 기억한다</h3>
+  <div class="flavor-bars">
+    <div class="flavor-row">
+      <span class="flavor-name">산미</span>
+      <div class="flavor-track"><div class="flavor-fill" style="width:80%"></div></div>
+      <span class="flavor-val">4</span>
+    </div>
+    <div class="flavor-row">
+      <span class="flavor-name">단맛</span>
+      <div class="flavor-track"><div class="flavor-fill" style="width:60%"></div></div>
+      <span class="flavor-val">3</span>
+    </div>
+    <div class="flavor-row">
+      <span class="flavor-name">쓴맛</span>
+      <div class="flavor-track"><div class="flavor-fill" style="width:40%"></div></div>
+      <span class="flavor-val">2</span>
+    </div>
+    <div class="flavor-row">
+      <span class="flavor-name">아로마</span>
+      <div class="flavor-track"><div class="flavor-fill" style="width:100%"></div></div>
+      <span class="flavor-val">5</span>
+    </div>
+    <div class="flavor-row">
+      <span class="flavor-name">후미</span>
+      <div class="flavor-track"><div class="flavor-fill" style="width:80%"></div></div>
+      <span class="flavor-val">4</span>
+    </div>
+    <div class="flavor-row">
+      <span class="flavor-name">밸런스</span>
+      <div class="flavor-track"><div class="flavor-fill" style="width:60%"></div></div>
+      <span class="flavor-val">3</span>
+    </div>
+  </div>
+  <p style="font-size:12px;color:var(--muted);margin-top:20px;line-height:1.6;">
+    에티오피아 예가체프 코체레 · 워시드 · 미디엄 로스트
+  </p>
+</div>
+
+<!-- ── CTA ───────────────────────────────────────── -->
+<section class="cta-section">
+  <p class="cta-eyebrow">지금 시작하기</p>
+  <h2 class="cta-title">
+    오늘의 첫 잔을<br>
+    <span class="accent">기록해보세요</span>
+  </h2>
+  <p class="cta-sub">
+    회원가입 5초, 첫 레시피 기록 1분.<br>
+    광고 없이, 영원히 무료입니다.
+  </p>
+  <div class="cta-btn-wrap">
+    <a href="https://brewlog-jade.vercel.app" class="btn-primary" style="font-size:16px;padding:18px 36px;">
+      Brewlog Note 시작하기
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+    <p class="cta-note">brewlog-jade.vercel.app · 로그인 없이 둘러볼 수 있어요</p>
+  </div>
+</section>
+
+<!-- ── FOOTER ────────────────────────────────────── -->
+<footer>
+  <div class="footer-logo">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M5 10.5c1-2.5 3-3.5 5-2s3 3 4 1" stroke="#C8973A" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    Brewlog Note
+  </div>
+  <p class="footer-copy">
+    홈카페를 사랑하는 사람들을 위한<br>
+    커피 레시피 아카이브 · 2026
+  </p>
+</footer>
+</div><!-- /page-wrap -->
+
+<script>
+// 피처 카드 스크롤 dot 업데이트 + PC 마우스 드래그
+const scroll = document.getElementById('featureScroll');
+const dots = [0,1,2,3].map(i => document.getElementById('dot'+i));
+if (scroll) {
+  scroll.addEventListener('scroll', () => {
+    const idx = Math.round(scroll.scrollLeft / 272);
+    dots.forEach((d,i) => {
+      d.classList.toggle('active', i === idx);
+    });
+  }, { passive: true });
+
+  // PC 화살표 버튼
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const CARD_W  = 272; // 카드 너비 + gap
+  const TOTAL   = 4;
+
+  function updateArrows() {
+    const idx = Math.round(scroll.scrollLeft / CARD_W);
+    if (prevBtn) prevBtn.disabled = idx <= 0;
+    if (nextBtn) nextBtn.disabled = idx >= TOTAL - 1;
+  }
+
+  if (prevBtn) prevBtn.addEventListener('click', () => {
+    const idx = Math.round(scroll.scrollLeft / CARD_W);
+    scroll.scrollTo({ left: (idx - 1) * CARD_W, behavior: 'smooth' });
+  });
+  if (nextBtn) nextBtn.addEventListener('click', () => {
+    const idx = Math.round(scroll.scrollLeft / CARD_W);
+    scroll.scrollTo({ left: (idx + 1) * CARD_W, behavior: 'smooth' });
+  });
+
+  scroll.addEventListener('scroll', updateArrows, { passive: true });
+  updateArrows();
+}
+
+// 플레이버 바 애니메이션 (스크롤 진입 시)
+const flavorSection = document.getElementById('flavorSection');
+if (flavorSection) {
+  const fills = flavorSection.querySelectorAll('.flavor-fill');
+  const observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) {
+      fills.forEach((f, i) => {
+        setTimeout(() => f.classList.add('animated'), i * 100);
+      });
+      observer.disconnect();
+    }
+  }, { threshold: 0.3 });
+  observer.observe(flavorSection);
+}
+</script>
+</body>
+</html>
