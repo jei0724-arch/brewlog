@@ -1787,6 +1787,25 @@ export default function RecipeModal({
           </div>
 
           {/* 예상 압력 */}
+          {machineType !== "handdrip" && pressureData && (
+            <div className={`pressure-box ${pressureData.status} field full`} style={{ marginBottom:0 }}>
+              <div className="pressure-title">{t.pressureTitle}</div>
+              <div className="pressure-row">
+                <span style={{ color:"var(--muted)" }}>{t.brewPressure}</span>
+                <span className={`pressure-val pressure-${pressureData.status}`}>
+                  {pressureData.status === "high"
+                    ? `9 bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${pressureData.pumpBar} bar)`
+                    : `${pressureData.showerBar} bar`}
+                </span>
+              </div>
+              <div style={{ marginTop:"0.3rem", fontSize:"0.78rem", color:"var(--muted)" }}>
+                {pressureData.status === "good" ? t.pressureGood : pressureData.status === "high" ? t.pressureHigh : t.pressureLow}
+                {" "}({t.pressureRange})
+              </div>
+            </div>
+          )}
+
+          {/* 맛 노트 */}
           <div className="field full">
             <label>{t.note}</label>
             <textarea value={form.note} onChange={(e) => set("note", e.target.value)}
