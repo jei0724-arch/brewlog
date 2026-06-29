@@ -445,23 +445,32 @@ async function shareCompareCard(recipeA, recipeB) {
   const fileName = `${recipeA.bean || "A"}_vs_${recipeB.bean || "B"}_brewlog.png`;
   const file     = new File([blob], fileName, { type: "image/png" });
 
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+  // Web Share API — 파일 공유 지원 여부 확인 후 폴백
+  const canWebShare = typeof navigator.share === "function"
+    && typeof navigator.canShare === "function"
+    && navigator.canShare({ files: [file] });
+
+  if (canWebShare) {
     try {
       await navigator.share({
         files: [file],
         title: "레시피 비교",
         text:  "Brewlog Note 레시피 비교 결과예요.\nhttps://brewlog-jade.vercel.app",
       });
+      return;
     } catch (e) {
-      if (e.name !== "AbortError") throw e;
+      if (e.name === "AbortError") return; // 사용자가 취소
+      // Web Share 실패 시 다운로드로 폴백
     }
-  } else {
-    const a  = document.createElement("a");
-    a.href   = URL.createObjectURL(blob);
-    a.download = fileName;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
+  // 폴백: 파일 다운로드
+  const a  = document.createElement("a");
+  a.href   = URL.createObjectURL(blob);
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 // ─────────────────────────────────────────────────────────────────

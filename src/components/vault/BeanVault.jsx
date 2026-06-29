@@ -1130,7 +1130,7 @@ export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal
             const barColor=pct===null?"var(--latte)":pct>50?"#5c9e6e":pct>20?"#d4a843":"#c0392b";
             return (
               <div key={bean.id} className="bean-card" style={{ opacity:isEmpty?0.55:1, cursor:"pointer" }}
-                onClick={(e)=>{ if(!e.target.closest(".bean-actions")) setDetailBean(bean); }}>
+                onClick={()=>setDetailBean(bean)}>
                 <div className="bean-card-header">
                   <div>
                     <div className="bean-card-name">{bean.name}</div>
@@ -1176,10 +1176,10 @@ export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal
                 <div className="bean-card-footer">
                   <div className="bean-days-chip">{bean.buyDate&&`${lang==="en"?"Purchased":"구매"} ${bean.buyDate}`}</div>
                   <div className="bean-actions">
-                    <button className="bean-btn" onClick={()=>{ setEditTarget(bean); setShowModal(true); }}>
+                    <button className="bean-btn" onClick={e=>{ e.stopPropagation(); setEditTarget(bean); setShowModal(true); }}>
                       <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M9.5 1.5l3 3-7 7H2.5v-3l7-7z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
                     </button>
-                    <button className="bean-btn danger" onClick={()=>handleDelete(bean.id)}>
+                    <button className="bean-btn danger" onClick={e=>{ e.stopPropagation(); handleDelete(bean.id); }}>
                       <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2.5 3.5h9M4.5 3.5V2.5c0-.28.22-.5.5-.5h4c.28 0 .5.22.5.5v1M5.5 6v4M8.5 6v4M3 3.5l.7 8c.02.4.35.7.76.7h6.08c.4 0 .73-.3.76-.7l.7-8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     </button>
                   </div>
