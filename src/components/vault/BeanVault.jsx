@@ -383,6 +383,33 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
 // ─────────────────────────────────────────────────────────────────
 // FirstBrewSuggestionModal — 신규 원두 첫 추출 파라미터 제안
 // ─────────────────────────────────────────────────────────────────
+
+// Gemini API 재시도 헬퍼 (503 과부하 시 최대 3회 지수 백오프)
+async function geminiWithRetry(url, body, signal, maxRetry = 3) {
+  let lastErr;
+  for (let i = 0; i < maxRetry; i++) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal,
+        body: JSON.stringify(body),
+      });
+      if (res.status === 503 && i < maxRetry - 1) {
+        const wait = (2 ** i) * 1000; // 1s → 2s → 4s
+        await new Promise(r => setTimeout(r, wait));
+        continue;
+      }
+      return res;
+    } catch (e) {
+      lastErr = e;
+      if (e.name === "AbortError") throw e; // 타임아웃은 재시도 안 함
+      if (i < maxRetry - 1) await new Promise(r => setTimeout(r, (2 ** i) * 1000));
+    }
+  }
+  throw lastErr || new Error("Gemini 호출 실패");
+}
+
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_KEY;
 
 function FirstBrewSuggestionModal({ bean, lang, user, onClose }) {
@@ -464,13 +491,13 @@ JSON only:
       const tid = setTimeout(() => controller.abort(), 20000);
       let res;
       try {
-        res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_KEY}`,
-          { method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { temperature: 0.3, maxOutputTokens: 512, thinkingConfig: { thinkingLevel: "minimal" } },
-            }) }
+        res = await geminiWithRetry(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_KEY}`,
+          {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 512, thinkingConfig: { thinkingLevel: "minimal" } },
+          },
+          controller.signal
         );
       } finally { clearTimeout(tid); }
 
