@@ -423,7 +423,7 @@ async function shareCompareCard(recipeA, recipeB) {
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=52x52&data=https://brewlog-jade.vercel.app&bgcolor=ECEAE7&color=3D2B1F&margin=2"
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=52x52&data=https://brewlog-jade.vercel.app/landing.html&bgcolor=ECEAE7&color=3D2B1F&margin=2"
             width="52" height="52" style="border-radius:4px;display:block;" crossorigin="anonymous"/>
           <span style="font-size:7px;color:#B07D54;letter-spacing:0.06em;font-weight:600;">SCAN TO BREW</span>
         </div>
