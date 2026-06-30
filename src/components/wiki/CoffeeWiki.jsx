@@ -29,6 +29,18 @@ const I18N = {
     required: "필수 항목을 입력해주세요.",
     duplicateWarn: "비슷한 항목이 이미 있어요:",
     createNew: "그래도 새로 만들기",
+    // 머신 스펙
+    specBoiler: "보일러 타입", specPump: "펌프 압력(bar)", specTank: "워터탱크 용량(L)", specSteam: "스팀완드",
+    boilerSingle: "싱글 보일러", boilerDual: "듀얼 보일러", boilerHeatExchange: "열교환식", boilerThermoblock: "서모블록",
+    steamYes: "있음", steamNo: "없음",
+    // 그라인더 스펙
+    specBurr: "날 타입", specSteps: "분쇄 단계", specMotor: "모터 타입", specRpm: "RPM(분당 회전수)",
+    burrConical: "코니컬", burrFlat: "플랫",
+    motorDC: "DC 모터", motorAC: "AC 모터",
+    // 핸드드립 스펙
+    specMaterial: "재질", specShape: "드리퍼 형태", specCapacity: "용량(컵)",
+    materialCeramic: "도자기", materialGlass: "유리", materialPlastic: "플라스틱", materialMetal: "금속",
+    shapeCone: "원뿔형", shapeFlat: "평저형", shapeWave: "웨이브",
   },
   en: {
     title: "Coffee Wiki", sub: "A community-built coffee bean & equipment database",
@@ -49,6 +61,15 @@ const I18N = {
     required: "Please fill in required fields.",
     duplicateWarn: "Similar entries already exist:",
     createNew: "Create new anyway",
+    specBoiler: "Boiler Type", specPump: "Pump Pressure(bar)", specTank: "Tank Capacity(L)", specSteam: "Steam Wand",
+    boilerSingle: "Single Boiler", boilerDual: "Dual Boiler", boilerHeatExchange: "Heat Exchanger", boilerThermoblock: "Thermoblock",
+    steamYes: "Yes", steamNo: "No",
+    specBurr: "Burr Type", specSteps: "Grind Steps", specMotor: "Motor Type", specRpm: "RPM",
+    burrConical: "Conical", burrFlat: "Flat",
+    motorDC: "DC Motor", motorAC: "AC Motor",
+    specMaterial: "Material", specShape: "Dripper Shape", specCapacity: "Capacity (cups)",
+    materialCeramic: "Ceramic", materialGlass: "Glass", materialPlastic: "Plastic", materialMetal: "Metal",
+    shapeCone: "Cone", shapeFlat: "Flat-bottom", shapeWave: "Wave",
   },
 };
 
@@ -176,6 +197,20 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
     model: editTarget?.model || "",
     type: editTarget?.type || "semi",
     description: editTarget?.description || "",
+    // 머신 스펙
+    boilerType: editTarget?.boilerType || "",
+    pumpBar: editTarget?.pumpBar || "",
+    tankL: editTarget?.tankL || "",
+    hasSteam: editTarget?.hasSteam ?? true,
+    // 그라인더 스펙
+    burrType: editTarget?.burrType || "",
+    grindSteps: editTarget?.grindSteps || "",
+    motorType: editTarget?.motorType || "",
+    rpm: editTarget?.rpm || "",
+    // 핸드드립 스펙
+    material: editTarget?.material || "",
+    dripperShape: editTarget?.dripperShape || "",
+    capacityCups: editTarget?.capacityCups || "",
   });
   const [saving, setSaving] = useState(false);
   const [dupWarn, setDupWarn] = useState(null);
@@ -253,20 +288,150 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
         </div>
 
         {form.category === "machine" && (
-          <div className="field full" style={{ marginBottom: "12px" }}>
-            <label>{t.equipType}</label>
-            <div style={{ display: "flex", gap: "8px" }}>
-              {[["full", t.fullAuto], ["semi", t.semiAuto], ["manual", t.manual]].map(([v, lbl]) => (
-                <button key={v} type="button" onClick={() => set("type", v)}
-                  style={{ flex: 1, padding: "8px", borderRadius: "8px", border: `1px solid ${form.type === v ? "var(--latte)" : "var(--steam)"}`,
-                    background: form.type === v ? "var(--latte)" : "var(--foam)",
-                    color: form.type === v ? "white" : "var(--muted)",
-                    fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer" }}>
-                  {lbl}
-                </button>
-              ))}
+          <>
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{t.equipType}</label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {[["full", t.fullAuto], ["semi", t.semiAuto], ["manual", t.manual]].map(([v, lbl]) => (
+                  <button key={v} type="button" onClick={() => set("type", v)}
+                    style={{ flex: 1, padding: "8px", borderRadius: "8px", border: `1px solid ${form.type === v ? "var(--latte)" : "var(--steam)"}`,
+                      background: form.type === v ? "var(--latte)" : "var(--foam)",
+                      color: form.type === v ? "white" : "var(--muted)",
+                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer" }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+
+            {/* ── 머신 스펙 ── */}
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{t.specBoiler}</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                {[["single", t.boilerSingle], ["dual", t.boilerDual], ["heatExchange", t.boilerHeatExchange], ["thermoblock", t.boilerThermoblock]].map(([v, lbl]) => (
+                  <button key={v} type="button" onClick={() => set("boilerType", v)}
+                    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${form.boilerType === v ? "var(--latte)" : "var(--steam)"}`,
+                      background: form.boilerType === v ? "var(--latte)" : "var(--foam)",
+                      color: form.boilerType === v ? "white" : "var(--muted)",
+                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.76rem", cursor: "pointer" }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+              <div className="field">
+                <label>{t.specPump}</label>
+                <input type="number" step="0.1" value={form.pumpBar} onChange={e => set("pumpBar", e.target.value)} placeholder="예) 15" />
+              </div>
+              <div className="field">
+                <label>{t.specTank}</label>
+                <input type="number" step="0.1" value={form.tankL} onChange={e => set("tankL", e.target.value)} placeholder="예) 2.8" />
+              </div>
+            </div>
+
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{t.specSteam}</label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {[[true, t.steamYes], [false, t.steamNo]].map(([v, lbl]) => (
+                  <button key={String(v)} type="button" onClick={() => set("hasSteam", v)}
+                    style={{ flex: 1, padding: "8px", borderRadius: "8px", border: `1px solid ${form.hasSteam === v ? "var(--latte)" : "var(--steam)"}`,
+                      background: form.hasSteam === v ? "var(--latte)" : "var(--foam)",
+                      color: form.hasSteam === v ? "white" : "var(--muted)",
+                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer" }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {form.category === "grinder" && (
+          <>
+            {/* ── 그라인더 스펙 ── */}
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{t.specBurr}</label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {[["conical", t.burrConical], ["flat", t.burrFlat]].map(([v, lbl]) => (
+                  <button key={v} type="button" onClick={() => set("burrType", v)}
+                    style={{ flex: 1, padding: "8px", borderRadius: "8px", border: `1px solid ${form.burrType === v ? "var(--latte)" : "var(--steam)"}`,
+                      background: form.burrType === v ? "var(--latte)" : "var(--foam)",
+                      color: form.burrType === v ? "white" : "var(--muted)",
+                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer" }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+              <div className="field">
+                <label>{t.specSteps}</label>
+                <input type="number" value={form.grindSteps} onChange={e => set("grindSteps", e.target.value)} placeholder="예) 40" />
+              </div>
+              <div className="field">
+                <label>{t.specRpm}</label>
+                <input type="number" value={form.rpm} onChange={e => set("rpm", e.target.value)} placeholder="예) 1600" />
+              </div>
+            </div>
+
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{t.specMotor}</label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {[["dc", t.motorDC], ["ac", t.motorAC]].map(([v, lbl]) => (
+                  <button key={v} type="button" onClick={() => set("motorType", v)}
+                    style={{ flex: 1, padding: "8px", borderRadius: "8px", border: `1px solid ${form.motorType === v ? "var(--latte)" : "var(--steam)"}`,
+                      background: form.motorType === v ? "var(--latte)" : "var(--foam)",
+                      color: form.motorType === v ? "white" : "var(--muted)",
+                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer" }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {form.category === "handdrip" && (
+          <>
+            {/* ── 핸드드립 스펙 ── */}
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{t.specMaterial}</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                {[["ceramic", t.materialCeramic], ["glass", t.materialGlass], ["plastic", t.materialPlastic], ["metal", t.materialMetal]].map(([v, lbl]) => (
+                  <button key={v} type="button" onClick={() => set("material", v)}
+                    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${form.material === v ? "var(--latte)" : "var(--steam)"}`,
+                      background: form.material === v ? "var(--latte)" : "var(--foam)",
+                      color: form.material === v ? "white" : "var(--muted)",
+                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.76rem", cursor: "pointer" }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{t.specShape}</label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {[["cone", t.shapeCone], ["flat", t.shapeFlat], ["wave", t.shapeWave]].map(([v, lbl]) => (
+                  <button key={v} type="button" onClick={() => set("dripperShape", v)}
+                    style={{ flex: 1, padding: "8px", borderRadius: "8px", border: `1px solid ${form.dripperShape === v ? "var(--latte)" : "var(--steam)"}`,
+                      background: form.dripperShape === v ? "var(--latte)" : "var(--foam)",
+                      color: form.dripperShape === v ? "white" : "var(--muted)",
+                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer" }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{t.specCapacity}</label>
+              <input type="number" value={form.capacityCups} onChange={e => set("capacityCups", e.target.value)} placeholder="예) 2" />
+            </div>
+          </>
         )}
 
         <div className="field full" style={{ marginBottom: "12px" }}>
@@ -342,6 +507,42 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
           ].map(([label, value]) => value && (
             <div key={label} style={{ display: "flex", gap: "8px", padding: "7px 0", borderBottom: "1px solid var(--divider)" }}>
               <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", width: "72px", flexShrink: 0 }}>{label}</span>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)" }}>{value}</span>
+            </div>
+          ))}
+
+          {/* 장비 스펙 */}
+          {!isBean && item.category === "machine" && [
+            [t.specBoiler, { single:t.boilerSingle, dual:t.boilerDual, heatExchange:t.boilerHeatExchange, thermoblock:t.boilerThermoblock }[item.boilerType]],
+            [t.specPump, item.pumpBar ? `${item.pumpBar} bar` : null],
+            [t.specTank, item.tankL ? `${item.tankL} L` : null],
+            [t.specSteam, item.hasSteam === true ? t.steamYes : item.hasSteam === false ? t.steamNo : null],
+          ].map(([label, value]) => value && (
+            <div key={label} style={{ display: "flex", gap: "8px", padding: "7px 0", borderBottom: "1px solid var(--divider)" }}>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", width: "100px", flexShrink: 0 }}>{label}</span>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)" }}>{value}</span>
+            </div>
+          ))}
+
+          {!isBean && item.category === "grinder" && [
+            [t.specBurr, { conical:t.burrConical, flat:t.burrFlat }[item.burrType]],
+            [t.specSteps, item.grindSteps ? `${item.grindSteps}${lang==="en"?" steps":"단계"}` : null],
+            [t.specMotor, { dc:t.motorDC, ac:t.motorAC }[item.motorType]],
+            [t.specRpm, item.rpm ? `${item.rpm} RPM` : null],
+          ].map(([label, value]) => value && (
+            <div key={label} style={{ display: "flex", gap: "8px", padding: "7px 0", borderBottom: "1px solid var(--divider)" }}>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", width: "100px", flexShrink: 0 }}>{label}</span>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)" }}>{value}</span>
+            </div>
+          ))}
+
+          {!isBean && item.category === "handdrip" && [
+            [t.specMaterial, { ceramic:t.materialCeramic, glass:t.materialGlass, plastic:t.materialPlastic, metal:t.materialMetal }[item.material]],
+            [t.specShape, { cone:t.shapeCone, flat:t.shapeFlat, wave:t.shapeWave }[item.dripperShape]],
+            [t.specCapacity, item.capacityCups ? `${item.capacityCups}${lang==="en"?" cups":"컵"}` : null],
+          ].map(([label, value]) => value && (
+            <div key={label} style={{ display: "flex", gap: "8px", padding: "7px 0", borderBottom: "1px solid var(--divider)" }}>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", width: "100px", flexShrink: 0 }}>{label}</span>
               <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)" }}>{value}</span>
             </div>
           ))}
