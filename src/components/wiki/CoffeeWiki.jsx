@@ -914,12 +914,19 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
   );
 }
 
-export function CoffeeWiki({ user, lang = "ko", onModalOpenChange }) {
+export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp, onTabChange, search: searchProp, onSearchChange, onExposeActions }) {
   const t = I18N[lang];
-  const [tab, setTab] = useState("beans");
+  // tab/search는 MainApp이 헤더 영역(탭버튼/검색창/추가버튼)을 제어할 수 있도록 외부 제어형(controlled)으로 동작
+  // props가 없으면(미연결 상태) 내부 state로 자체 동작 — 하위 호환
+  const [tabInternal, setTabInternal] = useState("beans");
+  const tab = tabProp !== undefined ? tabProp : tabInternal;
+  const setTab = onTabChange || setTabInternal;
+
   const [beans, setBeans] = useState([]);
   const [equips, setEquips] = useState([]);
-  const [search, setSearch] = useState("");
+  const [searchInternal, setSearchInternal] = useState("");
+  const search = searchProp !== undefined ? searchProp : searchInternal;
+  const setSearch = onSearchChange || setSearchInternal;
   const [loading, setLoading] = useState(true);
 
   const [showBeanForm, setShowBeanForm] = useState(false);
@@ -961,6 +968,11 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange }) {
   const openEquipForm = () => { window.history.pushState({ wikiModal: true }, ""); setShowEquipForm(true); };
   const openEditTarget = (item) => { window.history.pushState({ wikiModal: true }, ""); setEditTarget(item); };
   const openDetailItem = (item) => { window.history.pushState({ wikiModal: true }, ""); setDetailItem(item); };
+
+  // 부모(MainApp)가 헤더의 "추가하기" 버튼에서 호출할 수 있도록 함수 노출
+  useEffect(() => {
+    onExposeActions?.({ openBeanForm, openEquipForm });
+  }, [onExposeActions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 모달 닫기 래퍼 — go(-1)만 호출 (실제 상태 변경은 popstate 핸들러(onPop)가 책임짐)
   // go(-1)과 setState를 동시에 호출하면, go(-1)이 트리거하는 비동기 popstate 이벤트가
@@ -1010,33 +1022,7 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange }) {
 
   return (
     <div style={{ maxWidth: "720px", margin: "0 auto" }}>
-      {/* 다른 탭(beans/equip)과 동일한 section-title/section-sub 스타일로 통일 */}
-      <div className="section-title">{t.title}</div>
-      <div className="section-sub">{t.sub}</div>
-
-      <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
-        {[["beans", t.tabBeans], ["equip", t.tabEquip]].map(([v, lbl]) => (
-          <button key={v} onClick={() => setTab(v)}
-            style={{ padding: "8px 18px", borderRadius: "999px", border: `1px solid ${tab === v ? "var(--espresso)" : "var(--steam)"}`,
-              background: tab === v ? "var(--espresso)" : "var(--foam)",
-              color: tab === v ? "var(--cream)" : "var(--muted)",
-              fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer", transition: "all 0.15s" }}>
-            {lbl}
-          </button>
-        ))}
-      </div>
-
-      <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t.search}
-        style={{ width: "100%", padding: "11px 16px", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", marginBottom: "16px", boxSizing: "border-box", outline: "none" }}
-      />
-
-      {user && (
-        <button onClick={() => tab === "beans" ? openBeanForm() : openEquipForm()}
-          style={{ width: "100%", padding: "12px", border: "1px dashed var(--latte)", borderRadius: "10px", background: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--latte)", fontWeight: 500, marginBottom: "16px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-          {tab === "beans" ? t.addBean : t.addEquip}
-        </button>
-      )}
+      {/* 탭버튼/검색창/추가버튼은 MainApp의 두 번째 행(beans/equip 탭과 동일한 자리)에서 렌더링됨 */}
 
       {loading ? (
         <p style={{ textAlign: "center", color: "var(--muted)", padding: "40px 0", fontFamily: "'DM Sans',sans-serif" }}>...</p>

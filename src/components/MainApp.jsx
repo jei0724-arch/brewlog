@@ -74,6 +74,9 @@ export default function MainApp({
   const [statModeVal,    setStatModeVal]    = useState("machine");
   const [profileModal,   setProfileModal]   = useState(null); // { uid, name }
   const [beanFilterStatus, setBeanFilterStatus] = useState("all");
+  const [wikiTab, setWikiTab] = useState("beans");       // CoffeeWiki 내부 원두/장비 서브탭
+  const [wikiSearch, setWikiSearch] = useState("");       // CoffeeWiki 검색어
+  const [wikiActionsRef] = useState({ current: null });   // CoffeeWiki가 노출하는 openBeanForm/openEquipForm
 
   // ── PWA ─────────────────────────────────────────────────────────
   const [pwaPrompt,    setPwaPrompt]    = useState(null);
@@ -668,8 +671,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
               </button>
             </div>
 
-            {/* 두 번째 행: 검색/필터/추가 (위키 탭은 이 영역 자체를 렌더링하지 않음 — 빈 테두리/여백 방지) */}
-            {feedTab!=="wiki" && (
+            {/* 두 번째 행: 검색/필터/추가 — 모든 탭(beans/equip/wiki/all) 공통 영역 */}
             <div style={{ borderTop:"1px solid var(--divider)", marginTop:"10px", paddingTop:"10px", maxWidth:"900px", margin:"10px auto 0" }}>
               {feedTab==="beans" ? (
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:"8px" }}>
@@ -697,6 +699,37 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                     {lang==="en"?"Add Gear":"추가하기"}
                   </button>
                 </div>
+              ) : feedTab==="wiki" ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:"8px" }}>
+                    <div style={{ display:"flex", gap:"5px" }}>
+                      {[["beans",lang==="en"?"Beans":"원두"],["equip",lang==="en"?"Equipment":"장비"]].map(([v,lbl])=>(
+                        <button key={v} onClick={()=>setWikiTab(v)}
+                          style={{ padding:"5px 14px", border:"1px solid", borderRadius:"20px", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.74rem", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.15s", lineHeight:1,
+                            borderColor: wikiTab===v?"var(--espresso)":"var(--steam)",
+                            background:  wikiTab===v?"var(--espresso)":"transparent",
+                            color:       wikiTab===v?"var(--cream)":"var(--muted)",
+                            fontWeight:  wikiTab===v?600:400 }}>
+                          {lbl}
+                        </button>
+                      ))}
+                    </div>
+                    {user && (
+                      <button className="btn-new" style={{ flexShrink:0 }}
+                        onClick={()=>{ wikiTab==="beans" ? wikiActionsRef.current?.openBeanForm() : wikiActionsRef.current?.openEquipForm(); }}>
+                        <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                        {lang==="en"?"Add":"추가하기"}
+                      </button>
+                    )}
+                  </div>
+                  <div className="search-box" style={{ width:"100%", boxSizing:"border-box" }}>
+                    <span className="search-icon">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/><path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    </span>
+                    <input value={wikiSearch} onChange={e=>setWikiSearch(e.target.value)}
+                      placeholder={lang==="en"?"Search by name, origin, or brand":"원두명, 산지, 브랜드로 검색"}/>
+                  </div>
+                </div>
               ) : (
                 <div className="search-row" style={{ display:"flex", gap:"0.5rem", width:"100%", boxSizing:"border-box", overflow:"hidden" }}>
                   <div className="search-box" style={{ flex:1, minWidth:0 }}>
@@ -712,7 +745,6 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                 </div>
               )}
             </div>
-            )}
           </div>
         </div>
       </div>
@@ -728,7 +760,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
           else if (feedTab==="bookmarks") { title=t.bookmarksFeedTitle; sub=t.bookmarksFeedSub; }
           else if (feedTab==="beans")     { title=t.beanVault; sub=t.beanVaultSub; }
           else if (feedTab==="equip")     { title=t.gearVault; sub=t.gearVaultSub; }
-          else if (feedTab==="wiki")      { return null; } // CoffeeWiki 컴포넌트 내부에서 동일한 section-title 스타일로 자체 렌더링
+          else if (feedTab==="wiki")      { title=t.coffeeWiki; sub=t.coffeeWikiSub; }
           else { title=t.feedTitle; sub=t.feedSub; }
           return <><div className="section-title">{title}</div><div className="section-sub">{sub}</div></>;
         })()}
@@ -836,7 +868,10 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
             setShowModal={(v)=>{ equipShowModalRef.current=v; if(v) window.history.pushState({modal:true},""); setEquipShowModal(v); }}/>
         )}
         {feedTab==="wiki" && (
-          <CoffeeWiki user={user} lang={lang} onModalOpenChange={(open)=>{ wikiModalOpenRef.current=open; }}/>
+          <CoffeeWiki user={user} lang={lang} onModalOpenChange={(open)=>{ wikiModalOpenRef.current=open; }}
+            tab={wikiTab} onTabChange={setWikiTab}
+            search={wikiSearch} onSearchChange={setWikiSearch}
+            onExposeActions={(actions)=>{ wikiActionsRef.current = actions; }}/>
         )}
 
         {/* 베스트 레시피 (전체 피드만) */}
