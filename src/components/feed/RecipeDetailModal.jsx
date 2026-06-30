@@ -166,6 +166,7 @@ export default function RecipeDetailModal({
       val: <span>{tr("machine", recipe.machine)}{recipe.machineType && recipe.machineType!=="handdrip" && <span style={{ marginLeft:"0.3rem", fontSize:"0.65rem", background:recipe.machineType==="auto"?"var(--latte)":"var(--steam)", color:"var(--espresso)", padding:"0.05rem 0.3rem", borderRadius:"999px" }}>{recipe.machineType==="auto"?(lang==="en"?"Auto":"전자동"):(lang==="en"?"Semi":"반자동")}</span>}</span> },
     recipe.grinder    && { lbl: lang==="en"?"Grinder":"그라인더", val: tr("grinder", recipe.grinder) },
     recipe.grindSize  && { lbl: lang==="en"?"Grind":"분쇄도",    val: recipe.grindSize },
+    recipe.basketBrand && { lbl: lang==="en"?"Basket":"바스켓", val: <span>{recipe.basketBrand}{recipe.basketSize && <span style={{ marginLeft:"0.3rem", fontSize:"0.65rem", color:"var(--muted)" }}>({recipe.basketSize==="single"?(lang==="en"?"Single":"싱글"):recipe.basketSize==="triple"?(lang==="en"?"Triple":"트리플"):(lang==="en"?"Double":"더블")}{recipe.basketCapacity?` · ${recipe.basketCapacity}g`:""})</span>}</span> },
     recipe.company    && { lbl: lang==="en"?"Brand":"원두 회사",  val: recipe.company },
     recipe.roastDate  && { lbl: lang==="en"?"Roasted":"로스팅",  val: new Date(recipe.roastDate).toLocaleDateString(lang==="ko"?"ko-KR":"en-US") },
     recipe.menuLabel  && { lbl: lang==="en"?"Menu":"메뉴", val: <span style={{ display:"flex", alignItems:"center", gap:"5px" }}>
@@ -506,6 +507,7 @@ export default function RecipeDetailModal({
                         ${row("머신", recipe.machine)}
                         ${row("그라인더", recipe.grinder)}
                         ${row("분쇄도", recipe.grindSize)}
+                        ${row("바스켓", recipe.basketBrand ? `${recipe.basketBrand}${recipe.basketSize?` (${recipe.basketSize==="single"?"싱글":recipe.basketSize==="triple"?"트리플":"더블"}${recipe.basketCapacity?` · ${recipe.basketCapacity}g`:""})`:""}` : "")}
                         ${row("원두 회사", recipe.company)}
                         ${row("가공법", recipe.process)}
                         ${row("배전도", roastLabel)}
