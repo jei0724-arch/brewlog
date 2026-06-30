@@ -38,7 +38,7 @@ const I18N = {
     // 그라인더 스펙
     specBurr: "날 타입", specSteps: "분쇄 단계", specMotor: "모터 타입", specRpm: "RPM(분당 회전수)",
     burrConical: "코니컬", burrFlat: "플랫",
-    motorDC: "DC 모터", motorAC: "AC 모터",
+    motorDC: "DC 모터", motorAC: "AC 모터", motorManual: "수동(모터 없음)",
     // 핸드드립 스펙
     specMaterial: "재질", specShape: "드리퍼 형태", specCapacity: "용량(컵)",
     materialCeramic: "도자기", materialGlass: "유리", materialPlastic: "플라스틱", materialMetal: "금속",
@@ -68,7 +68,7 @@ const I18N = {
     steamYes: "Yes", steamNo: "No",
     specBurr: "Burr Type", specSteps: "Grind Steps", specMotor: "Motor Type", specRpm: "RPM",
     burrConical: "Conical", burrFlat: "Flat",
-    motorDC: "DC Motor", motorAC: "AC Motor",
+    motorDC: "DC Motor", motorAC: "AC Motor", motorManual: "Manual (No Motor)",
     specMaterial: "Material", specShape: "Dripper Shape", specCapacity: "Capacity (cups)",
     materialCeramic: "Ceramic", materialGlass: "Glass", materialPlastic: "Plastic", materialMetal: "Metal",
     shapeCone: "Cone", shapeFlat: "Flat-bottom", shapeWave: "Wave",
@@ -434,16 +434,18 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
   const handleSave = async () => {
     if (!form.brand.trim() || !form.model.trim()) { alert(t.required); return; }
     setSaving(true);
+    // 수동 그라인더는 RPM 값을 비워서 저장 (모터가 없으므로)
+    const dataToSave = form.motorType === "manual" ? { ...form, rpm: "" } : form;
     try {
       if (editTarget) {
         await updateDoc(doc(db, "wiki_equipments", editTarget.id), {
-          ...form,
+          ...dataToSave,
           editedBy: [...(editTarget.editedBy || []), user.uid].slice(-10),
           updatedAt: serverTimestamp(),
         });
       } else {
         await addDoc(collection(db, "wiki_equipments"), {
-          ...form,
+          ...dataToSave,
           createdBy: user.uid,
           createdByName: user.displayName || "익명",
           editedBy: [],
@@ -598,23 +600,30 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
               </div>
               <div className="field">
                 <label>{t.specRpm}</label>
-                <input type="number" value={form.rpm} onChange={e => set("rpm", e.target.value)} placeholder={lang === "en" ? "e.g. 1600" : "예) 1600"} />
+                <input type="number" value={form.rpm} onChange={e => set("rpm", e.target.value)} placeholder={lang === "en" ? "e.g. 1600" : "예) 1600"}
+                  disabled={form.motorType === "manual"}
+                  style={form.motorType === "manual" ? { opacity: 0.4, cursor: "not-allowed" } : undefined} />
               </div>
             </div>
 
             <div className="field full" style={{ marginBottom: "12px" }}>
               <label>{t.specMotor}</label>
               <div style={{ display: "flex", gap: "8px" }}>
-                {[["dc", t.motorDC], ["ac", t.motorAC]].map(([v, lbl]) => (
-                  <button key={v} type="button" onClick={() => set("motorType", v)}
-                    style={{ flex: 1, padding: "8px", borderRadius: "8px", border: `1px solid ${form.motorType === v ? "var(--latte)" : "var(--steam)"}`,
+                {[["dc", t.motorDC], ["ac", t.motorAC], ["manual", t.motorManual]].map(([v, lbl]) => (
+                  <button key={v} type="button" onClick={() => set("motorType", v === form.motorType ? "" : v)}
+                    style={{ flex: 1, padding: "8px 6px", borderRadius: "8px", border: `1px solid ${form.motorType === v ? "var(--latte)" : "var(--steam)"}`,
                       background: form.motorType === v ? "var(--latte)" : "var(--foam)",
                       color: form.motorType === v ? "white" : "var(--muted)",
-                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer" }}>
+                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.74rem", cursor: "pointer", whiteSpace: "nowrap" }}>
                     {lbl}
                   </button>
                 ))}
               </div>
+              {form.motorType === "manual" && (
+                <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", marginTop: "6px", lineHeight: 1.5 }}>
+                  {lang === "en" ? "Hand grinders have no motor or RPM." : "핸드밀은 모터와 RPM이 없는 수동 그라인더예요."}
+                </p>
+              )}
             </div>
           </>
         )}
@@ -788,7 +797,7 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
           {!isBean && item.category === "grinder" && [
             [t.specBurr, { conical:t.burrConical, flat:t.burrFlat }[item.burrType]],
             [t.specSteps, item.grindSteps ? `${item.grindSteps}${lang==="en"?" steps":"단계"}` : null],
-            [t.specMotor, { dc:t.motorDC, ac:t.motorAC }[item.motorType]],
+            [t.specMotor, { dc:t.motorDC, ac:t.motorAC, manual:t.motorManual }[item.motorType]],
             [t.specRpm, item.rpm ? `${item.rpm} RPM` : null],
           ].map(([label, value]) => value && (
             <div key={label} style={{ display: "flex", gap: "8px", padding: "7px 0", borderBottom: "1px solid var(--divider)" }}>

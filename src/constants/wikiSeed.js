@@ -187,7 +187,7 @@ export const SEED_EQUIPMENTS = [
   },
   {
     category: "grinder", brand: "Comandante", model: "C40",
-    burrType: "conical", grindSteps: "999", motorType: "ac", rpm: "0",
+    burrType: "conical", grindSteps: "999", motorType: "manual", rpm: "",
     description: {
       ko: "수동 핸드 그라인더, 캠핑/여행용으로도 인기.",
       en: "Manual hand grinder, also popular for camping and travel.",
@@ -195,7 +195,7 @@ export const SEED_EQUIPMENTS = [
   },
   {
     category: "grinder", brand: "1Zpresso", model: "J-Max",
-    burrType: "conical", grindSteps: "999", motorType: "ac", rpm: "0",
+    burrType: "conical", grindSteps: "999", motorType: "manual", rpm: "",
     description: {
       ko: "수동 그라인더, 분쇄 입도 균일성으로 평가가 좋음.",
       en: "Manual grinder praised for particle size consistency.",
