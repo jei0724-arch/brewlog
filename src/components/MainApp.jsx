@@ -229,6 +229,7 @@ export default function MainApp({
   const [compareTarget,setCompareTarget]= useState(null);
   const [collectionTarget, setCollectionTarget] = useState(null); // recipeId | "manage"
   const collectionTargetRef = useRef(null);
+  useEffect(() => { collectionTargetRef.current = collectionTarget; }, [collectionTarget]);
   const [beanShowModal,setBeanShowModal]= useState(false);
   const [equipShowModal,setEquipShowModal]= useState(false);
   const [beanEditTarget,setBeanEditTarget]= useState(null);
@@ -261,6 +262,7 @@ export default function MainApp({
 
     const onPop = (e) => {
       // 열린 모달이 있으면 닫고, 히스토리는 소비된 것으로 처리
+      if (collectionTargetRef.current) { setCollectionTarget(null); return; }
       if (compareTargetRef.current)  { setCompareTargetState(null); return; }
       if (detailRecipeRef.current)   { setDetailRecipeWrapped(null); return; }
       if (showModalRef.current) {
