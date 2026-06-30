@@ -14,7 +14,7 @@ import { ROAST_LEVELS } from "../../constants/coffeeMenus";
 
 const I18N = {
   ko: {
-    title: "커피 위키", sub: "원두와 장비, 함께 만드는 커피 데이터베이스",
+    title: "Coffee Wiki", sub: "원두와 장비, 함께 만드는 커피 데이터베이스",
     tabBeans: "원두", tabEquip: "장비",
     search: "원두명, 산지, 브랜드로 검색",
     addBean: "원두 추가하기", addEquip: "장비 추가하기",
@@ -1009,13 +1009,10 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange }) {
   }, [equips, search]);
 
   return (
-    <div style={{ maxWidth: "720px", margin: "0 auto", padding: "0 16px" }}>
-      <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.6rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "4px" }}>
-          {t.title}
-        </h1>
-        <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--muted)" }}>{t.sub}</p>
-      </div>
+    <div style={{ maxWidth: "720px", margin: "0 auto" }}>
+      {/* 다른 탭(beans/equip)과 동일한 section-title/section-sub 스타일로 통일 */}
+      <div className="section-title">{t.title}</div>
+      <div className="section-sub">{t.sub}</div>
 
       <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
         {[["beans", t.tabBeans], ["equip", t.tabEquip]].map(([v, lbl]) => (

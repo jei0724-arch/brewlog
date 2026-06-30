@@ -717,14 +717,15 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
       {/* ── 타이틀 + 베스트 ── */}
       <div className="main-wrap" style={{ paddingTop:`${topBarHeight+8}px` }}>
         {/* 타이틀 */}
-        {feedTab!=="wiki" && (() => {
+        {(() => {
           let title, sub;
           if (filterAuthor) { title=`@${filterAuthor.name}`; sub=lang==="en"?`Recipes by @${filterAuthor.name}`:`@${filterAuthor.name}의 레시피`; }
           else if (myRecipesOnly||feedTab==="mine") { title=t.myFeedTitle; sub=t.myFeedSub; }
           else if (feedTab==="following") { title=t.followingFeedTitle; sub=t.followingFeedSub; }
           else if (feedTab==="bookmarks") { title=t.bookmarksFeedTitle; sub=t.bookmarksFeedSub; }
           else if (feedTab==="beans")     { title=t.beanVault; sub=t.beanVaultSub; }
-          else if (feedTab==="equip")     { title=t.myEquip; sub=t.equipVaultSub; }
+          else if (feedTab==="equip")     { title=t.gearVault; sub=t.gearVaultSub; }
+          else if (feedTab==="wiki")      { return null; } // CoffeeWiki 컴포넌트 내부에서 동일한 section-title 스타일로 자체 렌더링
           else { title=t.feedTitle; sub=t.feedSub; }
           return <><div className="section-title">{title}</div><div className="section-sub">{sub}</div></>;
         })()}
