@@ -10,6 +10,7 @@ import {
 import { db } from "../../config/firebase";
 import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, seedText } from "../../constants/wikiSeed";
 import { translateFields, hasKorean } from "../../utils/translate";
+import { ROAST_LEVELS } from "../../constants/coffeeMenus";
 
 const I18N = {
   ko: {
@@ -23,7 +24,7 @@ const I18N = {
     editedBy: "최근 수정", createdAt: "등록일",
     save: "저장", cancel: "취소", edit: "편집", close: "닫기",
     beanName: "원두명", origin: "산지(국가)", region: "지역",
-    variety: "품종", process: "가공법", altitude: "고도",
+    variety: "품종", process: "가공법", altitude: "고도", roastLevel: "배전도",
     description: "설명", roastery: "로스터리(선택)",
     equipCategory: "분류", equipBrand: "브랜드", equipModel: "모델명",
     equipType: "타입", machine: "머신", grinder: "그라인더", handdrip: "핸드드립",
@@ -55,7 +56,7 @@ const I18N = {
     editedBy: "Last edited", createdAt: "Added",
     save: "Save", cancel: "Cancel", edit: "Edit", close: "Close",
     beanName: "Bean Name", origin: "Origin (Country)", region: "Region",
-    variety: "Variety", process: "Process", altitude: "Altitude",
+    variety: "Variety", process: "Process", altitude: "Altitude", roastLevel: "Roast Level",
     description: "Description", roastery: "Roastery (optional)",
     equipCategory: "Category", equipBrand: "Brand", equipModel: "Model",
     equipType: "Type", machine: "Machine", grinder: "Grinder", handdrip: "Hand Drip",
@@ -152,6 +153,7 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
     variety: editTarget?.variety || "",
     process: editTarget?.process || "",
     altitude: editTarget?.altitude || "",
+    roastLevel: editTarget?.roastLevel || "", // 시드/위키는 배전도가 선택사항 — 빈 값 허용
     roastery: editTarget?.roastery || "",
     blendComposition: editTarget?.blendComposition || "", // 블렌드 구성 원두
     description: editTarget?.description || "",
@@ -183,6 +185,7 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
       name: seedText(seed.name, lang), origin: seedText(seed.origin, lang),
       region: seedText(seed.region, lang), variety: seedText(seed.variety, lang),
       process: seedText(seed.process, lang), altitude: seed.altitude,
+      roastLevel: seed.roastLevel || f.roastLevel,
       roastery: seedText(seed.roastery, lang) || f.roastery,
       blendComposition: seedIsBlend ? seedText(seed.origin, lang) : "",
       description: seedText(seed.description, lang),
@@ -333,6 +336,44 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
             </div>
           </>
         )}
+
+        {/* 배전도 슬라이더 — 싱글/블렌드 공통 (선택사항) */}
+        <div className="field full" style={{ marginBottom: "12px" }}>
+          <label>{t.roastLevel}</label>
+          <div style={{ padding: "8px 4px 4px" }}>
+            <div style={{ position: "relative", marginBottom: "10px" }}>
+              <div style={{ height: "8px", borderRadius: "4px", background: "linear-gradient(90deg,#e8f0d8 0%,#f5e6c8 8%,#e8c97a 20%,#c8a050 35%,#a07038 50%,#7a5030 65%,#4a2818 82%,#1a0a04 100%)", cursor: "pointer" }}
+                onClick={e => { const rect = e.currentTarget.getBoundingClientRect(); const ratio = (e.clientX - rect.left) / rect.width; const idx = Math.round(ratio * (ROAST_LEVELS.length - 1)); set("roastLevel", ROAST_LEVELS[Math.max(0, Math.min(ROAST_LEVELS.length - 1, idx))].id); }} />
+              {ROAST_LEVELS.map((r, i) => {
+                const leftPct = (i / (ROAST_LEVELS.length - 1)) * 100;
+                const isActive = form.roastLevel === r.id;
+                return (
+                  <div key={r.id} onClick={() => set("roastLevel", r.id)}
+                    style={{ position: "absolute", top: "50%", left: `${leftPct}%`, transform: "translate(-50%,-50%)", width: isActive ? "16px" : "8px", height: isActive ? "16px" : "8px", borderRadius: "50%", background: isActive ? "var(--espresso)" : "white", border: isActive ? "2.5px solid white" : "1.5px solid #a07038", boxShadow: isActive ? "0 1px 6px #0005" : "none", cursor: "pointer", transition: "all 0.15s", zIndex: isActive ? 2 : 1 }} />
+                );
+              })}
+            </div>
+            <div style={{ position: "relative", height: "36px", marginTop: "4px" }}>
+              {ROAST_LEVELS.map((r, i) => {
+                const leftPct = (i / (ROAST_LEVELS.length - 1)) * 100;
+                const isActive = form.roastLevel === r.id;
+                return (
+                  <button key={r.id} type="button" onClick={() => set("roastLevel", r.id)}
+                    style={{ position: "absolute", left: `${leftPct}%`, transform: i === 0 ? "none" : i === ROAST_LEVELS.length - 1 ? "translateX(-100%)" : "translateX(-50%)", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: i === 0 ? "left" : i === ROAST_LEVELS.length - 1 ? "right" : "center", lineHeight: 1.3 }}>
+                    <div style={{ fontSize: "0.6rem", color: isActive ? "var(--espresso)" : "var(--muted)", fontWeight: isActive ? 700 : 400, fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>{r.en}</div>
+                    <div style={{ fontSize: "0.58rem", color: isActive ? "var(--latte)" : "var(--muted)", opacity: 0.75, fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>{r.ko}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {form.roastLevel && (
+            <button type="button" onClick={() => set("roastLevel", "")}
+              style={{ marginTop: "4px", background: "none", border: "none", fontFamily: "'DM Sans',sans-serif", fontSize: "0.7rem", color: "var(--muted)", textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+              {lang === "en" ? "Clear selection" : "선택 해제"}
+            </button>
+          )}
+        </div>
 
         <div className="field full" style={{ marginBottom: "12px" }}>
           <label>{t.description}</label>
@@ -781,10 +822,12 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
             [lang === "en" ? "Roastery" : "로스터리", tr("roastery", item.roastery)],
             [lang === "en" ? "Composition" : "구성", item.blendComposition],
             [t.process, tr("process", item.process)],
+            [t.roastLevel, ROAST_LEVELS.find(r => r.id === item.roastLevel)?.[lang === "en" ? "en" : "ko"]],
           ] : [
             [t.origin, tr("origin", item.origin)], [t.region, tr("region", item.region)],
             [t.variety, tr("variety", item.variety)], [t.process, tr("process", item.process)],
             [t.altitude, item.altitude], [t.roastery, tr("roastery", item.roastery)],
+            [t.roastLevel, ROAST_LEVELS.find(r => r.id === item.roastLevel)?.[lang === "en" ? "en" : "ko"]],
           ]).map(([label, value]) => value && (
             <div key={label} style={{ display: "flex", gap: "8px", padding: "7px 0", borderBottom: "1px solid var(--divider)" }}>
               <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", width: "72px", flexShrink: 0 }}>{label}</span>
@@ -1010,8 +1053,8 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange }) {
                 </div>
                 <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)" }}>
                   {b.beanType === "blend"
-                    ? [b.roastery, b.blendComposition].filter(Boolean).join(" · ")
-                    : [b.origin, b.region, b.process].filter(Boolean).join(" · ")}
+                    ? [b.roastery, b.blendComposition, ROAST_LEVELS.find(r => r.id === b.roastLevel)?.[lang === "en" ? "en" : "ko"]].filter(Boolean).join(" · ")
+                    : [b.origin, b.region, b.process, ROAST_LEVELS.find(r => r.id === b.roastLevel)?.[lang === "en" ? "en" : "ko"]].filter(Boolean).join(" · ")}
                 </div>
                 {b.linkedRecipeCount > 0 && (
                   <div style={{ marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.7rem", color: "var(--latte)", fontFamily: "'DM Sans',sans-serif" }}>
