@@ -667,7 +667,8 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
               </button>
             </div>
 
-            {/* 두 번째 행: 검색/필터/추가 */}
+            {/* 두 번째 행: 검색/필터/추가 (위키 탭은 이 영역 자체를 렌더링하지 않음 — 빈 테두리/여백 방지) */}
+            {feedTab!=="wiki" && (
             <div style={{ borderTop:"1px solid var(--divider)", marginTop:"10px", paddingTop:"10px", maxWidth:"900px", margin:"10px auto 0" }}>
               {feedTab==="beans" ? (
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:"8px" }}>
@@ -695,7 +696,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                     {lang==="en"?"Add Gear":"추가하기"}
                   </button>
                 </div>
-              ) : feedTab==="wiki" ? null : (
+              ) : (
                 <div className="search-row" style={{ display:"flex", gap:"0.5rem", width:"100%", boxSizing:"border-box", overflow:"hidden" }}>
                   <div className="search-box" style={{ flex:1, minWidth:0 }}>
                     <span className="search-icon">
@@ -710,6 +711,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
       </div>
