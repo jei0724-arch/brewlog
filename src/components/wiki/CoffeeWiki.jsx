@@ -134,6 +134,7 @@ function similar(a, b) {
 function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
   const t = I18N[lang];
   const [form, setForm] = useState({
+    beanType: editTarget?.beanType || "single", // "single" | "blend"
     name: editTarget?.name || "",
     origin: editTarget?.origin || "",
     region: editTarget?.region || "",
@@ -141,6 +142,7 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
     process: editTarget?.process || "",
     altitude: editTarget?.altitude || "",
     roastery: editTarget?.roastery || "",
+    blendComposition: editTarget?.blendComposition || "", // 블렌드 구성 원두
     description: editTarget?.description || "",
   });
   const [saving, setSaving] = useState(false);
@@ -162,12 +164,16 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
 
   // 항상 현재 lang에 맞는 텍스트로 채움 (한국어 입력 + 영문 모드여도 영문으로 채워짐)
   const applySeed = (seed) => {
+    // 시드에 roastery가 있으면 블렌드, 없으면 싱글 오리진으로 자동 분류
+    const seedIsBlend = !!seedText(seed.roastery, lang) && !seedText(seed.region, lang) && !seedText(seed.variety, lang);
     setForm(f => ({
       ...f,
+      beanType: seedIsBlend ? "blend" : "single",
       name: seedText(seed.name, lang), origin: seedText(seed.origin, lang),
       region: seedText(seed.region, lang), variety: seedText(seed.variety, lang),
       process: seedText(seed.process, lang), altitude: seed.altitude,
       roastery: seedText(seed.roastery, lang) || f.roastery,
+      blendComposition: seedIsBlend ? seedText(seed.origin, lang) : "",
       description: seedText(seed.description, lang),
     }));
   };
@@ -179,7 +185,10 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
   }, [form.name, allBeans, editTarget, forceNew]);
 
   const handleSave = async () => {
-    if (!form.name.trim() || !form.origin.trim()) { alert(t.required); return; }
+    const isSingle = form.beanType === "single";
+    if (!form.name.trim()) { alert(t.required); return; }
+    if (isSingle && !form.origin.trim()) { alert(t.required); return; }
+    if (!isSingle && !form.roastery.trim()) { alert(t.required); return; }
     setSaving(true);
     try {
       if (editTarget) {
@@ -207,15 +216,52 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
     setSaving(false);
   };
 
+  const isSingle = form.beanType === "single";
+  const isBlend  = form.beanType === "blend";
+
   return (
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: "440px" }}>
         <h2>{editTarget ? t.edit : t.addBean}</h2>
 
+        {/* 1단계 — 원두 타입 선택 */}
+        <div className="field full" style={{ marginBottom: "16px" }}>
+          <label>{lang === "en" ? "Bean Type" : "원두 타입"}<span style={{ color: "#c0392b" }}> *</span></label>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button type="button" onClick={() => set("beanType", "single")}
+              style={{ flex: 1, padding: "12px", borderRadius: "10px", border: `1.5px solid ${isSingle ? "var(--espresso)" : "var(--steam)"}`,
+                background: isSingle ? "var(--espresso)" : "var(--foam)",
+                color: isSingle ? "var(--cream)" : "var(--muted)",
+                fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}>
+              {lang === "en" ? "Single Origin" : "싱글 오리진"}
+            </button>
+            <button type="button" onClick={() => set("beanType", "blend")}
+              style={{ flex: 1, padding: "12px", borderRadius: "10px", border: `1.5px solid ${isBlend ? "var(--espresso)" : "var(--steam)"}`,
+                background: isBlend ? "var(--espresso)" : "var(--foam)",
+                color: isBlend ? "var(--cream)" : "var(--muted)",
+                fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}>
+              {lang === "en" ? "Blend" : "블렌드"}
+            </button>
+          </div>
+          <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", marginTop: "6px", lineHeight: 1.5 }}>
+            {isSingle
+              ? (lang === "en" ? "A coffee from a single farm/region, e.g. \"Ethiopia Yirgacheffe\"" : "단일 산지/농장의 원두예요. 예) \"에티오피아 예가체프\"")
+              : (lang === "en" ? "A roastery's signature mix, e.g. \"Fritz Old Dog\"" : "로스터리가 조합한 시그니처 원두예요. 예) \"프릳츠 올드독\"")}
+          </p>
+        </div>
+
         {/* 원두명 입력 + 시드 추천 */}
         <div className="field full" style={{ marginBottom: "12px" }}>
-          <label>{t.beanName}<span style={{ color: "#c0392b" }}> *</span></label>
-          <input value={form.name} onChange={e => set("name", e.target.value)} placeholder={lang === "en" ? "e.g. Ethiopia Yirgacheffe" : "예) 에티오피아 예가체프 코체레"} />
+          <label>
+            {isSingle ? t.beanName : (lang === "en" ? "Blend Name" : "블렌드명")}
+            <span style={{ color: "#c0392b" }}> *</span>
+          </label>
+          <input value={form.name} onChange={e => set("name", e.target.value)}
+            placeholder={
+              isSingle
+                ? (lang === "en" ? "e.g. Ethiopia Yirgacheffe" : "예) 에티오피아 예가체프 코체레")
+                : (lang === "en" ? "e.g. Fritz Old Dog" : "예) 프릳츠 올드독")
+            } />
         </div>
 
         {/* 시드 데이터 자동완성 카드 */}
@@ -223,7 +269,7 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
           <div style={{ marginBottom: "14px" }}>
             <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.7rem", color: "var(--latte)", fontWeight: 600, marginBottom: "8px", display: "flex", alignItems: "center", gap: "4px" }}>
               <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.6 5.2L13 5.7L9.8 8.6L10.7 13L7 10.8L3.3 13L4.2 8.6L1 5.7L5.4 5.2L7 1Z" fill="currentColor"/></svg>
-              {lang === "en" ? `Quick fill from known origins (${seedMatches.length})` : `알려진 산지 정보로 빠르게 채우기 (${seedMatches.length}개)`}
+              {lang === "en" ? `Quick fill from known data (${seedMatches.length})` : `알려진 정보로 빠르게 채우기 (${seedMatches.length}개)`}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "220px", overflowY: "auto", paddingRight: "2px" }}>
               {seedMatches.map((seed, i) => (
@@ -241,7 +287,8 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
           </div>
         )}
 
-        {[
+        {/* 싱글 오리진 전용 필드 */}
+        {isSingle && [
           { key: "origin", label: t.origin, required: true, phKo: "예) 에티오피아", phEn: "e.g. Ethiopia" },
           { key: "region", label: t.region, phKo: "예) 예가체프", phEn: "e.g. Yirgacheffe" },
           { key: "variety", label: t.variety, phKo: "예) 헤이룸", phEn: "e.g. Heirloom" },
@@ -254,6 +301,27 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
             <input value={form[key]} onChange={e => set(key, e.target.value)} placeholder={lang === "en" ? phEn : phKo} />
           </div>
         ))}
+
+        {/* 블렌드 전용 필드 */}
+        {isBlend && (
+          <>
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{lang === "en" ? "Roastery" : "로스터리"}<span style={{ color: "#c0392b" }}> *</span></label>
+              <input value={form.roastery} onChange={e => set("roastery", e.target.value)}
+                placeholder={lang === "en" ? "e.g. Fritz Coffee Company" : "예) 프릳츠커피컴퍼니"} />
+            </div>
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{lang === "en" ? "Blend Composition" : "블렌드 구성"}</label>
+              <input value={form.blendComposition} onChange={e => set("blendComposition", e.target.value)}
+                placeholder={lang === "en" ? "e.g. Brazil, Colombia Blend" : "예) 브라질, 콜롬비아 블렌드"} />
+            </div>
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{t.process}</label>
+              <input value={form.process} onChange={e => set("process", e.target.value)}
+                placeholder={lang === "en" ? "e.g. Washed/Natural Mix" : "예) 워시드/내추럴 혼합"} />
+            </div>
+          </>
+        )}
 
         <div className="field full" style={{ marginBottom: "12px" }}>
           <label>{t.description}</label>
@@ -679,7 +747,9 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
           </div>
           <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "rgba(255,255,255,0.55)" }}>
             {isBean
-              ? [tr("origin", item.origin), tr("region", item.region), tr("process", item.process)].filter(Boolean).join(" · ")
+              ? (item.beanType === "blend"
+                  ? [tr("roastery", item.roastery), item.blendComposition].filter(Boolean).join(" · ")
+                  : [tr("origin", item.origin), tr("region", item.region), tr("process", item.process)].filter(Boolean).join(" · "))
               : [item.category === "machine" ? t.machine : item.category === "grinder" ? t.grinder : t.handdrip,
                  item.type === "full" ? t.fullAuto : item.type === "semi" ? t.semiAuto : item.type === "manual" ? t.manual : null
                 ].filter(Boolean).join(" · ")}
@@ -687,11 +757,15 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
         </div>
 
         <div style={{ padding: "20px", background: "var(--foam)" }}>
-          {isBean && [
+          {isBean && (item.beanType === "blend" ? [
+            [lang === "en" ? "Roastery" : "로스터리", tr("roastery", item.roastery)],
+            [lang === "en" ? "Composition" : "구성", item.blendComposition],
+            [t.process, tr("process", item.process)],
+          ] : [
             [t.origin, tr("origin", item.origin)], [t.region, tr("region", item.region)],
             [t.variety, tr("variety", item.variety)], [t.process, tr("process", item.process)],
             [t.altitude, item.altitude], [t.roastery, tr("roastery", item.roastery)],
-          ].map(([label, value]) => value && (
+          ]).map(([label, value]) => value && (
             <div key={label} style={{ display: "flex", gap: "8px", padding: "7px 0", borderBottom: "1px solid var(--divider)" }}>
               <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", width: "72px", flexShrink: 0 }}>{label}</span>
               <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)" }}>{value}</span>
@@ -898,9 +972,16 @@ export function CoffeeWiki({ user, lang = "ko" }) {
             {filteredBeans.map(b => (
               <div key={b.id} onClick={() => openDetailItem(b)}
                 style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "12px", padding: "14px 16px", cursor: "pointer" }}>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "4px" }}>{b.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                  <span style={{ fontSize: "0.6rem", fontWeight: 700, color: b.beanType === "blend" ? "var(--latte)" : "#5c9e6e", background: b.beanType === "blend" ? "#B07D5415" : "#5c9e6e15", border: `1px solid ${b.beanType === "blend" ? "#B07D5430" : "#5c9e6e30"}`, borderRadius: "4px", padding: "1px 6px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    {b.beanType === "blend" ? (lang === "en" ? "Blend" : "블렌드") : (lang === "en" ? "Single" : "싱글")}
+                  </span>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)" }}>{b.name}</div>
+                </div>
                 <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)" }}>
-                  {[b.origin, b.region, b.process].filter(Boolean).join(" · ")}
+                  {b.beanType === "blend"
+                    ? [b.roastery, b.blendComposition].filter(Boolean).join(" · ")
+                    : [b.origin, b.region, b.process].filter(Boolean).join(" · ")}
                 </div>
                 {b.linkedRecipeCount > 0 && (
                   <div style={{ marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.7rem", color: "var(--latte)", fontFamily: "'DM Sans',sans-serif" }}>

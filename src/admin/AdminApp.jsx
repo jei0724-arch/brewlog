@@ -18,6 +18,7 @@ import { signOut } from "firebase/auth";
 import { auth, db } from "../config/firebase";
 import { I18N } from "../constants/localization";
 import { MACHINE_BRANDS, GRINDER_BRANDS } from "../utils/storage";
+import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, seedText } from "../constants/wikiSeed";
 
 // ─────────────────────────────────────────────────────────────────
 export default function AdminApp({ user, onExit, lang = "ko" }) {
@@ -29,6 +30,112 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
   const [notices, setNotices] = useState([]);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // ── 위키 시드 등록 ───────────────────────────────────────────────
+  const [wikiSeedStatus, setWikiSeedStatus] = useState(null); // null | "running" | "done" | error obj
+  const [wikiSeedProgress, setWikiSeedProgress] = useState({ done: 0, total: 0 });
+  const [wikiSeedExisting, setWikiSeedExisting] = useState(null); // { beans, equips }
+
+  const checkWikiSeedExisting = useCallback(async () => {
+    try {
+      const [beanSnap, equipSnap] = await Promise.all([
+        getDocs(collection(db, "wiki_beans")),
+        getDocs(collection(db, "wiki_equipments")),
+      ]);
+      setWikiSeedExisting({ beans: beanSnap.size, equips: equipSnap.size });
+    } catch (e) {
+      console.error("[wikiSeed check]", e);
+    }
+  }, []);
+
+  const runWikiSeed = async () => {
+    if (!confirm("관리자 명의로 한국 로스터리 20곳 + 산지 12곳 + 장비 30종을 위키에 등록할까요?\n이미 등록된 항목과 이름이 같으면 건너뜁니다.")) return;
+
+    setWikiSeedStatus("running");
+    const allBeanSeeds  = [...SEED_BEAN_ORIGINS, ...SEED_KOREAN_ROASTERS];
+    const allEquipSeeds = SEED_EQUIPMENTS;
+    const total = allBeanSeeds.length + allEquipSeeds.length;
+    let done = 0;
+    setWikiSeedProgress({ done: 0, total });
+
+    try {
+      // 기존 등록된 이름 목록 확인 (중복 방지)
+      const [beanSnap, equipSnap] = await Promise.all([
+        getDocs(collection(db, "wiki_beans")),
+        getDocs(collection(db, "wiki_equipments")),
+      ]);
+      const existingBeanNames  = new Set(beanSnap.docs.map(d => d.data().name));
+      const existingEquipKeys  = new Set(equipSnap.docs.map(d => `${d.data().brand}__${d.data().model}`));
+
+      // 원두 등록 (한국어 기준으로 저장 — 표시 시 영문 모드면 자동 번역됨)
+      for (const seed of allBeanSeeds) {
+        const name = seedText(seed.name, "ko");
+        done++; setWikiSeedProgress({ done, total });
+        if (existingBeanNames.has(name)) continue;
+
+        const isBlendSeed = !!seedText(seed.roastery, "ko") && !seedText(seed.region, "ko") && !seedText(seed.variety, "ko");
+        await addDoc(collection(db, "wiki_beans"), {
+          beanType: isBlendSeed ? "blend" : "single",
+          name,
+          origin: seedText(seed.origin, "ko"),
+          region: seedText(seed.region, "ko"),
+          variety: seedText(seed.variety, "ko"),
+          process: seedText(seed.process, "ko"),
+          altitude: seed.altitude || "",
+          roastery: seedText(seed.roastery, "ko"),
+          blendComposition: isBlendSeed ? seedText(seed.origin, "ko") : "",
+          description: seedText(seed.description, "ko"),
+          createdBy: user.uid,
+          createdByName: user.displayName || "관리자",
+          editedBy: [],
+          linkedRecipeCount: 0,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      // 장비 등록
+      for (const seed of allEquipSeeds) {
+        done++; setWikiSeedProgress({ done, total });
+        const key = `${seed.brand}__${seed.model}`;
+        if (existingEquipKeys.has(key)) continue;
+
+        await addDoc(collection(db, "wiki_equipments"), {
+          category: seed.category,
+          brand: seed.brand,
+          model: seed.model,
+          type: seed.type || "semi",
+          boilerType: seed.boilerType || "",
+          pumpBar: seed.pumpBar || "",
+          tankL: seed.tankL || "",
+          hasSteam: seed.hasSteam ?? true,
+          burrType: seed.burrType || "",
+          grindSteps: seed.grindSteps || "",
+          motorType: seed.motorType || "",
+          rpm: seed.rpm || "",
+          material: seed.material || "",
+          dripperShape: seed.dripperShape || "",
+          capacityCups: seed.capacityCups || "",
+          description: seedText(seed.description, "ko"),
+          createdBy: user.uid,
+          createdByName: user.displayName || "관리자",
+          editedBy: [],
+          linkedRecipeCount: 0,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      setWikiSeedStatus("done");
+      checkWikiSeedExisting();
+    } catch (e) {
+      console.error("[wikiSeed run]", e);
+      setWikiSeedStatus({ error: e.message });
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "wikiSeed") checkWikiSeedExisting();
+  }, [tab, checkWikiSeedExisting]);
+
 
   // ── 회원 관리 필터 ────────────────────────────────────────────────
   const [userSearch,       setUserSearch]       = useState("");
@@ -261,6 +368,7 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
     { key:"recipes", label:"레시피 관리" },
     { key:"notices", label:"공지사항" },
     { key:"brands",  label:"브랜드 관리" },
+    { key:"wikiSeed",label:"위키 시드" },
   ];
 
   const TAB_ICONS = {
@@ -270,6 +378,7 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
     recipes: <svg width="12" height="12" viewBox="0 0 14 14" fill="none" style={{ flexShrink:0 }}><rect x="2" y="1" width="10" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4.5 5h5M4.5 7.5h5M4.5 10h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
     notices: <svg width="12" height="12" viewBox="0 0 14 14" fill="none" style={{ flexShrink:0 }}><path d="M7 1C4.239 1 2 3.239 2 6v3.5L1 11h12l-1-1.5V6c0-2.761-2.239-5-5-5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5.5 11.5c0 .828.672 1.5 1.5 1.5s1.5-.672 1.5-1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
     brands:  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" style={{ flexShrink:0 }}><circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.3"/><path d="M7 4v6M5 5.5h2.5a1.5 1.5 0 0 1 0 3H5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
+    wikiSeed:<svg width="12" height="12" viewBox="0 0 14 14" fill="none" style={{ flexShrink:0 }}><circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3"/><path d="M7 4.5v3l2 1.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
   };
 
   const statusColor = { active:"#27ae60", suspended:"#e67e22", deleted:"#e74c3c" };
@@ -611,6 +720,53 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
               </div>
             ))}
           </>
+        )}
+
+        {tab==="wikiSeed" && (
+          <div className="admin-card">
+            <div className="admin-card-title">커피 위키 시드 데이터 등록</div>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", color:"var(--muted)", lineHeight:1.7, marginBottom:"16px" }}>
+              한국 유명 로스터리 20곳, 알려진 원두 산지 12곳, 유명 장비(머신·그라인더·핸드드립) 30종을
+              관리자 명의로 위키에 일괄 등록합니다. 이미 등록된 항목은 자동으로 건너뜁니다.
+            </p>
+
+            {wikiSeedExisting && (
+              <div style={{ display:"flex", gap:"10px", marginBottom:"16px" }}>
+                <div style={{ flex:1, background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"12px 14px", textAlign:"center" }}>
+                  <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.3rem", fontWeight:700, color:"var(--espresso)" }}>{wikiSeedExisting.beans}</div>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginTop:"2px" }}>등록된 원두</div>
+                </div>
+                <div style={{ flex:1, background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"12px 14px", textAlign:"center" }}>
+                  <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.3rem", fontWeight:700, color:"var(--espresso)" }}>{wikiSeedExisting.equips}</div>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginTop:"2px" }}>등록된 장비</div>
+                </div>
+              </div>
+            )}
+
+            {wikiSeedStatus === "running" && (
+              <div style={{ marginBottom:"16px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:"6px" }}>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--muted)" }}>등록 중…</span>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--latte)", fontWeight:600 }}>{wikiSeedProgress.done} / {wikiSeedProgress.total}</span>
+                </div>
+                <div style={{ height:"6px", background:"var(--steam)", borderRadius:"3px", overflow:"hidden" }}>
+                  <div style={{ height:"100%", width:`${wikiSeedProgress.total ? (wikiSeedProgress.done/wikiSeedProgress.total)*100 : 0}%`, background:"var(--latte)", transition:"width 0.2s" }}/>
+                </div>
+              </div>
+            )}
+
+            {wikiSeedStatus === "done" && (
+              <p className="msg-ok" style={{ marginBottom:"16px" }}>✓ 등록 완료! 위키 탭에서 확인해보세요.</p>
+            )}
+
+            {wikiSeedStatus?.error && (
+              <p className="msg-error" style={{ marginBottom:"16px" }}>등록 중 오류: {wikiSeedStatus.error}</p>
+            )}
+
+            <button className="btn-save-sm" onClick={runWikiSeed} disabled={wikiSeedStatus==="running"}>
+              {wikiSeedStatus==="running" ? "등록 중…" : "시드 데이터 일괄 등록"}
+            </button>
+          </div>
         )}
       </div>
     </div>
