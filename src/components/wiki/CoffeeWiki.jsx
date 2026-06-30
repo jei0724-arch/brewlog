@@ -2,7 +2,7 @@
    BREWLOG NOTE — src/components/wiki/CoffeeWiki.jsx
    커피 위키 — 유저 기여형 원두/장비 데이터베이스 (1단계)
    ============================================================ */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   collection, query, orderBy, limit,
   getDocs, doc, addDoc, updateDoc, serverTimestamp,
@@ -74,11 +74,60 @@ const I18N = {
   },
 };
 
+// ── 브랜드/용어 한영 매핑 (브레빌 ↔ Breville 같은 중복 방지) ─────
+const BRAND_ALIASES = [
+  ["브레빌", "breville"], ["가찌아", "gaggia"], ["란칠리오", "rancilio"],
+  ["드롱기", "delonghi", "de'longhi", "de longhi"], ["주라", "jura"],
+  ["필립스", "philips"], ["지멘스", "siemens"], ["밀레", "miele"],
+  ["멜리타", "melitta"], ["세코", "saeco"], ["크룹스", "krups"],
+  ["라마르조코", "la marzocco", "lamarzocco"], ["바라짜", "baratza"],
+  ["유레카", "eureka"], ["니체", "niche"], ["코만단테", "comandante"],
+  ["하리오", "hario"], ["칼리타", "kalita"], ["케멕스", "chemex"], ["오리가미", "origami"],
+  ["아카이아", "acaia"], ["펠리치타", "felicita"], ["타임모어", "timemore"],
+  ["월쓰", "wirsh"], ["북우", "bookoo"],
+];
+
+function normalizeAlias(str) {
+  const lower = str.toLowerCase().replace(/\s+/g, "").replace(/['’.]/g, "");
+  for (const group of BRAND_ALIASES) {
+    const normalizedGroup = group.map(g => g.toLowerCase().replace(/\s+/g, "").replace(/['’.]/g, ""));
+    if (normalizedGroup.some(g => lower.includes(g) || g.includes(lower))) {
+      return normalizedGroup[normalizedGroup.length - 1]; // 영문 대표값으로 통일
+    }
+  }
+  return lower;
+}
+
+// ── 레벤슈타인 거리 (오타 허용 비교) ──────────────────────────
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
 function similar(a, b) {
   if (!a || !b) return false;
-  const na = a.toLowerCase().replace(/\s+/g, "");
-  const nb = b.toLowerCase().replace(/\s+/g, "");
-  return na.includes(nb) || nb.includes(na);
+  const na = normalizeAlias(a);
+  const nb = normalizeAlias(b);
+  if (!na || !nb) return false;
+  // 1. 포함 관계
+  if (na.includes(nb) || nb.includes(na)) return true;
+  // 2. 짧은 문자열 오타 보정 (편집거리 기반, 길이 비례 허용치)
+  const maxLen = Math.max(na.length, nb.length);
+  if (maxLen <= 3) return na === nb;
+  const threshold = Math.ceil(maxLen * 0.25); // 25% 이내 오타는 동일로 간주
+  return levenshtein(na, nb) <= threshold;
 }
 
 function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
@@ -681,6 +730,40 @@ export function CoffeeWiki({ user, lang = "ko" }) {
   const [editTarget, setEditTarget] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
 
+  // 모달 상태 ref (popstate 핸들러에서 최신값 참조용)
+  const showBeanFormRef  = useRef(false);
+  const showEquipFormRef = useRef(false);
+  const editTargetRef    = useRef(null);
+  const detailItemRef    = useRef(null);
+  useEffect(() => { showBeanFormRef.current  = showBeanForm;  }, [showBeanForm]);
+  useEffect(() => { showEquipFormRef.current = showEquipForm; }, [showEquipForm]);
+  useEffect(() => { editTargetRef.current    = editTarget;    }, [editTarget]);
+  useEffect(() => { detailItemRef.current    = detailItem;    }, [detailItem]);
+
+  // 뒤로가기 → 위키 모달 닫기 (앱 밖으로 나가는 것 방지)
+  useEffect(() => {
+    const onPop = () => {
+      if (showBeanFormRef.current)  { setShowBeanForm(false);  return; }
+      if (showEquipFormRef.current) { setShowEquipForm(false); return; }
+      if (editTargetRef.current)    { setEditTarget(null);     return; }
+      if (detailItemRef.current)    { setDetailItem(null);     return; }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // 모달 열기 래퍼 — pushState와 함께
+  const openBeanForm  = () => { window.history.pushState({ wikiModal: true }, ""); setShowBeanForm(true); };
+  const openEquipForm = () => { window.history.pushState({ wikiModal: true }, ""); setShowEquipForm(true); };
+  const openEditTarget = (item) => { window.history.pushState({ wikiModal: true }, ""); setEditTarget(item); };
+  const openDetailItem = (item) => { window.history.pushState({ wikiModal: true }, ""); setDetailItem(item); };
+
+  // 모달 닫기 래퍼 — go(-1)과 함께
+  const closeBeanForm  = () => { window.history.go(-1); setShowBeanForm(false); };
+  const closeEquipForm = () => { window.history.go(-1); setShowEquipForm(false); };
+  const closeEditTarget = () => { window.history.go(-1); setEditTarget(null); };
+  const closeDetailItem = () => { window.history.go(-1); setDetailItem(null); };
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -744,7 +827,7 @@ export function CoffeeWiki({ user, lang = "ko" }) {
       />
 
       {user && (
-        <button onClick={() => tab === "beans" ? setShowBeanForm(true) : setShowEquipForm(true)}
+        <button onClick={() => tab === "beans" ? openBeanForm() : openEquipForm()}
           style={{ width: "100%", padding: "12px", border: "1px dashed var(--latte)", borderRadius: "10px", background: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--latte)", fontWeight: 500, marginBottom: "16px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
           {tab === "beans" ? t.addBean : t.addEquip}
@@ -761,7 +844,7 @@ export function CoffeeWiki({ user, lang = "ko" }) {
         ) : (
           <div style={{ display: "grid", gap: "10px" }}>
             {filteredBeans.map(b => (
-              <div key={b.id} onClick={() => setDetailItem(b)}
+              <div key={b.id} onClick={() => openDetailItem(b)}
                 style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "12px", padding: "14px 16px", cursor: "pointer" }}>
                 <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "4px" }}>{b.name}</div>
                 <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)" }}>
@@ -784,7 +867,7 @@ export function CoffeeWiki({ user, lang = "ko" }) {
         ) : (
           <div style={{ display: "grid", gap: "10px" }}>
             {filteredEquips.map(e => (
-              <div key={e.id} onClick={() => setDetailItem(e)}
+              <div key={e.id} onClick={() => openDetailItem(e)}
                 style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "12px", padding: "14px 16px", cursor: "pointer" }}>
                 <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "4px" }}>
                   {e.brand} {e.model}
@@ -805,25 +888,25 @@ export function CoffeeWiki({ user, lang = "ko" }) {
 
       {showBeanForm && (
         <BeanWikiForm user={user} lang={lang} editTarget={null} allBeans={beans}
-          onClose={() => setShowBeanForm(false)} onSaved={loadData} />
+          onClose={closeBeanForm} onSaved={loadData} />
       )}
       {showEquipForm && (
         <EquipWikiForm user={user} lang={lang} editTarget={null} allEquips={equips}
-          onClose={() => setShowEquipForm(false)} onSaved={loadData} />
+          onClose={closeEquipForm} onSaved={loadData} />
       )}
       {editTarget && tab === "beans" && (
         <BeanWikiForm user={user} lang={lang} editTarget={editTarget} allBeans={beans}
-          onClose={() => setEditTarget(null)} onSaved={loadData} />
+          onClose={closeEditTarget} onSaved={loadData} />
       )}
       {editTarget && tab === "equip" && (
         <EquipWikiForm user={user} lang={lang} editTarget={editTarget} allEquips={equips}
-          onClose={() => setEditTarget(null)} onSaved={loadData} />
+          onClose={closeEditTarget} onSaved={loadData} />
       )}
 
       {detailItem && (
         <WikiDetailModal
           item={detailItem} type={tab === "beans" ? "bean" : "equip"} lang={lang}
-          onClose={() => setDetailItem(null)}
+          onClose={closeDetailItem}
           onEdit={() => { setEditTarget(detailItem); setDetailItem(null); }}
         />
       )}
