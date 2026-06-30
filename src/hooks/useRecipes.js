@@ -43,7 +43,7 @@ export function useRecipes(user, { onRequireAuth } = {}) {
   const [isAdmin,  setIsAdmin]  = useState(false);
   const [notices,  setNotices]  = useState([]);
 
-  // ── following (localStorage 캐시) ────────────────────────────────
+  // ── following (localStorage 캐시 + Firestore 영구 백업) ──────────
   const [following, setFollowing] = useState(() => {
     try {
       return user?.uid
@@ -51,6 +51,12 @@ export function useRecipes(user, { onRequireAuth } = {}) {
         : [];
     } catch { return []; }
   });
+
+  // following 저장 헬퍼 — localStorage + Firestore 동시 저장
+  const saveFollowing = useCallback((next, uid) => {
+    try { localStorage.setItem("brewlog_following_" + uid, JSON.stringify(next)); } catch {}
+    setDoc(doc(db, "users", uid), { following: next }, { merge: true }).catch(() => {});
+  }, []);
 
   // ── collections (컬렉션/폴더별 북마크) ─────────────────────────
   // 구조: { folderName: { color, ids: [recipeId, ...] }, ... }
@@ -139,23 +145,45 @@ export function useRecipes(user, { onRequireAuth } = {}) {
       .catch(() => {});
   }, [loadRecipes, user?.uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── following 동기화 (user 변경 시 localStorage에서 재로드) ──────
+  // ── following/collections 동기화 ─────────────────────────────────
+  // 1) localStorage에서 즉시 로드 (빠른 표시)
+  // 2) Firestore의 users/{uid} 문서에서 백업을 가져와 병합 (앱 재설치/기기 변경 시 복구)
   useEffect(() => {
     if (!user?.uid) { setFollowing([]); setCollections({}); return; }
+
+    let localFollowing = [];
+    let localCollections = null;
     try {
-      setFollowing(JSON.parse(localStorage.getItem("brewlog_following_" + user.uid) || "[]"));
-      const saved = JSON.parse(localStorage.getItem("brewlog_collections_" + user.uid) || "null");
-      if (saved) {
-        setCollections(saved);
-      } else {
+      localFollowing = JSON.parse(localStorage.getItem("brewlog_following_" + user.uid) || "[]");
+      localCollections = JSON.parse(localStorage.getItem("brewlog_collections_" + user.uid) || "null");
+      if (!localCollections) {
         // 기존 bookmarks 마이그레이션
         const oldIds = JSON.parse(localStorage.getItem("brewlog_bookmarks_" + user.uid) || "[]");
-        if (oldIds.length) setCollections({ "_default": { color:"#B07D54", ids: oldIds } });
+        if (oldIds.length) localCollections = { "_default": { color:"#B07D54", ids: oldIds } };
       }
-    } catch {
-      setFollowing([]);
-      setCollections({});
-    }
+    } catch {}
+
+    setFollowing(localFollowing);
+    setCollections(localCollections || {});
+
+    // Firestore 백업과 비교해 더 최신/풍부한 데이터로 복구
+    getDoc(doc(db, "users", user.uid)).then(snap => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+
+      // following: 로컬이 비어있으면 Firestore 백업으로 복구
+      if (Array.isArray(data.following) && localFollowing.length === 0 && data.following.length > 0) {
+        setFollowing(data.following);
+        try { localStorage.setItem("brewlog_following_" + user.uid, JSON.stringify(data.following)); } catch {}
+      }
+
+      // collections: 로컬이 비어있으면 Firestore 백업으로 복구
+      const localIsEmpty = !localCollections || Object.keys(localCollections).length === 0;
+      if (data.collections && localIsEmpty && Object.keys(data.collections).length > 0) {
+        setCollections(data.collections);
+        try { localStorage.setItem("brewlog_collections_" + user.uid, JSON.stringify(data.collections)); } catch {}
+      }
+    }).catch(() => {});
   }, [user?.uid]);
 
   // ── toggleFollow ────────────────────────────────────────────────
@@ -167,10 +195,10 @@ export function useRecipes(user, { onRequireAuth } = {}) {
       const next = prev.includes(authorUid)
         ? prev.filter((id) => id !== authorUid)
         : [...prev, authorUid];
-      try { localStorage.setItem("brewlog_following_" + user.uid, JSON.stringify(next)); } catch {}
+      saveFollowing(next, user.uid);
       return next;
     });
-  }, [user, onRequireAuth]);
+  }, [user, onRequireAuth, saveFollowing]);
 
   // ── toggleBookmark — 기본 폴더(_default) 토글 ────────────────────
   const toggleBookmark = useCallback((recipeId) => {
