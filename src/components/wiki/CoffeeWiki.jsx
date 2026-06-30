@@ -891,11 +891,13 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange }) {
   const openEditTarget = (item) => { window.history.pushState({ wikiModal: true }, ""); setEditTarget(item); };
   const openDetailItem = (item) => { window.history.pushState({ wikiModal: true }, ""); setDetailItem(item); };
 
-  // 모달 닫기 래퍼 — go(-1)과 함께
-  const closeBeanForm  = () => { window.history.go(-1); setShowBeanForm(false); };
-  const closeEquipForm = () => { window.history.go(-1); setShowEquipForm(false); };
-  const closeEditTarget = () => { window.history.go(-1); setEditTarget(null); };
-  const closeDetailItem = () => { window.history.go(-1); setDetailItem(null); };
+  // 모달 닫기 래퍼 — go(-1)만 호출 (실제 상태 변경은 popstate 핸들러(onPop)가 책임짐)
+  // go(-1)과 setState를 동시에 호출하면, go(-1)이 트리거하는 비동기 popstate 이벤트가
+  // 도착했을 때 이미 state가 바뀐 뒤라서 onPop이 다음 단계(탭 등)까지 잘못 처리하는 문제가 있었음
+  const closeBeanForm  = () => window.history.go(-1);
+  const closeEquipForm = () => window.history.go(-1);
+  const closeEditTarget = () => window.history.go(-1);
+  const closeDetailItem = () => window.history.go(-1);
 
   const loadData = useCallback(async () => {
     setLoading(true);

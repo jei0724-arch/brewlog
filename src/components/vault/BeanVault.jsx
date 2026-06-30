@@ -256,7 +256,7 @@ export function EquipmentVault({ user, lang, showModal, setShowModal }) {
 
       {showModal && (
         <EquipmentModal lang={lang} user={user} editTarget={editTarget}
-          onClose={()=>{ window.history.go(-1); setShowModal(false); }} onSaved={loadEquips}/>
+          onClose={()=>window.history.go(-1)} onSaved={loadEquips}/>
       )}
     </div>
   );
@@ -1337,11 +1337,11 @@ export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal
           bean={detailBean}
           user={user}
           lang={lang}
-          onClose={()=>{ window.history.go(-1); setDetailBean(null); }}
-          onEdit={()=>{ window.history.go(-1); setEditTarget(detailBean); setDetailBean(null); setShowModal(true); }}
+          onClose={()=>window.history.go(-1)}
+          onEdit={()=>{ setEditTarget(detailBean); setShowModal(true); window.history.go(-1); }}
         />
       )}
-      {showModal && <BeanModal lang={lang} user={user} editTarget={editTarget} onClose={()=>{ window.history.go(-1); setShowModal(false); }}
+      {showModal && <BeanModal lang={lang} user={user} editTarget={editTarget} onClose={()=>window.history.go(-1)}
         onSaved={(savedForm)=>{
           loadBeans();
           // 신규 원두 등록 시에만 첫 추출 제안 표시

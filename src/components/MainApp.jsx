@@ -293,25 +293,21 @@ export default function MainApp({
       if (beanShowModalRef.current){ setBeanShowModal(false); return; }
       if (equipShowModalRef.current){ setEquipShowModal(false); return; }
 
-      // 탭이 "all"이 아니면 → "all" 탭으로 복귀 (앱 이탈 대신)
+      // 여기까지 왔다는 것은 "열려있던 모달이 없다"는 뜻 (위 ref 체크에서 모두 걸러짐)
+      // → 이제는 탭 단계인지 확인. 탭이 "all"이 아니면 "all"로 복귀
       if (feedTabRef.current !== "all") {
         setFeedTab("all");
-        window.history.replaceState({base:true}, ""); // 탭 히스토리 엔트리를 base로 정리
-        return;
+        return; // pushState/replaceState 호출하지 않음 — 브라우저가 이미 한 단계 줄인 상태를 그대로 둠
       }
 
       // 관리자 화면이면 → 닫기 (이 경로는 보통 AdminApp onExit이 처리하지만 안전망으로 추가)
       if (adminModeRef.current) {
         setAdminMode(false);
-        window.history.replaceState({base:true}, "");
         return;
       }
 
-      // 모달이 하나도 없고 "all" 탭인데 popstate가 발생하면 (히스토리 진짜 소진)
-      // → 이 경우에만 실제로 앱을 나가도록 베이스 재푸시를 하지 않음
-      if (e.state?.base) {
-        // "all" 탭에서는 의도적으로 앱을 나가도록 둠 (재푸시 안 함)
-      }
+      // 모달도 없고 "all" 탭인데 popstate가 발생 = 히스토리 진짜 소진
+      // → 아무것도 하지 않음 (브라우저가 자연스럽게 앱 밖으로 나가도록 둠)
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -460,7 +456,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
     return { top3:list.slice(0,3), full:list.slice(0,100) };
   }, [recipes, bestPeriod]);
 
-  if (adminMode) return <AdminApp user={user} lang={lang} onExit={() => { window.history.go(-1); setAdminMode(false); }}/>;
+  if (adminMode) return <AdminApp user={user} lang={lang} onExit={() => window.history.go(-1)}/>;
 
   const PERIODS = [
     { key:"day",   label: lang==="en"?"Today":"오늘" },
@@ -1032,10 +1028,10 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
 
       {/* ── 모달들 ── */}
       {showMyModal && (
-        <MyModal user={user} lang={lang} onClose={()=>{ window.history.go(-1); setShowMyModalWrapped(false); }} onLogout={()=>{ setShowMyModalWrapped(false); signOut(auth); }}/>
+        <MyModal user={user} lang={lang} onClose={()=>window.history.go(-1)} onLogout={()=>{ window.history.go(-1); setShowMyModalWrapped(false); signOut(auth); }}/>
       )}
       {compareTarget && (
-        <CompareModal targetRecipe={compareTarget} myRecipes={recipes.filter(r=>r.id!==compareTarget.id)} onClose={()=>{ window.history.go(-1); setCompareTargetState(null); }} lang={lang}/>
+        <CompareModal targetRecipe={compareTarget} myRecipes={recipes.filter(r=>r.id!==compareTarget.id)} onClose={()=>window.history.go(-1)} lang={lang}/>
       )}
       {detailRecipe && (
         <RecipeDetailModal
@@ -1044,7 +1040,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
           currentUser={user}
           onRequireAuth={onRequireAuth}
           lang={lang}
-          onClose={()=>{ window.history.go(-1); setDetailRecipeWrapped(null); }}
+          onClose={()=>window.history.go(-1)}
           onLike={r=>{ handleLike(r); }}
           onEdit={r=>{ setEditTarget(r); setDetailRecipeWrapped(null); window.history.go(-1); setTimeout(()=>openModal(), 50); }}
           onDelete={id=>{ handleDelete(id); setDetailRecipeWrapped(null); }}
@@ -1069,12 +1065,12 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
           onDeleteCollection={deleteCollection}
           onUpdateColor={updateCollectionColor}
           lang={lang}
-          onClose={()=>{ window.history.go(-1); setCollectionTarget(null); }}
+          onClose={()=>window.history.go(-1)}
         />
       )}
       {showModal && (
         <RecipeModal user={user} editTarget={editTarget} lang={lang} recipes={recipes.filter(r=>r.uid===user?.uid).slice(0,5)}
-          onClose={()=>{ window.history.go(-1); setShowModalWrapped(false); setEditTarget(null); }}
+          onClose={()=>window.history.go(-1)}
           onSave={()=>{ loadRecipes(); setShowModalWrapped(false); setEditTarget(null); }}/>
       )}
       {profileModal && (
