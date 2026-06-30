@@ -149,11 +149,12 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // 시드 데이터 자동완성 추천 — 한/영 양쪽 이름 모두로 매칭
+  // 시드 데이터 자동완성 추천 — 한/영 양쪽 이름 모두로 매칭 (개수 제한 없음)
   const seedMatches = !editTarget && form.name.trim().length >= 2
     ? SEED_BEAN_ORIGINS.filter(s =>
-        similar(seedText(s.name, "ko"), form.name) || similar(seedText(s.name, "en"), form.name)
-      ).slice(0, 4)
+        similar(seedText(s.name, "ko"), form.name) || similar(seedText(s.name, "en"), form.name) ||
+        similar(seedText(s.origin, "ko"), form.name) || similar(seedText(s.origin, "en"), form.name)
+      )
     : [];
 
   // 항상 현재 lang에 맞는 텍스트로 채움 (한국어 입력 + 영문 모드여도 영문으로 채워짐)
@@ -218,9 +219,9 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
           <div style={{ marginBottom: "14px" }}>
             <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.7rem", color: "var(--latte)", fontWeight: 600, marginBottom: "8px", display: "flex", alignItems: "center", gap: "4px" }}>
               <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.6 5.2L13 5.7L9.8 8.6L10.7 13L7 10.8L3.3 13L4.2 8.6L1 5.7L5.4 5.2L7 1Z" fill="currentColor"/></svg>
-              {lang === "en" ? "Quick fill from known origins" : "알려진 산지 정보로 빠르게 채우기"}
+              {lang === "en" ? `Quick fill from known origins (${seedMatches.length})` : `알려진 산지 정보로 빠르게 채우기 (${seedMatches.length}개)`}
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "220px", overflowY: "auto", paddingRight: "2px" }}>
               {seedMatches.map((seed, i) => (
                 <button key={i} type="button" onClick={() => applySeed(seed)}
                   style={{ textAlign: "left", padding: "10px 12px", borderRadius: "8px", border: "1px solid #B07D5430", background: "#B07D5408", cursor: "pointer", transition: "background 0.15s" }}
@@ -316,11 +317,23 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   // 시드 데이터 자동완성 추천 (브랜드 또는 모델 입력 시)
+  // 브랜드만 입력 → 해당 브랜드 전체 모델 노출 (4개 제한 없음)
+  // 모델까지 입력 → 더 좁혀서 매칭
   const seedMatches = !editTarget && (form.brand.trim().length >= 2 || form.model.trim().length >= 2)
-    ? SEED_EQUIPMENTS.filter(s =>
-        s.category === form.category &&
-        (similar(s.brand, form.brand) || similar(s.model, form.model) || similar(`${s.brand} ${s.model}`, `${form.brand} ${form.model}`))
-      ).slice(0, 4)
+    ? SEED_EQUIPMENTS.filter(s => {
+        if (s.category !== form.category) return false;
+        const brandQ = form.brand.trim();
+        const modelQ = form.model.trim();
+        // 브랜드가 입력됐으면 브랜드는 반드시 일치해야 함
+        if (brandQ && !similar(s.brand, brandQ)) return false;
+        // 모델까지 입력됐으면 모델도 매칭 확인 (좁히기)
+        if (modelQ && modelQ.length >= 2 && !similar(s.model, modelQ) && !similar(`${s.brand} ${s.model}`, `${brandQ} ${modelQ}`)) {
+          // 모델 검색어가 브랜드만으로 매칭된 결과에 포함되지 않으면 제외하되,
+          // 브랜드만 친 상태에서 모델을 한두 글자 입력 중일 수 있으니 모델 부분 일치도 허용
+          if (!s.model.toLowerCase().includes(modelQ.toLowerCase())) return false;
+        }
+        return true;
+      })
     : [];
 
   const applySeed = (seed) => {
@@ -409,9 +422,9 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
           <div style={{ marginBottom: "14px" }}>
             <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.7rem", color: "var(--latte)", fontWeight: 600, marginBottom: "8px", display: "flex", alignItems: "center", gap: "4px" }}>
               <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M7 1L8.6 5.2L13 5.7L9.8 8.6L10.7 13L7 10.8L3.3 13L4.2 8.6L1 5.7L5.4 5.2L7 1Z" fill="currentColor"/></svg>
-              {lang === "en" ? "Quick fill known specs" : "알려진 스펙으로 빠르게 채우기"}
+              {lang === "en" ? `Quick fill known specs (${seedMatches.length})` : `알려진 스펙으로 빠르게 채우기 (${seedMatches.length}개)`}
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "220px", overflowY: "auto", paddingRight: "2px" }}>
               {seedMatches.map((seed, i) => (
                 <button key={i} type="button" onClick={() => applySeed(seed)}
                   style={{ textAlign: "left", padding: "10px 12px", borderRadius: "8px", border: "1px solid #B07D5430", background: "#B07D5408", cursor: "pointer", transition: "background 0.15s" }}
