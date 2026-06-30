@@ -1,0 +1,545 @@
+/* ============================================================
+   BREWLOG NOTE — src/components/wiki/CoffeeWiki.jsx
+   커피 위키 — 유저 기여형 원두/장비 데이터베이스 (1단계)
+   ============================================================ */
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  collection, query, orderBy, limit,
+  getDocs, doc, addDoc, updateDoc, serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../../config/firebase";
+
+const I18N = {
+  ko: {
+    title: "커피 위키", sub: "원두와 장비, 함께 만드는 커피 데이터베이스",
+    tabBeans: "원두", tabEquip: "장비",
+    search: "원두명, 산지, 브랜드로 검색",
+    addBean: "원두 추가하기", addEquip: "장비 추가하기",
+    empty: "아직 등록된 항목이 없어요. 첫 항목을 추가해보세요!",
+    noResult: "검색 결과가 없어요.",
+    linkedRecipes: "개 레시피", contributedBy: "기여자",
+    editedBy: "최근 수정", createdAt: "등록일",
+    save: "저장", cancel: "취소", edit: "편집", close: "닫기",
+    beanName: "원두명", origin: "산지(국가)", region: "지역",
+    variety: "품종", process: "가공법", altitude: "고도",
+    description: "설명", roastery: "로스터리(선택)",
+    equipCategory: "분류", equipBrand: "브랜드", equipModel: "모델명",
+    equipType: "타입", machine: "머신", grinder: "그라인더", handdrip: "핸드드립",
+    fullAuto: "전자동", semiAuto: "반자동", manual: "수동",
+    required: "필수 항목을 입력해주세요.",
+    duplicateWarn: "비슷한 항목이 이미 있어요:",
+    createNew: "그래도 새로 만들기",
+  },
+  en: {
+    title: "Coffee Wiki", sub: "A community-built coffee bean & equipment database",
+    tabBeans: "Beans", tabEquip: "Equipment",
+    search: "Search by name, origin, or brand",
+    addBean: "Add Bean", addEquip: "Add Equipment",
+    empty: "No entries yet. Be the first to add one!",
+    noResult: "No results found.",
+    linkedRecipes: " recipes", contributedBy: "Contributor",
+    editedBy: "Last edited", createdAt: "Added",
+    save: "Save", cancel: "Cancel", edit: "Edit", close: "Close",
+    beanName: "Bean Name", origin: "Origin (Country)", region: "Region",
+    variety: "Variety", process: "Process", altitude: "Altitude",
+    description: "Description", roastery: "Roastery (optional)",
+    equipCategory: "Category", equipBrand: "Brand", equipModel: "Model",
+    equipType: "Type", machine: "Machine", grinder: "Grinder", handdrip: "Hand Drip",
+    fullAuto: "Full-Auto", semiAuto: "Semi-Auto", manual: "Manual",
+    required: "Please fill in required fields.",
+    duplicateWarn: "Similar entries already exist:",
+    createNew: "Create new anyway",
+  },
+};
+
+function similar(a, b) {
+  if (!a || !b) return false;
+  const na = a.toLowerCase().replace(/\s+/g, "");
+  const nb = b.toLowerCase().replace(/\s+/g, "");
+  return na.includes(nb) || nb.includes(na);
+}
+
+function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
+  const t = I18N[lang];
+  const [form, setForm] = useState({
+    name: editTarget?.name || "",
+    origin: editTarget?.origin || "",
+    region: editTarget?.region || "",
+    variety: editTarget?.variety || "",
+    process: editTarget?.process || "",
+    altitude: editTarget?.altitude || "",
+    roastery: editTarget?.roastery || "",
+    description: editTarget?.description || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [dupWarn, setDupWarn] = useState(null);
+  const [forceNew, setForceNew] = useState(false);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    if (editTarget || forceNew || !form.name.trim()) { setDupWarn(null); return; }
+    const matches = allBeans.filter(b => similar(b.name, form.name) && b.name !== form.name);
+    setDupWarn(matches.length > 0 ? matches.slice(0, 3) : null);
+  }, [form.name, allBeans, editTarget, forceNew]);
+
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.origin.trim()) { alert(t.required); return; }
+    setSaving(true);
+    try {
+      if (editTarget) {
+        await updateDoc(doc(db, "wiki_beans", editTarget.id), {
+          ...form,
+          editedBy: [...(editTarget.editedBy || []), user.uid].slice(-10),
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        await addDoc(collection(db, "wiki_beans"), {
+          ...form,
+          createdBy: user.uid,
+          createdByName: user.displayName || "익명",
+          editedBy: [],
+          linkedRecipeCount: 0,
+          createdAt: serverTimestamp(),
+        });
+      }
+      onSaved();
+      onClose();
+    } catch (e) {
+      console.error("[wiki bean save]", e);
+      alert(lang === "en" ? "Failed to save." : "저장에 실패했어요.");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: "440px" }}>
+        <h2>{editTarget ? t.edit : t.addBean}</h2>
+
+        {[
+          { key: "name", label: t.beanName, required: true, ph: "예) 에티오피아 예가체프 코체레" },
+          { key: "origin", label: t.origin, required: true, ph: "예) 에티오피아" },
+          { key: "region", label: t.region, ph: "예) 예가체프" },
+          { key: "variety", label: t.variety, ph: "예) 헤이룸" },
+          { key: "process", label: t.process, ph: "예) 워시드" },
+          { key: "altitude", label: t.altitude, ph: "예) 1900-2200m" },
+          { key: "roastery", label: t.roastery, ph: "예) 우리집커피" },
+        ].map(({ key, label, required, ph }) => (
+          <div className="field full" key={key} style={{ marginBottom: "12px" }}>
+            <label>{label}{required && <span style={{ color: "#c0392b" }}> *</span>}</label>
+            <input value={form[key]} onChange={e => set(key, e.target.value)} placeholder={ph} />
+          </div>
+        ))}
+
+        <div className="field full" style={{ marginBottom: "12px" }}>
+          <label>{t.description}</label>
+          <textarea value={form.description} onChange={e => set("description", e.target.value)}
+            rows={3} placeholder={lang === "en" ? "Flavor notes, characteristics..." : "풍미, 특징 등을 자유롭게 적어주세요"}
+            style={{ width: "100%", padding: "0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", resize: "vertical", boxSizing: "border-box" }}
+          />
+        </div>
+
+        {dupWarn && (
+          <div style={{ background: "#FFF8E1", border: "1px solid #F0C36D", borderRadius: "10px", padding: "12px 14px", marginBottom: "14px" }}>
+            <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: 600, color: "#8a6d1f", marginBottom: "8px" }}>
+              ⚠️ {t.duplicateWarn}
+            </p>
+            {dupWarn.map(b => (
+              <div key={b.id} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "#5c4a14", padding: "4px 0" }}>
+                · {b.name} {b.origin && `(${b.origin})`}
+              </div>
+            ))}
+            <button onClick={() => setForceNew(true)}
+              style={{ marginTop: "8px", fontSize: "0.74rem", color: "#8a6d1f", background: "none", border: "none", textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+              {t.createNew}
+            </button>
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn-cancel" onClick={onClose}>{t.cancel}</button>
+          <button className="btn-save" onClick={handleSave} disabled={saving || (dupWarn && !forceNew)}>
+            {saving ? "..." : t.save}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) {
+  const t = I18N[lang];
+  const [form, setForm] = useState({
+    category: editTarget?.category || "machine",
+    brand: editTarget?.brand || "",
+    model: editTarget?.model || "",
+    type: editTarget?.type || "semi",
+    description: editTarget?.description || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [dupWarn, setDupWarn] = useState(null);
+  const [forceNew, setForceNew] = useState(false);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    if (editTarget || forceNew || !form.brand.trim() || !form.model.trim()) { setDupWarn(null); return; }
+    const fullName = `${form.brand} ${form.model}`;
+    const matches = allEquips.filter(e =>
+      e.category === form.category &&
+      similar(`${e.brand} ${e.model}`, fullName) &&
+      `${e.brand} ${e.model}` !== fullName
+    );
+    setDupWarn(matches.length > 0 ? matches.slice(0, 3) : null);
+  }, [form.brand, form.model, form.category, allEquips, editTarget, forceNew]);
+
+  const handleSave = async () => {
+    if (!form.brand.trim() || !form.model.trim()) { alert(t.required); return; }
+    setSaving(true);
+    try {
+      if (editTarget) {
+        await updateDoc(doc(db, "wiki_equipments", editTarget.id), {
+          ...form,
+          editedBy: [...(editTarget.editedBy || []), user.uid].slice(-10),
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        await addDoc(collection(db, "wiki_equipments"), {
+          ...form,
+          createdBy: user.uid,
+          createdByName: user.displayName || "익명",
+          editedBy: [],
+          linkedRecipeCount: 0,
+          createdAt: serverTimestamp(),
+        });
+      }
+      onSaved();
+      onClose();
+    } catch (e) {
+      console.error("[wiki equip save]", e);
+      alert(lang === "en" ? "Failed to save." : "저장에 실패했어요.");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: "440px" }}>
+        <h2>{editTarget ? t.edit : t.addEquip}</h2>
+
+        <div className="field full" style={{ marginBottom: "12px" }}>
+          <label>{t.equipCategory}</label>
+          <div style={{ display: "flex", gap: "8px" }}>
+            {[["machine", t.machine], ["grinder", t.grinder], ["handdrip", t.handdrip]].map(([v, lbl]) => (
+              <button key={v} type="button" onClick={() => set("category", v)}
+                style={{ flex: 1, padding: "9px", borderRadius: "8px", border: `1px solid ${form.category === v ? "var(--espresso)" : "var(--steam)"}`,
+                  background: form.category === v ? "var(--espresso)" : "var(--foam)",
+                  color: form.category === v ? "var(--cream)" : "var(--muted)",
+                  fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", cursor: "pointer" }}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="field full" style={{ marginBottom: "12px" }}>
+          <label>{t.equipBrand}<span style={{ color: "#c0392b" }}> *</span></label>
+          <input value={form.brand} onChange={e => set("brand", e.target.value)} placeholder="예) Breville" />
+        </div>
+        <div className="field full" style={{ marginBottom: "12px" }}>
+          <label>{t.equipModel}<span style={{ color: "#c0392b" }}> *</span></label>
+          <input value={form.model} onChange={e => set("model", e.target.value)} placeholder="예) Barista Express" />
+        </div>
+
+        {form.category === "machine" && (
+          <div className="field full" style={{ marginBottom: "12px" }}>
+            <label>{t.equipType}</label>
+            <div style={{ display: "flex", gap: "8px" }}>
+              {[["full", t.fullAuto], ["semi", t.semiAuto], ["manual", t.manual]].map(([v, lbl]) => (
+                <button key={v} type="button" onClick={() => set("type", v)}
+                  style={{ flex: 1, padding: "8px", borderRadius: "8px", border: `1px solid ${form.type === v ? "var(--latte)" : "var(--steam)"}`,
+                    background: form.type === v ? "var(--latte)" : "var(--foam)",
+                    color: form.type === v ? "white" : "var(--muted)",
+                    fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer" }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="field full" style={{ marginBottom: "12px" }}>
+          <label>{t.description}</label>
+          <textarea value={form.description} onChange={e => set("description", e.target.value)}
+            rows={3} placeholder={lang === "en" ? "Notes, tips, characteristics..." : "특징, 사용팁 등을 자유롭게 적어주세요"}
+            style={{ width: "100%", padding: "0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", resize: "vertical", boxSizing: "border-box" }}
+          />
+        </div>
+
+        {dupWarn && (
+          <div style={{ background: "#FFF8E1", border: "1px solid #F0C36D", borderRadius: "10px", padding: "12px 14px", marginBottom: "14px" }}>
+            <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: 600, color: "#8a6d1f", marginBottom: "8px" }}>
+              ⚠️ {t.duplicateWarn}
+            </p>
+            {dupWarn.map(e => (
+              <div key={e.id} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "#5c4a14", padding: "4px 0" }}>
+                · {e.brand} {e.model}
+              </div>
+            ))}
+            <button onClick={() => setForceNew(true)}
+              style={{ marginTop: "8px", fontSize: "0.74rem", color: "#8a6d1f", background: "none", border: "none", textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+              {t.createNew}
+            </button>
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn-cancel" onClick={onClose}>{t.cancel}</button>
+          <button className="btn-save" onClick={handleSave} disabled={saving || (dupWarn && !forceNew)}>
+            {saving ? "..." : t.save}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
+  const t = I18N[lang];
+  const isBean = type === "bean";
+
+  const fmtDate = (ts) => {
+    if (!ts?.toDate) return "";
+    return ts.toDate().toLocaleDateString(lang === "en" ? "en-US" : "ko-KR");
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: "440px", padding: 0, overflow: "hidden" }}>
+        <div style={{ background: "var(--espresso)", padding: "20px 20px 18px", position: "relative" }}>
+          <button onClick={onClose} style={{ position: "absolute", top: "16px", right: "16px", background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.5)", fontSize: "1.1rem" }}>✕</button>
+          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--latte)", marginBottom: "8px" }}>
+            {isBean ? t.tabBeans : t.tabEquip}
+          </div>
+          <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.3rem", fontWeight: 700, color: "#FBFBFA", marginBottom: "4px" }}>
+            {isBean ? item.name : `${item.brand} ${item.model}`}
+          </div>
+          <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "rgba(255,255,255,0.55)" }}>
+            {isBean
+              ? [item.origin, item.region, item.process].filter(Boolean).join(" · ")
+              : [item.category === "machine" ? t.machine : item.category === "grinder" ? t.grinder : t.handdrip,
+                 item.type === "full" ? t.fullAuto : item.type === "semi" ? t.semiAuto : item.type === "manual" ? t.manual : null
+                ].filter(Boolean).join(" · ")}
+          </div>
+        </div>
+
+        <div style={{ padding: "20px", background: "var(--foam)" }}>
+          {isBean && [
+            [t.origin, item.origin], [t.region, item.region],
+            [t.variety, item.variety], [t.process, item.process],
+            [t.altitude, item.altitude], [t.roastery, item.roastery],
+          ].map(([label, value]) => value && (
+            <div key={label} style={{ display: "flex", gap: "8px", padding: "7px 0", borderBottom: "1px solid var(--divider)" }}>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", width: "72px", flexShrink: 0 }}>{label}</span>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)" }}>{value}</span>
+            </div>
+          ))}
+
+          {item.description && (
+            <div style={{ marginTop: "14px", padding: "12px 14px", background: "var(--cream)", borderRadius: "8px", borderLeft: "3px solid var(--latte)" }}>
+              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.65 }}>{item.description}</p>
+            </div>
+          )}
+
+          <div style={{ marginTop: "16px", padding: "12px 14px", background: "rgba(176,125,84,0.08)", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="var(--latte)" strokeWidth="1.3"/></svg>
+            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "var(--latte)", fontWeight: 600 }}>
+              {item.linkedRecipeCount || 0}{t.linkedRecipes}
+            </span>
+          </div>
+
+          <div style={{ marginTop: "14px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.7rem", color: "var(--muted)", lineHeight: 1.7 }}>
+            <div>{t.contributedBy}: @{item.createdByName || "익명"}</div>
+            <div>{t.createdAt}: {fmtDate(item.createdAt)}</div>
+            {(item.editedBy || []).length > 0 && <div>{t.editedBy}: {item.editedBy.length}{lang === "en" ? " times" : "회"}</div>}
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", marginTop: "20px" }}>
+            <button onClick={onEdit}
+              style={{ flex: 1, padding: "11px", border: "1px solid var(--steam)", borderRadius: "10px", background: "none", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--muted)", cursor: "pointer" }}>
+              {t.edit}
+            </button>
+            <button onClick={onClose}
+              style={{ flex: 1, padding: "11px", border: "none", borderRadius: "10px", background: "var(--espresso)", color: "var(--cream)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer" }}>
+              {t.close}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function CoffeeWiki({ user, lang = "ko" }) {
+  const t = I18N[lang];
+  const [tab, setTab] = useState("beans");
+  const [beans, setBeans] = useState([]);
+  const [equips, setEquips] = useState([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const [showBeanForm, setShowBeanForm] = useState(false);
+  const [showEquipForm, setShowEquipForm] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [beanSnap, equipSnap] = await Promise.all([
+        getDocs(query(collection(db, "wiki_beans"), orderBy("createdAt", "desc"), limit(200))),
+        getDocs(query(collection(db, "wiki_equipments"), orderBy("createdAt", "desc"), limit(200))),
+      ]);
+      setBeans(beanSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setEquips(equipSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) {
+      console.error("[wiki load]", e);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const filteredBeans = useMemo(() => {
+    if (!search.trim()) return beans;
+    const q = search.toLowerCase();
+    return beans.filter(b =>
+      b.name?.toLowerCase().includes(q) ||
+      b.origin?.toLowerCase().includes(q) ||
+      b.region?.toLowerCase().includes(q) ||
+      b.roastery?.toLowerCase().includes(q)
+    );
+  }, [beans, search]);
+
+  const filteredEquips = useMemo(() => {
+    if (!search.trim()) return equips;
+    const q = search.toLowerCase();
+    return equips.filter(e =>
+      e.brand?.toLowerCase().includes(q) ||
+      e.model?.toLowerCase().includes(q)
+    );
+  }, [equips, search]);
+
+  return (
+    <div style={{ maxWidth: "720px", margin: "0 auto", padding: "0 16px" }}>
+      <div style={{ marginBottom: "20px" }}>
+        <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.6rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "4px" }}>
+          {t.title}
+        </h1>
+        <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--muted)" }}>{t.sub}</p>
+      </div>
+
+      <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
+        {[["beans", t.tabBeans], ["equip", t.tabEquip]].map(([v, lbl]) => (
+          <button key={v} onClick={() => setTab(v)}
+            style={{ padding: "8px 18px", borderRadius: "999px", border: `1px solid ${tab === v ? "var(--espresso)" : "var(--steam)"}`,
+              background: tab === v ? "var(--espresso)" : "var(--foam)",
+              color: tab === v ? "var(--cream)" : "var(--muted)",
+              fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer", transition: "all 0.15s" }}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t.search}
+        style={{ width: "100%", padding: "11px 16px", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.88rem", marginBottom: "16px", boxSizing: "border-box", outline: "none" }}
+      />
+
+      {user && (
+        <button onClick={() => tab === "beans" ? setShowBeanForm(true) : setShowEquipForm(true)}
+          style={{ width: "100%", padding: "12px", border: "1px dashed var(--latte)", borderRadius: "10px", background: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--latte)", fontWeight: 500, marginBottom: "16px", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+          {tab === "beans" ? t.addBean : t.addEquip}
+        </button>
+      )}
+
+      {loading ? (
+        <p style={{ textAlign: "center", color: "var(--muted)", padding: "40px 0", fontFamily: "'DM Sans',sans-serif" }}>...</p>
+      ) : tab === "beans" ? (
+        filteredBeans.length === 0 ? (
+          <p style={{ textAlign: "center", color: "var(--muted)", padding: "40px 0", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem" }}>
+            {search ? t.noResult : t.empty}
+          </p>
+        ) : (
+          <div style={{ display: "grid", gap: "10px" }}>
+            {filteredBeans.map(b => (
+              <div key={b.id} onClick={() => setDetailItem(b)}
+                style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "12px", padding: "14px 16px", cursor: "pointer" }}>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "4px" }}>{b.name}</div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)" }}>
+                  {[b.origin, b.region, b.process].filter(Boolean).join(" · ")}
+                </div>
+                {b.linkedRecipeCount > 0 && (
+                  <div style={{ marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.7rem", color: "var(--latte)", fontFamily: "'DM Sans',sans-serif" }}>
+                    {b.linkedRecipeCount}{t.linkedRecipes}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+        filteredEquips.length === 0 ? (
+          <p style={{ textAlign: "center", color: "var(--muted)", padding: "40px 0", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem" }}>
+            {search ? t.noResult : t.empty}
+          </p>
+        ) : (
+          <div style={{ display: "grid", gap: "10px" }}>
+            {filteredEquips.map(e => (
+              <div key={e.id} onClick={() => setDetailItem(e)}
+                style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "12px", padding: "14px 16px", cursor: "pointer" }}>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)", marginBottom: "4px" }}>
+                  {e.brand} {e.model}
+                </div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)" }}>
+                  {e.category === "machine" ? t.machine : e.category === "grinder" ? t.grinder : t.handdrip}
+                </div>
+                {e.linkedRecipeCount > 0 && (
+                  <div style={{ marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.7rem", color: "var(--latte)", fontFamily: "'DM Sans',sans-serif" }}>
+                    {e.linkedRecipeCount}{t.linkedRecipes}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {showBeanForm && (
+        <BeanWikiForm user={user} lang={lang} editTarget={null} allBeans={beans}
+          onClose={() => setShowBeanForm(false)} onSaved={loadData} />
+      )}
+      {showEquipForm && (
+        <EquipWikiForm user={user} lang={lang} editTarget={null} allEquips={equips}
+          onClose={() => setShowEquipForm(false)} onSaved={loadData} />
+      )}
+      {editTarget && tab === "beans" && (
+        <BeanWikiForm user={user} lang={lang} editTarget={editTarget} allBeans={beans}
+          onClose={() => setEditTarget(null)} onSaved={loadData} />
+      )}
+      {editTarget && tab === "equip" && (
+        <EquipWikiForm user={user} lang={lang} editTarget={editTarget} allEquips={equips}
+          onClose={() => setEditTarget(null)} onSaved={loadData} />
+      )}
+
+      {detailItem && (
+        <WikiDetailModal
+          item={detailItem} type={tab === "beans" ? "bean" : "equip"} lang={lang}
+          onClose={() => setDetailItem(null)}
+          onEdit={() => { setEditTarget(detailItem); setDetailItem(null); }}
+        />
+      )}
+    </div>
+  );
+}

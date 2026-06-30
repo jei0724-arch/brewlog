@@ -38,6 +38,7 @@ import RecipeModal        from "./modals/RecipeModal";
 import MyModal            from "./modals/MyModal";
 import CompareModal       from "./modals/CompareModal";
 import CollectionModal    from "./modals/CollectionModal";
+import { CoffeeWiki }      from "./wiki/CoffeeWiki";
 import { BeanVault, EquipmentVault } from "./vault/BeanVault";
 import AdminApp           from "../admin/AdminApp";
 
@@ -206,8 +207,8 @@ export default function MainApp({
       touchStartX.current = null; touchStartY.current = null;
       if (Math.abs(dx) < 40 || Math.abs(dy) >= Math.abs(dx)) return;
       const tabs = userRef.current
-        ? ["all","following","bookmarks","mine","beans","equip"]
-        : ["all","following","bookmarks"];
+        ? ["all","following","bookmarks","mine","beans","equip","wiki"]
+        : ["all","following","bookmarks","wiki"];
       const cur  = tabs.indexOf(feedTabRef.current);
       if (dx < 0) { const next = (cur+1)%tabs.length; setFeedTab(tabs[next]); setMyRecipesOnly(false); setShowRanking(false); }
       else         { const prev = (cur-1+tabs.length)%tabs.length; setFeedTab(tabs[prev]); setMyRecipesOnly(false); setShowRanking(false); }
@@ -625,6 +626,15 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                   </button>
                 </div>
               )}
+              {/* 커피 위키 (로그인 불필요) */}
+              <button className={`bookmark-tab-btn ${feedTab==="wiki"&&!showRanking?"active":""}`}
+                onClick={()=>{ setFeedTab("wiki"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                  <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3"/>
+                  <path d="M7 4.5v3l2 1.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                </svg>
+                {lang==="en"?"Wiki":"위키"}
+              </button>
             </div>
 
             {/* 두 번째 행: 검색/필터/추가 */}
@@ -655,7 +665,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                     {lang==="en"?"Add Gear":"추가하기"}
                   </button>
                 </div>
-              ) : (
+              ) : feedTab==="wiki" ? null : (
                 <div className="search-row" style={{ display:"flex", gap:"0.5rem", width:"100%", boxSizing:"border-box", overflow:"hidden" }}>
                   <div className="search-box" style={{ flex:1, minWidth:0 }}>
                     <span className="search-icon">
@@ -789,6 +799,9 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
         {feedTab==="equip" && user && (
           <EquipmentVault user={user} lang={lang} showModal={equipShowModal}
             setShowModal={(v)=>{ equipShowModalRef.current=v; if(v) window.history.pushState({modal:true},""); setEquipShowModal(v); }}/>
+        )}
+        {feedTab==="wiki" && (
+          <CoffeeWiki user={user} lang={lang}/>
         )}
 
         {/* 베스트 레시피 (전체 피드만) */}
@@ -955,6 +968,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
               </div>
             </div>
           )}
+          {feedTab!=="wiki" && feedTab!=="beans" && feedTab!=="equip" && (
           <div className="recipes-grid">
             {filtered.length===0 ? (
               <div className="empty-state">
@@ -979,6 +993,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                 activeTag={activeTag}/>
             ))}
           </div>
+          )}
         </div>
       )}
 
