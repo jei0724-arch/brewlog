@@ -618,7 +618,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                       stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"
                       fill={feedTab==="bookmarks"&&!showRanking?"currentColor":"none"}/>
                   </svg>
-                  {t.myBookmarks}{Object.keys(collections).length>0?` (${Object.keys(collections).length})`:""}
+                  {t.myBookmarks}{bookmarks.length>0?` (${new Set(bookmarks).size})`:""}
                 </button>
               </div>
               {user && <div style={{ width:"1px", height:"20px", background:"var(--divider)", flexShrink:0 }}/>}
