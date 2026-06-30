@@ -19,6 +19,7 @@ import { I18N }       from "../../constants/localization";
 import { COFFEE_MENUS, FLAVOR_AXES } from "../../constants/coffeeMenus";
 import { FlavorRadar } from "../ui";
 import ReportModal      from "../modals/ReportModal";
+import { translateFields, hasKorean } from "../../utils/translate";
 
 // ─────────────────────────────────────────────────────────────────
 export default function RecipeDetailModal({
@@ -42,6 +43,32 @@ export default function RecipeDetailModal({
   const [replyTo,       setReplyTo]       = useState(null);
   const [showMore,      setShowMore]      = useState(false);
   const [isBlocked,     setIsBlocked]     = useState(false);
+
+  // ── 영문 모드 자동 번역 (메모/머신/그라인더/연속추출메모) ──────
+  const [translated, setTranslated] = useState(null); // null = 번역 안 됨/불필요
+  const [translating, setTranslating] = useState(false);
+
+  useEffect(() => {
+    if (lang !== "en") { setTranslated(null); return; }
+    const fields = {
+      note: recipe.note || "",
+      machine: recipe.machine || "",
+      grinder: recipe.grinder || "",
+      continuousMemo: recipe.continuousMemo || "",
+    };
+    const needsTranslation = Object.values(fields).some(v => hasKorean(v));
+    if (!needsTranslation) { setTranslated(null); return; }
+
+    let cancelled = false;
+    setTranslating(true);
+    translateFields(fields).then(result => {
+      if (!cancelled) { setTranslated(result); setTranslating(false); }
+    });
+    return () => { cancelled = true; };
+  }, [lang, recipe.note, recipe.machine, recipe.grinder, recipe.continuousMemo]);
+
+  // 표시용 헬퍼 — 번역본이 있으면 번역본, 없으면 원문
+  const tr = (key, fallback) => translated?.[key] || fallback;
   const [blockLoading,  setBlockLoading]  = useState(false);
 
   const BLOCKED_KEY = `brewlog_blocked_${currentUid}`;
@@ -136,8 +163,8 @@ export default function RecipeDetailModal({
   // 라벨 행 데이터
   const labelRows = [
     recipe.machine    && { lbl: lang==="en"?(recipe.machineType==="handdrip"?"Equipment":"Machine"):(recipe.machineType==="handdrip"?"핸드드립 기구":"커피머신"),
-      val: <span>{recipe.machine}{recipe.machineType && recipe.machineType!=="handdrip" && <span style={{ marginLeft:"0.3rem", fontSize:"0.65rem", background:recipe.machineType==="auto"?"var(--latte)":"var(--steam)", color:"var(--espresso)", padding:"0.05rem 0.3rem", borderRadius:"999px" }}>{recipe.machineType==="auto"?(lang==="en"?"Auto":"전자동"):(lang==="en"?"Semi":"반자동")}</span>}</span> },
-    recipe.grinder    && { lbl: lang==="en"?"Grinder":"그라인더", val: recipe.grinder },
+      val: <span>{tr("machine", recipe.machine)}{recipe.machineType && recipe.machineType!=="handdrip" && <span style={{ marginLeft:"0.3rem", fontSize:"0.65rem", background:recipe.machineType==="auto"?"var(--latte)":"var(--steam)", color:"var(--espresso)", padding:"0.05rem 0.3rem", borderRadius:"999px" }}>{recipe.machineType==="auto"?(lang==="en"?"Auto":"전자동"):(lang==="en"?"Semi":"반자동")}</span>}</span> },
+    recipe.grinder    && { lbl: lang==="en"?"Grinder":"그라인더", val: tr("grinder", recipe.grinder) },
     recipe.grindSize  && { lbl: lang==="en"?"Grind":"분쇄도",    val: recipe.grindSize },
     recipe.company    && { lbl: lang==="en"?"Brand":"원두 회사",  val: recipe.company },
     recipe.roastDate  && { lbl: lang==="en"?"Roasted":"로스팅",  val: new Date(recipe.roastDate).toLocaleDateString(lang==="ko"?"ko-KR":"en-US") },
@@ -211,7 +238,7 @@ export default function RecipeDetailModal({
           </div>
         )}
 
-        {recipe.note && <div className="card-note">"{recipe.note}"</div>}
+        {recipe.note && <div className="card-note">"{tr("note", recipe.note)}"{translating && hasKorean(recipe.note) && lang==="en" && <span style={{ fontSize:"0.65rem", color:"var(--muted)", marginLeft:"6px" }}>(translating…)</span>}</div>}
 
         {/* 태그 */}
         {(recipe.tags||[]).length>0 && (
@@ -264,7 +291,7 @@ export default function RecipeDetailModal({
             <span style={{ fontSize:"0.62rem", fontWeight:700, color:"var(--latte)", textTransform:"uppercase", letterSpacing:"0.07em", display:"block", marginBottom:"3px" }}>
               {lang==="en"?"Extraction Note":"연속 추출 메모"}
             </span>
-            {recipe.continuousMemo}
+            {tr("continuousMemo", recipe.continuousMemo)}
           </div>
         )}
 
