@@ -8,7 +8,7 @@ import {
   getDocs, doc, addDoc, updateDoc, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
-import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, seedText } from "../../constants/wikiSeed";
+import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, seedText } from "../../constants/wikiSeed";
 import { translateFields, hasKorean } from "../../utils/translate";
 
 const I18N = {
@@ -149,11 +149,14 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // 시드 데이터 자동완성 추천 — 한/영 양쪽 이름 모두로 매칭 (개수 제한 없음)
+  // 시드 데이터 자동완성 추천 — 산지 정보(SEED_BEAN_ORIGINS) + 한국 로스터리(SEED_KOREAN_ROASTERS) 통합
+  // 원두명/산지명/로스터리명 어느 것으로 검색해도 매칭 (개수 제한 없음)
+  const ALL_BEAN_SEEDS = [...SEED_BEAN_ORIGINS, ...SEED_KOREAN_ROASTERS];
   const seedMatches = !editTarget && form.name.trim().length >= 2
-    ? SEED_BEAN_ORIGINS.filter(s =>
+    ? ALL_BEAN_SEEDS.filter(s =>
         similar(seedText(s.name, "ko"), form.name) || similar(seedText(s.name, "en"), form.name) ||
-        similar(seedText(s.origin, "ko"), form.name) || similar(seedText(s.origin, "en"), form.name)
+        similar(seedText(s.origin, "ko"), form.name) || similar(seedText(s.origin, "en"), form.name) ||
+        similar(seedText(s.roastery, "ko"), form.name) || similar(seedText(s.roastery, "en"), form.name)
       )
     : [];
 
@@ -164,6 +167,7 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
       name: seedText(seed.name, lang), origin: seedText(seed.origin, lang),
       region: seedText(seed.region, lang), variety: seedText(seed.variety, lang),
       process: seedText(seed.process, lang), altitude: seed.altitude,
+      roastery: seedText(seed.roastery, lang) || f.roastery,
       description: seedText(seed.description, lang),
     }));
   };
@@ -229,7 +233,7 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
                   onMouseLeave={e => e.currentTarget.style.background = "#B07D5408"}>
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", fontWeight: 600, color: "var(--espresso)" }}>{seedText(seed.name, lang)}</div>
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", marginTop: "2px" }}>
-                    {[seedText(seed.origin, lang), seedText(seed.region, lang), seedText(seed.process, lang)].filter(Boolean).join(" · ")}
+                    {[seedText(seed.roastery, lang), seedText(seed.origin, lang), seedText(seed.region, lang), seedText(seed.process, lang)].filter(Boolean).join(" · ")}
                   </div>
                 </button>
               ))}
