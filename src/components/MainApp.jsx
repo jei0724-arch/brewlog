@@ -290,18 +290,20 @@ export default function MainApp({
       if (showMyModalRef.current)  { setShowMyModalWrapped(false); return; }
       if (beanDetailOpenRef.current){ return; } // BeanVault 자체 popstate 핸들러가 처리, base 복구만 스킵
       if (wikiModalOpenRef.current){ return; }   // CoffeeWiki 자체 popstate 핸들러가 처리, base 복구만 스킵
-      if (beanShowModalRef.current){ setBeanShowModal(false); return; }
-      if (equipShowModalRef.current){ setEquipShowModal(false); return; }
+      if (beanShowModalRef.current){ beanShowModalRef.current=false; setBeanShowModal(false); return; }
+      if (equipShowModalRef.current){ equipShowModalRef.current=false; setEquipShowModal(false); return; }
 
       // 여기까지 왔다는 것은 "열려있던 모달이 없다"는 뜻 (위 ref 체크에서 모두 걸러짐)
       // → 이제는 탭 단계인지 확인. 탭이 "all"이 아니면 "all"로 복귀
       if (feedTabRef.current !== "all") {
+        feedTabRef.current = "all";
         setFeedTab("all");
         return; // pushState/replaceState 호출하지 않음 — 브라우저가 이미 한 단계 줄인 상태를 그대로 둠
       }
 
       // 관리자 화면이면 → 닫기 (이 경로는 보통 AdminApp onExit이 처리하지만 안전망으로 추가)
       if (adminModeRef.current) {
+        adminModeRef.current = false;
         setAdminMode(false);
         return;
       }

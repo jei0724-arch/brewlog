@@ -876,10 +876,10 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange }) {
   // 뒤로가기 → 위키 모달 닫기 (앱 밖으로 나가는 것 방지)
   useEffect(() => {
     const onPop = () => {
-      if (showBeanFormRef.current)  { setShowBeanForm(false);  return; }
-      if (showEquipFormRef.current) { setShowEquipForm(false); return; }
-      if (editTargetRef.current)    { setEditTarget(null);     return; }
-      if (detailItemRef.current)    { setDetailItem(null);     return; }
+      if (showBeanFormRef.current)  { showBeanFormRef.current=false;  setShowBeanForm(false);  return; }
+      if (showEquipFormRef.current) { showEquipFormRef.current=false; setShowEquipForm(false); return; }
+      if (editTargetRef.current)    { editTargetRef.current=null;     setEditTarget(null);     return; }
+      if (detailItemRef.current)    { detailItemRef.current=null;     setDetailItem(null);     return; }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);

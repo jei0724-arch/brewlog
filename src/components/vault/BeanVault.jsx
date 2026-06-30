@@ -1050,7 +1050,7 @@ export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal
   // BeanVault 자체에서 독립적으로 처리한다.
   useEffect(() => {
     const onPop = () => {
-      if (detailBeanRef.current) { setDetailBean(null); }
+      if (detailBeanRef.current) { detailBeanRef.current = null; setDetailBean(null); }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
