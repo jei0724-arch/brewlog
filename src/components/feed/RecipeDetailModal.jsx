@@ -483,10 +483,12 @@ export default function RecipeDetailModal({
                   const yieldLabel = { ideal:"이상적", under:"과소추출", over:"과다추출" }[yieldStatus] || "";
 
                   // 추출 압력 게이지 (0~12 bar 기준, 9bar 근방 권장)
-                  const pressureNum = parseFloat(recipe.brewPressureBar);
-                  const hasPressure = pressureNum > 0;
-                  const pressurePct = hasPressure ? Math.min(100, (pressureNum / 12) * 100) : 0;
-                  const pressureIdeal = hasPressure && pressureNum >= 8.5 && pressureNum <= 9.5;
+                  // 실측 압력(brewPressureBar) 우선, 없으면 추출량/시간 기반 자동계산 예상압력(showerBar)으로 폴백
+                  const pressureNum    = parseFloat(recipe.brewPressureBar) || parseFloat(recipe.showerBar) || null;
+                  const isPressureEst  = !recipe.brewPressureBar && !!recipe.showerBar; // 예상치인지 표시용
+                  const hasPressure    = pressureNum > 0;
+                  const pressurePct    = hasPressure ? Math.min(100, (pressureNum / 12) * 100) : 0;
+                  const pressureIdeal  = hasPressure && pressureNum >= 8.5 && pressureNum <= 9.5;
 
                   // ── DOM 조립 ──────────────────────────────────────
                   const el = document.createElement("div");
@@ -549,7 +551,7 @@ export default function RecipeDetailModal({
                       ${hasPressure ? `
                       <div style="background:#FAFAF9;border:1px solid #ECEAE7;border-radius:8px;padding:10px 14px;">
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                          <span style="font-size:10px;color:#9C8E82;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">추출 압력</span>
+                          <span style="font-size:10px;color:#9C8E82;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">추출 압력${isPressureEst?" (예상)":""}</span>
                           <span style="font-size:14px;font-weight:700;color:${pressureIdeal?"#5c9e6e":"#e67e22"};font-family:'Georgia',serif;">${pressureNum} BAR</span>
                         </div>
                         <div style="position:relative;height:6px;background:#ECEAE7;border-radius:3px;overflow:hidden;">
