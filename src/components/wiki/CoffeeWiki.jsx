@@ -9,6 +9,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, seedText } from "../../constants/wikiSeed";
+import { translateFields, hasKorean } from "../../utils/translate";
 
 const I18N = {
   ko: {
@@ -613,6 +614,35 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
   const t = I18N[lang];
   const isBean = type === "bean";
 
+  // ── 영문 모드 자동 번역 (원두명/산지/지역/품종/가공법/로스터리/설명) ──
+  const [translated, setTranslated] = useState(null);
+  const [translating, setTranslating] = useState(false);
+
+  useEffect(() => {
+    setTranslated(null);
+    if (lang !== "en") return;
+    const fields = isBean
+      ? {
+          name: item.name || "", origin: item.origin || "", region: item.region || "",
+          variety: item.variety || "", process: item.process || "",
+          roastery: item.roastery || "", description: item.description || "",
+        }
+      : {
+          description: item.description || "",
+        };
+    const needsTranslation = Object.values(fields).some(v => hasKorean(v));
+    if (!needsTranslation) return;
+
+    let cancelled = false;
+    setTranslating(true);
+    translateFields(fields).then(result => {
+      if (!cancelled) { setTranslated(result); setTranslating(false); }
+    });
+    return () => { cancelled = true; };
+  }, [lang, isBean, item.name, item.origin, item.region, item.variety, item.process, item.roastery, item.description]);
+
+  const tr = (key, fallback) => translated?.[key] || fallback;
+
   const fmtDate = (ts) => {
     if (!ts?.toDate) return "";
     return ts.toDate().toLocaleDateString(lang === "en" ? "en-US" : "ko-KR");
@@ -625,13 +655,14 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
           <button onClick={onClose} style={{ position: "absolute", top: "16px", right: "16px", background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.5)", fontSize: "1.1rem" }}>✕</button>
           <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--latte)", marginBottom: "8px" }}>
             {isBean ? t.tabBeans : t.tabEquip}
+            {translating && <span style={{ marginLeft: "8px", opacity: 0.6, textTransform: "none", letterSpacing: 0 }}>{lang === "en" ? "translating…" : "번역 중…"}</span>}
           </div>
           <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1.3rem", fontWeight: 700, color: "#FBFBFA", marginBottom: "4px" }}>
-            {isBean ? item.name : `${item.brand} ${item.model}`}
+            {isBean ? tr("name", item.name) : `${item.brand} ${item.model}`}
           </div>
           <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "rgba(255,255,255,0.55)" }}>
             {isBean
-              ? [item.origin, item.region, item.process].filter(Boolean).join(" · ")
+              ? [tr("origin", item.origin), tr("region", item.region), tr("process", item.process)].filter(Boolean).join(" · ")
               : [item.category === "machine" ? t.machine : item.category === "grinder" ? t.grinder : t.handdrip,
                  item.type === "full" ? t.fullAuto : item.type === "semi" ? t.semiAuto : item.type === "manual" ? t.manual : null
                 ].filter(Boolean).join(" · ")}
@@ -640,9 +671,9 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
 
         <div style={{ padding: "20px", background: "var(--foam)" }}>
           {isBean && [
-            [t.origin, item.origin], [t.region, item.region],
-            [t.variety, item.variety], [t.process, item.process],
-            [t.altitude, item.altitude], [t.roastery, item.roastery],
+            [t.origin, tr("origin", item.origin)], [t.region, tr("region", item.region)],
+            [t.variety, tr("variety", item.variety)], [t.process, tr("process", item.process)],
+            [t.altitude, item.altitude], [t.roastery, tr("roastery", item.roastery)],
           ].map(([label, value]) => value && (
             <div key={label} style={{ display: "flex", gap: "8px", padding: "7px 0", borderBottom: "1px solid var(--divider)" }}>
               <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", width: "72px", flexShrink: 0 }}>{label}</span>
@@ -688,7 +719,7 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
 
           {item.description && (
             <div style={{ marginTop: "14px", padding: "12px 14px", background: "var(--cream)", borderRadius: "8px", borderLeft: "3px solid var(--latte)" }}>
-              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.65 }}>{item.description}</p>
+              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.65 }}>{tr("description", item.description)}</p>
             </div>
           )}
 
