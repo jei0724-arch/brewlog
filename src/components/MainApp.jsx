@@ -717,7 +717,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
       {/* ── 타이틀 + 베스트 ── */}
       <div className="main-wrap" style={{ paddingTop:`${topBarHeight+8}px` }}>
         {/* 타이틀 */}
-        {(() => {
+        {feedTab!=="wiki" && (() => {
           let title, sub;
           if (filterAuthor) { title=`@${filterAuthor.name}`; sub=lang==="en"?`Recipes by @${filterAuthor.name}`:`@${filterAuthor.name}의 레시피`; }
           else if (myRecipesOnly||feedTab==="mine") { title=t.myFeedTitle; sub=t.myFeedSub; }
