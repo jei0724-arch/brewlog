@@ -307,35 +307,12 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
           { key: "region", label: t.region, phKo: "예) 예가체프", phEn: "e.g. Yirgacheffe" },
           { key: "variety", label: t.variety, phKo: "예) 헤이룸", phEn: "e.g. Heirloom" },
           { key: "process", label: t.process, phKo: "예) 워시드", phEn: "e.g. Washed" },
-          { key: "altitude", label: t.altitude, phKo: "예) 1900-2200m", phEn: "e.g. 1900-2200m" },
-          { key: "roastery", label: t.roastery, phKo: "예) 우리집커피", phEn: "e.g. Local Roastery" },
         ].map(({ key, label, required, phKo, phEn }) => (
           <div className="field full" key={key} style={{ marginBottom: "12px" }}>
             <label>{label}{required && <span style={{ color: "#c0392b" }}> *</span>}</label>
             <input value={form[key]} onChange={e => set(key, e.target.value)} placeholder={lang === "en" ? phEn : phKo} />
           </div>
         ))}
-
-        {/* 블렌드 전용 필드 */}
-        {isBlend && (
-          <>
-            <div className="field full" style={{ marginBottom: "12px" }}>
-              <label>{lang === "en" ? "Roastery" : "로스터리"}<span style={{ color: "#c0392b" }}> *</span></label>
-              <input value={form.roastery} onChange={e => set("roastery", e.target.value)}
-                placeholder={lang === "en" ? "e.g. Fritz Coffee Company" : "예) 프릳츠커피컴퍼니"} />
-            </div>
-            <div className="field full" style={{ marginBottom: "12px" }}>
-              <label>{lang === "en" ? "Blend Composition" : "블렌드 구성"}</label>
-              <input value={form.blendComposition} onChange={e => set("blendComposition", e.target.value)}
-                placeholder={lang === "en" ? "e.g. Brazil, Colombia Blend" : "예) 브라질, 콜롬비아 블렌드"} />
-            </div>
-            <div className="field full" style={{ marginBottom: "12px" }}>
-              <label>{t.process}</label>
-              <input value={form.process} onChange={e => set("process", e.target.value)}
-                placeholder={lang === "en" ? "e.g. Washed/Natural Mix" : "예) 워시드/내추럴 혼합"} />
-            </div>
-          </>
-        )}
 
         {/* 배전도 슬라이더 — 싱글/블렌드 공통 (선택사항) */}
         <div className="field full" style={{ marginBottom: "12px" }}>
@@ -374,6 +351,37 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
             </button>
           )}
         </div>
+
+        {isSingle && [
+          { key: "altitude", label: t.altitude, phKo: "예) 1900-2200m", phEn: "e.g. 1900-2200m" },
+          { key: "roastery", label: t.roastery, phKo: "예) 우리집커피", phEn: "e.g. Local Roastery" },
+        ].map(({ key, label, required, phKo, phEn }) => (
+          <div className="field full" key={key} style={{ marginBottom: "12px" }}>
+            <label>{label}{required && <span style={{ color: "#c0392b" }}> *</span>}</label>
+            <input value={form[key]} onChange={e => set(key, e.target.value)} placeholder={lang === "en" ? phEn : phKo} />
+          </div>
+        ))}
+
+        {/* 블렌드 전용 필드 */}
+        {isBlend && (
+          <>
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{lang === "en" ? "Roastery" : "로스터리"}<span style={{ color: "#c0392b" }}> *</span></label>
+              <input value={form.roastery} onChange={e => set("roastery", e.target.value)}
+                placeholder={lang === "en" ? "e.g. Fritz Coffee Company" : "예) 프릳츠커피컴퍼니"} />
+            </div>
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{lang === "en" ? "Blend Composition" : "블렌드 구성"}</label>
+              <input value={form.blendComposition} onChange={e => set("blendComposition", e.target.value)}
+                placeholder={lang === "en" ? "e.g. Brazil, Colombia Blend" : "예) 브라질, 콜롬비아 블렌드"} />
+            </div>
+            <div className="field full" style={{ marginBottom: "12px" }}>
+              <label>{t.process}</label>
+              <input value={form.process} onChange={e => set("process", e.target.value)}
+                placeholder={lang === "en" ? "e.g. Washed/Natural Mix" : "예) 워시드/내추럴 혼합"} />
+            </div>
+          </>
+        )}
 
         <div className="field full" style={{ marginBottom: "12px" }}>
           <label>{t.description}</label>
