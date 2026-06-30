@@ -9,7 +9,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   collection, doc, addDoc, updateDoc, deleteDoc,
-  getDocs, query, where, serverTimestamp,
+  getDocs, query, where, orderBy, limit, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { I18N }      from "../../constants/localization";
@@ -20,6 +20,14 @@ import {
   fetchUsdRate, formatPrice, formatPricePerG, formatCostPerCup,
 } from "../../utils/storage";
 import { BrandInput } from "../ui";
+
+// ── 문자열 유사도 (위키 검색용 — CoffeeWiki.jsx의 similar()와 동일 로직) ──
+function similarBeanName(a, b) {
+  if (!a || !b) return false;
+  const na = a.toLowerCase().replace(/\s+/g, "");
+  const nb = b.toLowerCase().replace(/\s+/g, "");
+  return na.includes(nb) || nb.includes(na);
+}
 
 // ─────────────────────────────────────────────────────────────────
 // EquipmentModal — 내부 서브컴포넌트
@@ -259,11 +267,73 @@ export function EquipmentVault({ user, lang, showModal, setShowModal }) {
 // ─────────────────────────────────────────────────────────────────
 function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
   const t = I18N[lang];
-  const empty = { name:"", roastery:"", originType:"single", originDetail:"", variety:"", process:"", roastLevel:"medium", roastDate:"", buyDate:"", price:"", weight:"", quantity:"1", note:"", status:"open" };
-  const [form,      setForm]      = useState(editTarget ? { ...empty, ...editTarget } : empty);
+  // 필드는 커피 위키(wiki_beans)와 동일한 구조 사용:
+  // beanType("single"|"blend"), origin(국가), region(지역), roastery, variety, process, altitude
+  const empty = {
+    name:"", beanType:"single", roastery:"",
+    origin:"", region:"", blendComposition:"",
+    variety:"", process:"", altitude:"",
+    roastLevel:"medium", roastDate:"", buyDate:"", price:"", weight:"", quantity:"1", note:"", status:"open",
+  };
+
+  // 기존 데이터(originType/originDetail) 마이그레이션 — 구버전 레시피 호환
+  const migrate = (e) => {
+    if (!e) return {};
+    if (e.beanType || e.origin) return e; // 이미 신버전
+    return {
+      ...e,
+      beanType: e.originType || "single",
+      origin: e.originDetail || "",
+      region: "",
+    };
+  };
+
+  const [form,      setForm]      = useState(editTarget ? { ...empty, ...migrate(editTarget) } : empty);
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState(null);
   const set = (k,v) => setForm(p=>({ ...p, [k]:v }));
+
+  // ── 위키 검색 자동완성 (원두명 2글자 이상 입력 시) ───────────────
+  const [wikiMatches, setWikiMatches] = useState([]);
+  const [wikiLoading, setWikiLoading] = useState(false);
+
+  useEffect(() => {
+    if (editTarget || form.name.trim().length < 2) { setWikiMatches([]); return; }
+    let cancelled = false;
+    setWikiLoading(true);
+    const tid = setTimeout(async () => {
+      try {
+        const snap = await getDocs(query(collection(db, "wiki_beans"), orderBy("createdAt","desc"), limit(200)));
+        if (cancelled) return;
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const matches = all.filter(w =>
+          similarBeanName(w.name, form.name) ||
+          (w.roastery && similarBeanName(w.roastery, form.name))
+        ).slice(0, 6);
+        setWikiMatches(matches);
+      } catch (e) {
+        console.error("[wiki search]", e);
+      }
+      setWikiLoading(false);
+    }, 350); // 디바운스
+    return () => { cancelled = true; clearTimeout(tid); };
+  }, [form.name, editTarget]);
+
+  const applyWikiBean = (w) => {
+    setForm(f => ({
+      ...f,
+      name: w.name || f.name,
+      beanType: w.beanType || "single",
+      roastery: w.roastery || f.roastery,
+      origin: w.origin || "",
+      region: w.region || "",
+      blendComposition: w.blendComposition || "",
+      variety: w.variety || "",
+      process: w.process || "",
+      altitude: w.altitude || "",
+    }));
+    setWikiMatches([]);
+  };
 
   const handleSave = async () => {
     if (!form.name.trim()||!form.roastery.trim()) return;
@@ -285,27 +355,83 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
     setSaving(false);
   };
 
+  const isSingle = form.beanType === "single";
+  const isBlend  = form.beanType === "blend";
+
   return (
     <div className="modal-backdrop" onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div className="modal" style={{ maxWidth:"560px" }}>
         <h2>{editTarget?t.beanEdit:t.beanAdd}</h2>
         <div className="modal-grid">
-          <div className="field full"><label>{t.beanName}</label><input value={form.name} onChange={e=>set("name",e.target.value)} placeholder="예) 에티오피아 예가체프 코체레"/></div>
+          <div className="field full">
+            <label>{t.beanName}</label>
+            <input value={form.name} onChange={e=>set("name",e.target.value)}
+              placeholder={isSingle ? "예) 에티오피아 예가체프 코체레" : "예) 프릳츠 올드독"}/>
+          </div>
+
+          {/* 위키 검색 자동완성 카드 */}
+          {(wikiMatches.length > 0 || wikiLoading) && (
+            <div className="field full" style={{ marginTop:"-8px" }}>
+              {wikiLoading ? (
+                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.74rem", color:"var(--muted)" }}>
+                  {lang==="en"?"Searching wiki…":"위키 검색 중…"}
+                </p>
+              ) : (
+                <>
+                  <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--latte)", fontWeight:600, marginBottom:"8px", display:"flex", alignItems:"center", gap:"4px" }}>
+                    <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3"/><path d="M7 4.5v3l2 1.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                    {lang==="en"?`Found in Coffee Wiki (${wikiMatches.length})`:`커피 위키에서 찾았어요 (${wikiMatches.length}개)`}
+                  </p>
+                  <div style={{ display:"flex", flexDirection:"column", gap:"6px", maxHeight:"200px", overflowY:"auto" }}>
+                    {wikiMatches.map(w => (
+                      <button key={w.id} type="button" onClick={()=>applyWikiBean(w)}
+                        style={{ textAlign:"left", padding:"10px 12px", borderRadius:"8px", border:"1px solid #B07D5430", background:"#B07D5408", cursor:"pointer", transition:"background 0.15s" }}
+                        onMouseEnter={e=>e.currentTarget.style.background="#B07D5415"}
+                        onMouseLeave={e=>e.currentTarget.style.background="#B07D5408"}>
+                        <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", fontWeight:600, color:"var(--espresso)" }}>{w.name}</div>
+                        <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginTop:"2px" }}>
+                          {w.beanType === "blend"
+                            ? [w.roastery, w.blendComposition].filter(Boolean).join(" · ")
+                            : [w.roastery, w.origin, w.region, w.process].filter(Boolean).join(" · ")}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="field full"><label>{t.beanRoastery}</label><input value={form.roastery} onChange={e=>set("roastery",e.target.value)} placeholder="예) 오니버스 커피, 테라로사"/></div>
-          {/* 원산지 유형 */}
+
+          {/* 원산지 유형 — 위키와 동일하게 beanType 사용 */}
           <div className="field full">
             <label>{t.beanOriginType}</label>
             <div style={{ display:"flex", gap:"8px" }}>
               {[["single",t.beanSingle],["blend",t.beanBlend]].map(([v,lbl])=>(
-                <button key={v} type="button" onClick={()=>set("originType",v)}
+                <button key={v} type="button" onClick={()=>set("beanType",v)}
                   style={{ flex:1, padding:"0.6rem", border:"1px solid", borderRadius:"8px", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", transition:"all 0.2s",
-                    borderColor: form.originType===v?"var(--espresso)":"var(--steam)",
-                    background:  form.originType===v?"var(--espresso)":"var(--foam)",
-                    color:       form.originType===v?"var(--cream)":"var(--muted)", fontWeight:form.originType===v?600:400 }}>{lbl}</button>
+                    borderColor: form.beanType===v?"var(--espresso)":"var(--steam)",
+                    background:  form.beanType===v?"var(--espresso)":"var(--foam)",
+                    color:       form.beanType===v?"var(--cream)":"var(--muted)", fontWeight:form.beanType===v?600:400 }}>{lbl}</button>
               ))}
             </div>
           </div>
-          <div className="field full"><label>{t.beanOrigin}</label><input value={form.originDetail} onChange={e=>set("originDetail",e.target.value)} placeholder="예) 에티오피아 · 시다마 · 코체레 워시드 스테이션"/></div>
+
+          {/* 싱글 오리진 — 산지/지역 분리 (위키와 동일) */}
+          {isSingle && (
+            <>
+              <div className="field"><label>{t.beanOrigin}{lang==="en"?" (Country)":"(국가)"}</label><input value={form.origin} onChange={e=>set("origin",e.target.value)} placeholder="예) 에티오피아"/></div>
+              <div className="field"><label>{lang==="en"?"Region":"지역"}</label><input value={form.region} onChange={e=>set("region",e.target.value)} placeholder="예) 시다마 코체레"/></div>
+              <div className="field"><label>{lang==="en"?"Altitude":"고도"}</label><input value={form.altitude} onChange={e=>set("altitude",e.target.value)} placeholder="예) 1900-2200m"/></div>
+            </>
+          )}
+
+          {/* 블렌드 — 구성 원두 */}
+          {isBlend && (
+            <div className="field full"><label>{lang==="en"?"Blend Composition":"블렌드 구성"}</label><input value={form.blendComposition} onChange={e=>set("blendComposition",e.target.value)} placeholder="예) 브라질, 콜롬비아 블렌드"/></div>
+          )}
+
           <div className="field"><label>{t.beanVariety}</label><input value={form.variety} onChange={e=>set("variety",e.target.value)} placeholder={t.beanVarietyPh}/></div>
           <div className="field">
             <label>{t.beanProcess}</label>
@@ -449,11 +575,11 @@ function FirstBrewSuggestionModal({ bean, lang, user, onClose }) {
 원두 정보:
 - 이름: ${bean.name}
 - 로스터리: ${bean.roastery}
-- 산지: ${bean.originDetail || bean.originType}
+- 산지: ${[bean.origin||bean.originDetail, bean.region].filter(Boolean).join(" ") || bean.beanType||bean.originType}
 - 품종: ${bean.variety || "미상"}
 - 가공법: ${bean.process || "미상"}
 - 배전도: ${roastLabel}
-- 원두 타입: ${bean.originType === "single" ? "싱글 오리진" : "블렌드"}
+- 원두 타입: ${(bean.beanType||bean.originType) === "single" ? "싱글 오리진" : "블렌드"}
 응답 형식(JSON only, 다른 텍스트 금지):
 {
   "gram": "숫자만(g)",
@@ -469,11 +595,11 @@ function FirstBrewSuggestionModal({ bean, lang, user, onClose }) {
 Bean info:
 - Name: ${bean.name}
 - Roastery: ${bean.roastery}
-- Origin: ${bean.originDetail || bean.originType}
+- Origin: ${[bean.origin||bean.originDetail, bean.region].filter(Boolean).join(" ") || bean.beanType||bean.originType}
 - Variety: ${bean.variety || "unknown"}
 - Process: ${bean.process || "unknown"}
 - Roast level: ${bean.roastLevel || "medium"}
-- Type: ${bean.originType === "single" ? "Single Origin" : "Blend"}
+- Type: ${(bean.beanType||bean.originType) === "single" ? "Single Origin" : "Blend"}
 JSON only:
 {
   "gram": "number only(g)",
@@ -543,7 +669,7 @@ JSON only:
           <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.2rem", fontWeight:700, color:"#FBFBFA", marginBottom:"3px" }}>{bean.name}</div>
           <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", color:"rgba(255,255,255,0.55)", display:"flex", flexWrap:"wrap", gap:"6px" }}>
             {bean.roastery && <span>{bean.roastery}</span>}
-            {bean.originDetail && <><span style={{ opacity:0.3 }}>·</span><span>{bean.originDetail}</span></>}
+            {(bean.origin||bean.originDetail) && <><span style={{ opacity:0.3 }}>·</span><span>{[bean.origin||bean.originDetail, bean.region].filter(Boolean).join(" ")}</span></>}
             {bean.process     && <><span style={{ opacity:0.3 }}>·</span><span>{bean.process}</span></>}
             {bean.roastLevel  && <><span style={{ opacity:0.3 }}>·</span><span>{ROAST_NAMES[bean.roastLevel]||bean.roastLevel}</span></>}
           </div>
@@ -710,10 +836,10 @@ function BeanDetailModal({ bean, user, lang, onClose, onEdit }) {
     const roastLabel = ROAST_NAMES[bean.roastLevel] || bean.roastLevel || "미디엄";
     const prompt = isKo
       ? `전문 바리스타 AI로서 아래 원두의 에스프레소 첫 추출 시작점 파라미터를 JSON으로만 응답하세요.
-원두: ${bean.name} / 로스터리: ${bean.roastery} / 산지: ${bean.originDetail||bean.originType} / 품종: ${bean.variety||"미상"} / 가공법: ${bean.process||"미상"} / 배전도: ${roastLabel}
+원두: ${bean.name} / 로스터리: ${bean.roastery} / 산지: ${[bean.origin||bean.originDetail, bean.region].filter(Boolean).join(" ")||"미상"} / 품종: ${bean.variety||"미상"} / 가공법: ${bean.process||"미상"} / 배전도: ${roastLabel}
 JSON only: {"gram":"숫자","seconds":"숫자","espressoMl":"숫자","waterTemp":"숫자","grindDesc":"분쇄도 한 문장","ratioDesc":"추출비율 설명","tip":"팁 2~3문장","flavorExpect":"기대 플레이버 3가지 이내"}`
       : `As a professional barista AI, respond in JSON only with starting espresso parameters for this bean.
-Bean: ${bean.name} / Roastery: ${bean.roastery} / Origin: ${bean.originDetail||bean.originType} / Process: ${bean.process||"unknown"} / Roast: ${bean.roastLevel||"medium"}
+Bean: ${bean.name} / Roastery: ${bean.roastery} / Origin: ${[bean.origin||bean.originDetail, bean.region].filter(Boolean).join(" ")||"unknown"} / Process: ${bean.process||"unknown"} / Roast: ${bean.roastLevel||"medium"}
 JSON only: {"gram":"number","seconds":"number","espressoMl":"number","waterTemp":"number","grindDesc":"one sentence","ratioDesc":"ratio explanation","tip":"2-3 sentence tip","flavorExpect":"up to 3 flavor notes"}`;
     try {
       const controller = new AbortController();
@@ -769,7 +895,7 @@ JSON only: {"gram":"number","seconds":"number","espressoMl":"number","waterTemp"
           </div>
           <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.3rem", fontWeight:700, color:"#FBFBFA", lineHeight:1.3, marginBottom:"4px" }}>{bean.name}</div>
           <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"rgba(255,255,255,0.55)" }}>
-            {[bean.roastery, bean.originDetail||bean.originType, bean.process, ROAST_NAMES[bean.roastLevel]||bean.roastLevel].filter(Boolean).join(" · ")}
+            {[bean.roastery, [bean.origin||bean.originDetail, bean.region].filter(Boolean).join(" "), bean.process, ROAST_NAMES[bean.roastLevel]||bean.roastLevel].filter(Boolean).join(" · ")}
           </div>
         </div>
 
@@ -778,7 +904,7 @@ JSON only: {"gram":"number","seconds":"number","espressoMl":"number","waterTemp"
           {/* 원두 기본 정보 */}
           <div style={{ marginBottom:"20px" }}>
             <InfoRow label={isKo?"원두 회사":"Roastery"}  value={bean.roastery}/>
-            <InfoRow label={isKo?"원산지":"Origin"}       value={bean.originDetail}/>
+            <InfoRow label={isKo?"원산지":"Origin"}       value={[bean.origin||bean.originDetail, bean.region].filter(Boolean).join(" ")}/>
             <InfoRow label={isKo?"품종":"Variety"}        value={bean.variety}/>
             <InfoRow label={isKo?"가공법":"Process"}      value={bean.process}/>
             <InfoRow label={isKo?"배전도":"Roast"}        value={ROAST_NAMES[bean.roastLevel]||bean.roastLevel}/>
@@ -1005,7 +1131,7 @@ export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal
       if(d<=7)fresh.fresh++; else if(d<=30)fresh.peak++; else if(d<=60)fresh.aged++; else fresh.stale++;
     });
     const mode=(arr)=>{ const cnt={}; arr.forEach(v=>v&&(cnt[v]=(cnt[v]||0)+1)); return Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0]?.[0]||null; };
-    const topRoast=mode(beans.map(b=>b.roastLevel)), topProcess=mode(beans.map(b=>b.process)), topOrigin=mode(beans.map(b=>b.originDetail)), topType=mode(beans.map(b=>b.originType));
+    const topRoast=mode(beans.map(b=>b.roastLevel)), topProcess=mode(beans.map(b=>b.process)), topOrigin=mode(beans.map(b=>b.origin||b.originDetail)), topType=mode(beans.map(b=>b.beanType||b.originType));
     const mostUsed=[...beans].sort((a,b)=>(b.usedCount||0)-(a.usedCount||0))[0];
     const resetDate=statsResetDate?new Date(statsResetDate):null;
     const oldestBean=[...beans].filter(b=>b.createdAt?.toDate?.()).sort((a,b)=>a.createdAt.toDate()-b.createdAt.toDate())[0];
@@ -1156,8 +1282,8 @@ export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal
                   {freshness && <span className={`bean-freshness-badge bean-${freshness.key}`}>{freshness.label}</span>}
                 </div>
                 <div className="bean-meta-row">
-                  {bean.originType&&<span className="bean-tag">{bean.originType==="single"?t.beanSingle:t.beanBlend}</span>}
-                  {bean.originDetail&&<span className="bean-tag">{bean.originDetail}</span>}
+                  {(bean.beanType||bean.originType)&&<span className="bean-tag">{(bean.beanType||bean.originType)==="single"?t.beanSingle:t.beanBlend}</span>}
+                  {(bean.origin||bean.originDetail)&&<span className="bean-tag">{[bean.origin||bean.originDetail, bean.region].filter(Boolean).join(" ")}</span>}
                   {bean.variety&&<span className="bean-tag">{bean.variety}</span>}
                   {bean.process&&<span className="bean-tag">{bean.process}</span>}
                 </div>
