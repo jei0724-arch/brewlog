@@ -143,7 +143,8 @@ export default function MainApp({
     const t = setTimeout(measure, 100);
     window.addEventListener("resize", measure);
     return () => { clearTimeout(t); window.removeEventListener("resize", measure); };
-  }, []);
+    // feedTab이 바뀌면 두 번째 행(검색/필터바)의 유무가 달라져 top-bar 실제 높이가 변하므로 재측정 필요
+  }, [feedTab]);
 
   useEffect(() => {
     const onScroll = () => {
