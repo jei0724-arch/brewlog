@@ -8,7 +8,7 @@ import {
   getDocs, doc, addDoc, updateDoc, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
-import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS } from "../../constants/wikiSeed";
+import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, seedText } from "../../constants/wikiSeed";
 
 const I18N = {
   ko: {
@@ -148,17 +148,21 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // 시드 데이터 자동완성 추천
+  // 시드 데이터 자동완성 추천 — 한/영 양쪽 이름 모두로 매칭
   const seedMatches = !editTarget && form.name.trim().length >= 2
-    ? SEED_BEAN_ORIGINS.filter(s => similar(s.name, form.name)).slice(0, 4)
+    ? SEED_BEAN_ORIGINS.filter(s =>
+        similar(seedText(s.name, "ko"), form.name) || similar(seedText(s.name, "en"), form.name)
+      ).slice(0, 4)
     : [];
 
+  // 항상 현재 lang에 맞는 텍스트로 채움 (한국어 입력 + 영문 모드여도 영문으로 채워짐)
   const applySeed = (seed) => {
     setForm(f => ({
       ...f,
-      name: seed.name, origin: seed.origin, region: seed.region,
-      variety: seed.variety, process: seed.process, altitude: seed.altitude,
-      description: seed.description,
+      name: seedText(seed.name, lang), origin: seedText(seed.origin, lang),
+      region: seedText(seed.region, lang), variety: seedText(seed.variety, lang),
+      process: seedText(seed.process, lang), altitude: seed.altitude,
+      description: seedText(seed.description, lang),
     }));
   };
 
@@ -205,7 +209,7 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
         {/* 원두명 입력 + 시드 추천 */}
         <div className="field full" style={{ marginBottom: "12px" }}>
           <label>{t.beanName}<span style={{ color: "#c0392b" }}> *</span></label>
-          <input value={form.name} onChange={e => set("name", e.target.value)} placeholder="예) 에티오피아 예가체프 코체레" />
+          <input value={form.name} onChange={e => set("name", e.target.value)} placeholder={lang === "en" ? "e.g. Ethiopia Yirgacheffe" : "예) 에티오피아 예가체프 코체레"} />
         </div>
 
         {/* 시드 데이터 자동완성 카드 */}
@@ -221,9 +225,9 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
                   style={{ textAlign: "left", padding: "10px 12px", borderRadius: "8px", border: "1px solid #B07D5430", background: "#B07D5408", cursor: "pointer", transition: "background 0.15s" }}
                   onMouseEnter={e => e.currentTarget.style.background = "#B07D5415"}
                   onMouseLeave={e => e.currentTarget.style.background = "#B07D5408"}>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", fontWeight: 600, color: "var(--espresso)" }}>{seed.name}</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", fontWeight: 600, color: "var(--espresso)" }}>{seedText(seed.name, lang)}</div>
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", marginTop: "2px" }}>
-                    {[seed.origin, seed.region, seed.process].filter(Boolean).join(" · ")}
+                    {[seedText(seed.origin, lang), seedText(seed.region, lang), seedText(seed.process, lang)].filter(Boolean).join(" · ")}
                   </div>
                 </button>
               ))}
@@ -232,16 +236,16 @@ function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
         )}
 
         {[
-          { key: "origin", label: t.origin, required: true, ph: "예) 에티오피아" },
-          { key: "region", label: t.region, ph: "예) 예가체프" },
-          { key: "variety", label: t.variety, ph: "예) 헤이룸" },
-          { key: "process", label: t.process, ph: "예) 워시드" },
-          { key: "altitude", label: t.altitude, ph: "예) 1900-2200m" },
-          { key: "roastery", label: t.roastery, ph: "예) 우리집커피" },
-        ].map(({ key, label, required, ph }) => (
+          { key: "origin", label: t.origin, required: true, phKo: "예) 에티오피아", phEn: "e.g. Ethiopia" },
+          { key: "region", label: t.region, phKo: "예) 예가체프", phEn: "e.g. Yirgacheffe" },
+          { key: "variety", label: t.variety, phKo: "예) 헤이룸", phEn: "e.g. Heirloom" },
+          { key: "process", label: t.process, phKo: "예) 워시드", phEn: "e.g. Washed" },
+          { key: "altitude", label: t.altitude, phKo: "예) 1900-2200m", phEn: "e.g. 1900-2200m" },
+          { key: "roastery", label: t.roastery, phKo: "예) 우리집커피", phEn: "e.g. Local Roastery" },
+        ].map(({ key, label, required, phKo, phEn }) => (
           <div className="field full" key={key} style={{ marginBottom: "12px" }}>
             <label>{label}{required && <span style={{ color: "#c0392b" }}> *</span>}</label>
-            <input value={form[key]} onChange={e => set(key, e.target.value)} placeholder={ph} />
+            <input value={form[key]} onChange={e => set(key, e.target.value)} placeholder={lang === "en" ? phEn : phKo} />
           </div>
         ))}
 
@@ -326,7 +330,7 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
       hasSteam: seed.hasSteam ?? true,
       burrType: seed.burrType || "", grindSteps: seed.grindSteps || "", motorType: seed.motorType || "", rpm: seed.rpm || "",
       material: seed.material || "", dripperShape: seed.dripperShape || "", capacityCups: seed.capacityCups || "",
-      description: seed.description || "",
+      description: seedText(seed.description, lang),
     }));
   };
 
@@ -392,11 +396,11 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
 
         <div className="field full" style={{ marginBottom: "12px" }}>
           <label>{t.equipBrand}<span style={{ color: "#c0392b" }}> *</span></label>
-          <input value={form.brand} onChange={e => set("brand", e.target.value)} placeholder="예) Breville" />
+          <input value={form.brand} onChange={e => set("brand", e.target.value)} placeholder={lang === "en" ? "e.g. Breville" : "예) Breville"} />
         </div>
         <div className="field full" style={{ marginBottom: "12px" }}>
           <label>{t.equipModel}<span style={{ color: "#c0392b" }}> *</span></label>
-          <input value={form.model} onChange={e => set("model", e.target.value)} placeholder="예) Barista Express" />
+          <input value={form.model} onChange={e => set("model", e.target.value)} placeholder={lang === "en" ? "e.g. Barista Express" : "예) Barista Express"} />
         </div>
 
         {/* 시드 데이터 자동완성 카드 */}
@@ -414,7 +418,7 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
                   onMouseLeave={e => e.currentTarget.style.background = "#B07D5408"}>
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", fontWeight: 600, color: "var(--espresso)" }}>{seed.brand} {seed.model}</div>
                   <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", marginTop: "2px" }}>
-                    {seed.description}
+                    {seedText(seed.description, lang)}
                   </div>
                 </button>
               ))}
@@ -458,11 +462,11 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
               <div className="field">
                 <label>{t.specPump}</label>
-                <input type="number" step="0.1" value={form.pumpBar} onChange={e => set("pumpBar", e.target.value)} placeholder="예) 15" />
+                <input type="number" step="0.1" value={form.pumpBar} onChange={e => set("pumpBar", e.target.value)} placeholder={lang === "en" ? "e.g. 15" : "예) 15"} />
               </div>
               <div className="field">
                 <label>{t.specTank}</label>
-                <input type="number" step="0.1" value={form.tankL} onChange={e => set("tankL", e.target.value)} placeholder="예) 2.8" />
+                <input type="number" step="0.1" value={form.tankL} onChange={e => set("tankL", e.target.value)} placeholder={lang === "en" ? "e.g. 2.8" : "예) 2.8"} />
               </div>
             </div>
 
@@ -504,11 +508,11 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
               <div className="field">
                 <label>{t.specSteps}</label>
-                <input type="number" value={form.grindSteps} onChange={e => set("grindSteps", e.target.value)} placeholder="예) 40" />
+                <input type="number" value={form.grindSteps} onChange={e => set("grindSteps", e.target.value)} placeholder={lang === "en" ? "e.g. 40" : "예) 40"} />
               </div>
               <div className="field">
                 <label>{t.specRpm}</label>
-                <input type="number" value={form.rpm} onChange={e => set("rpm", e.target.value)} placeholder="예) 1600" />
+                <input type="number" value={form.rpm} onChange={e => set("rpm", e.target.value)} placeholder={lang === "en" ? "e.g. 1600" : "예) 1600"} />
               </div>
             </div>
 
@@ -564,7 +568,7 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
 
             <div className="field full" style={{ marginBottom: "12px" }}>
               <label>{t.specCapacity}</label>
-              <input type="number" value={form.capacityCups} onChange={e => set("capacityCups", e.target.value)} placeholder="예) 2" />
+              <input type="number" value={form.capacityCups} onChange={e => set("capacityCups", e.target.value)} placeholder={lang === "en" ? "e.g. 2" : "예) 2"} />
             </div>
           </>
         )}
