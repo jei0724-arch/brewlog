@@ -843,7 +843,7 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
   );
 }
 
-export function CoffeeWiki({ user, lang = "ko" }) {
+export function CoffeeWiki({ user, lang = "ko", onModalOpenChange }) {
   const t = I18N[lang];
   const [tab, setTab] = useState("beans");
   const [beans, setBeans] = useState([]);
@@ -865,6 +865,13 @@ export function CoffeeWiki({ user, lang = "ko" }) {
   useEffect(() => { showEquipFormRef.current = showEquipForm; }, [showEquipForm]);
   useEffect(() => { editTargetRef.current    = editTarget;    }, [editTarget]);
   useEffect(() => { detailItemRef.current    = detailItem;    }, [detailItem]);
+
+  // 위키 내부 모달 중 하나라도 열려있으면 부모(MainApp)에게 알림
+  // → MainApp의 popstate 핸들러가 "히스토리 소진"으로 잘못 판단해 base를 재푸시하는 것을 방지
+  useEffect(() => {
+    const anyOpen = !!(showBeanForm || showEquipForm || editTarget || detailItem);
+    onModalOpenChange?.(anyOpen);
+  }, [showBeanForm, showEquipForm, editTarget, detailItem]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 뒤로가기 → 위키 모달 닫기 (앱 밖으로 나가는 것 방지)
   useEffect(() => {

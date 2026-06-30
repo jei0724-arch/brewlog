@@ -194,6 +194,15 @@ export default function MainApp({
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
   useEffect(() => { userRef.current = user; }, [user]);
 
+  // "all" 탭이 아닌 다른 탭(구독/즐겨찾기/내레시피/원두/장비/위키)으로 이동할 때
+  // 히스토리에 기록해서, 뒤로가기 시 "all" 탭으로 돌아오도록 함 (앱 이탈 방지)
+  const goToTab = (tab) => {
+    if (tab !== "all" && feedTabRef.current !== tab) {
+      window.history.pushState({ tab: true }, "");
+    }
+    setFeedTab(tab);
+  };
+
   useEffect(() => {
     const onStart = (e) => {
       if (document.querySelector(".modal-backdrop")) return;
@@ -210,8 +219,9 @@ export default function MainApp({
         ? ["all","following","bookmarks","mine","beans","equip","wiki"]
         : ["all","following","bookmarks","wiki"];
       const cur  = tabs.indexOf(feedTabRef.current);
-      if (dx < 0) { const next = (cur+1)%tabs.length; setFeedTab(tabs[next]); setMyRecipesOnly(false); setShowRanking(false); }
-      else         { const prev = (cur-1+tabs.length)%tabs.length; setFeedTab(tabs[prev]); setMyRecipesOnly(false); setShowRanking(false); }
+      const pushIfNeeded = (nextTab) => { if (nextTab !== "all") window.history.pushState({ tab: true }, ""); };
+      if (dx < 0) { const next = (cur+1)%tabs.length; pushIfNeeded(tabs[next]); setFeedTab(tabs[next]); setMyRecipesOnly(false); setShowRanking(false); }
+      else         { const prev = (cur-1+tabs.length)%tabs.length; pushIfNeeded(tabs[prev]); setFeedTab(tabs[prev]); setMyRecipesOnly(false); setShowRanking(false); }
     };
     document.addEventListener("touchstart", onStart, { passive:true });
     document.addEventListener("touchend", onEnd, { passive:true });
@@ -239,6 +249,9 @@ export default function MainApp({
   const showMyModalRef   = useRef(false);
   const beanShowModalRef = useRef(false);
   const beanDetailOpenRef = useRef(false); // BeanVault 내부 원두 상세 모달 열림 여부
+  const wikiModalOpenRef  = useRef(false); // CoffeeWiki 내부 모달 열림 여부
+  const adminModeRef      = useRef(false); // 관리자 화면 진입 여부
+  useEffect(() => { adminModeRef.current = adminMode; }, [adminMode]);
   const equipShowModalRef= useRef(false);
   const compareTargetRef = useRef(null);
   const pendingDetailRef = useRef(null);
@@ -276,13 +289,28 @@ export default function MainApp({
       }
       if (showMyModalRef.current)  { setShowMyModalWrapped(false); return; }
       if (beanDetailOpenRef.current){ return; } // BeanVault 자체 popstate 핸들러가 처리, base 복구만 스킵
+      if (wikiModalOpenRef.current){ return; }   // CoffeeWiki 자체 popstate 핸들러가 처리, base 복구만 스킵
       if (beanShowModalRef.current){ setBeanShowModal(false); return; }
       if (equipShowModalRef.current){ setEquipShowModal(false); return; }
 
-      // 모달이 하나도 없는데 popstate가 발생하면 (히스토리 소진)
-      // 베이스 엔트리로 되돌려서 앱 밖으로 나가는 것을 방지
+      // 탭이 "all"이 아니면 → "all" 탭으로 복귀 (앱 이탈 대신)
+      if (feedTabRef.current !== "all") {
+        setFeedTab("all");
+        window.history.replaceState({base:true}, ""); // 탭 히스토리 엔트리를 base로 정리
+        return;
+      }
+
+      // 관리자 화면이면 → 닫기 (이 경로는 보통 AdminApp onExit이 처리하지만 안전망으로 추가)
+      if (adminModeRef.current) {
+        setAdminMode(false);
+        window.history.replaceState({base:true}, "");
+        return;
+      }
+
+      // 모달이 하나도 없고 "all" 탭인데 popstate가 발생하면 (히스토리 진짜 소진)
+      // → 이 경우에만 실제로 앱을 나가도록 베이스 재푸시를 하지 않음
       if (e.state?.base) {
-        window.history.pushState({base:true}, "");
+        // "all" 탭에서는 의도적으로 앱을 나가도록 둠 (재푸시 안 함)
       }
     };
     window.addEventListener("popstate", onPop);
@@ -432,7 +460,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
     return { top3:list.slice(0,3), full:list.slice(0,100) };
   }, [recipes, bestPeriod]);
 
-  if (adminMode) return <AdminApp user={user} lang={lang} onExit={() => setAdminMode(false)}/>;
+  if (adminMode) return <AdminApp user={user} lang={lang} onExit={() => { window.history.go(-1); setAdminMode(false); }}/>;
 
   const PERIODS = [
     { key:"day",   label: lang==="en"?"Today":"오늘" },
@@ -487,7 +515,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                     title={myRecipesOnly?"전체 피드 보기":"내 레시피만 보기"}>
                     @{user?.displayName}{myRecipesOnly?" ·":""}
                   </span>
-                  {isAdmin && <button className="btn-admin-header" onClick={() => setAdminMode(true)}>관리자</button>}
+                  {isAdmin && <button className="btn-admin-header" onClick={() => { window.history.pushState({modal:true},""); setAdminMode(true); }}>관리자</button>}
                   {/* 다크모드 */}
                   <button onClick={toggleDark}
                     style={{ background:"none", border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", width:"32px", height:"32px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"var(--muted)", transition:"border-color var(--transition-base), color var(--transition-base)", flexShrink:0 }}
@@ -578,7 +606,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                 </button>
                 {/* 구독 */}
                 <button className={`bookmark-tab-btn ${feedTab==="following"&&!showRanking?"active":""}`}
-                  onClick={()=>{ setFeedTab("following"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                  onClick={()=>{ goToTab("following"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                   <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
                     <circle cx="5.5" cy="4" r="2.5" stroke="currentColor" strokeWidth="1.3"/>
                     <path d="M1 12c0-2.5 2-4 4.5-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -588,7 +616,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                 </button>
                 {/* 즐겨찾기 */}
                 <button className={`bookmark-tab-btn ${feedTab==="bookmarks"&&!showRanking?"active":""}`}
-                  onClick={()=>{ setFeedTab("bookmarks"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                  onClick={()=>{ goToTab("bookmarks"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                   <svg width="13" height="13" viewBox="0 0 12 15" fill="none">
                     <path d="M1 1.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 .5.5v12l-5-3-5 3v-12z"
                       stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"
@@ -602,7 +630,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                 <div style={{ display:"flex", gap:"4px", overflowX:"auto", WebkitOverflowScrolling:"touch", scrollbarWidth:"none", flexShrink:1 }}>
                   {/* 내 레시피 */}
                   <button className={`bookmark-tab-btn ${feedTab==="mine"&&!showRanking?"active":""}`}
-                    onClick={()=>{ setFeedTab("mine"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                    onClick={()=>{ goToTab("mine"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                     <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
                       <rect x="2" y="1" width="10" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/>
                       <path d="M4.5 5h5M4.5 7.5h5M4.5 10h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -611,7 +639,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                   </button>
                   {/* 원두 */}
                   <button className={`bookmark-tab-btn ${feedTab==="beans"&&!showRanking?"active":""}`}
-                    onClick={()=>{ setFeedTab("beans"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                    onClick={()=>{ goToTab("beans"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                     <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
                       <ellipse cx="7" cy="10" rx="4.5" ry="2" stroke="currentColor" strokeWidth="1.3"/>
                       <path d="M2.5 10C2.5 6.5 4.5 3 7 2s4.5 2 4.5 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -620,7 +648,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                   </button>
                   {/* 장비 */}
                   <button className={`bookmark-tab-btn ${feedTab==="equip"&&!showRanking?"active":""}`}
-                    onClick={()=>{ setFeedTab("equip"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                    onClick={()=>{ goToTab("equip"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                     <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
                       <rect x="2" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
                       <path d="M10 6h1.5a2 2 0 0 1 0 4H10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -632,7 +660,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
               )}
               {/* 커피 위키 (로그인 불필요) */}
               <button className={`bookmark-tab-btn ${feedTab==="wiki"&&!showRanking?"active":""}`}
-                onClick={()=>{ setFeedTab("wiki"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
+                onClick={()=>{ goToTab("wiki"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                 <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
                   <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3"/>
                   <path d="M7 4.5v3l2 1.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -806,7 +834,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
             setShowModal={(v)=>{ equipShowModalRef.current=v; if(v) window.history.pushState({modal:true},""); setEquipShowModal(v); }}/>
         )}
         {feedTab==="wiki" && (
-          <CoffeeWiki user={user} lang={lang}/>
+          <CoffeeWiki user={user} lang={lang} onModalOpenChange={(open)=>{ wikiModalOpenRef.current=open; }}/>
         )}
 
         {/* 베스트 레시피 (전체 피드만) */}
