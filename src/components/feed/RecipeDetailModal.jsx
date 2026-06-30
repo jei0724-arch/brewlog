@@ -468,6 +468,26 @@ export default function RecipeDetailModal({
                   const infusionLabel = recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0
                     ? `인퓨전 ${recipe.infusionSeconds}s + 추출 ${parseInt(recipe.seconds||0)-parseInt(recipe.infusionSeconds)}s` : "";
 
+                  // 추출 비율 (1:N)
+                  const gramNum = parseFloat(recipe.gram), mlNum = parseFloat(recipe.espressoMl);
+                  const ratioLabel = (gramNum > 0 && mlNum > 0) ? `1 : ${(mlNum/gramNum).toFixed(1)}` : "";
+
+                  // TDS / 추출 수율
+                  const tdsNum = parseFloat(recipe.tds);
+                  const hasYield = tdsNum > 0 && gramNum > 0 && mlNum > 0;
+                  const yieldPct = hasYield ? (tdsNum * mlNum) / gramNum : null;
+                  const yieldStatus = yieldPct == null ? null
+                    : yieldPct >= 18 && yieldPct <= 22 ? "ideal"
+                    : yieldPct < 18 ? "under" : "over";
+                  const yieldColor = { ideal:"#5c9e6e", under:"#2980b9", over:"#e67e22" }[yieldStatus] || "#9C8E82";
+                  const yieldLabel = { ideal:"이상적", under:"과소추출", over:"과다추출" }[yieldStatus] || "";
+
+                  // 추출 압력 게이지 (0~12 bar 기준, 9bar 근방 권장)
+                  const pressureNum = parseFloat(recipe.brewPressureBar);
+                  const hasPressure = pressureNum > 0;
+                  const pressurePct = hasPressure ? Math.min(100, (pressureNum / 12) * 100) : 0;
+                  const pressureIdeal = hasPressure && pressureNum >= 8.5 && pressureNum <= 9.5;
+
                   // ── DOM 조립 ──────────────────────────────────────
                   const el = document.createElement("div");
                   el.style.cssText = "position:absolute;left:-9999px;top:0;width:840px;overflow:hidden;background:#FBFBFA;font-family:'DM Sans',Arial,sans-serif;border-radius:32px;box-sizing:border-box;";
@@ -501,6 +521,47 @@ export default function RecipeDetailModal({
                       ${infusionLabel?`<div style="font-size:10px;color:#9C8E82;text-align:center;margin-top:2px;">${infusionLabel}</div>`:""}
                     </div>
 
+                    <!-- 추출 비율 / TDS·수율 / 압력 게이지 -->
+                    ${(ratioLabel || hasYield || hasPressure) ? `
+                    <div style="padding:2px 16px 16px;background:#FBFBFA;display:flex;flex-direction:column;gap:8px;">
+                      <div style="font-size:9px;font-weight:700;color:#C5BFB8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;">Extraction Analysis</div>
+                      ${ratioLabel ? `
+                      <div style="display:flex;align-items:center;justify-content:space-between;background:#FAFAF9;border:1px solid #ECEAE7;border-radius:8px;padding:9px 14px;">
+                        <span style="font-size:10px;color:#9C8E82;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">추출 비율</span>
+                        <span style="font-size:14px;font-weight:700;color:#1A1614;font-family:'Georgia',serif;">${ratioLabel}</span>
+                      </div>` : ""}
+
+                      ${hasYield ? `
+                      <div style="background:#FAFAF9;border:1px solid #ECEAE7;border-radius:8px;padding:10px 14px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                          <span style="font-size:10px;color:#9C8E82;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">TDS ${tdsNum}% · 추출 수율</span>
+                          <span style="font-size:14px;font-weight:700;color:${yieldColor};font-family:'Georgia',serif;">${yieldPct.toFixed(1)}%${yieldLabel?` <span style="font-size:9px;font-weight:600;">(${yieldLabel})</span>`:""}</span>
+                        </div>
+                        <div style="position:relative;height:6px;background:#ECEAE7;border-radius:3px;overflow:hidden;">
+                          <div style="position:absolute;left:${(18/30)*100}%;width:${((22-18)/30)*100}%;height:100%;background:#5c9e6e30;"></div>
+                          <div style="position:absolute;left:${Math.min(Math.max((yieldPct/30)*100,0),100)}%;top:0;width:3px;height:100%;background:${yieldColor};transform:translateX(-50%);"></div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:8px;color:#BBB;margin-top:3px;">
+                          <span>0%</span><span style="color:#5c9e6e;">SCA 18~22%</span><span>30%</span>
+                        </div>
+                      </div>` : ""}
+
+                      ${hasPressure ? `
+                      <div style="background:#FAFAF9;border:1px solid #ECEAE7;border-radius:8px;padding:10px 14px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                          <span style="font-size:10px;color:#9C8E82;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">추출 압력</span>
+                          <span style="font-size:14px;font-weight:700;color:${pressureIdeal?"#5c9e6e":"#e67e22"};font-family:'Georgia',serif;">${pressureNum} BAR</span>
+                        </div>
+                        <div style="position:relative;height:6px;background:#ECEAE7;border-radius:3px;overflow:hidden;">
+                          <div style="position:absolute;left:${(8.5/12)*100}%;width:${((9.5-8.5)/12)*100}%;height:100%;background:#5c9e6e30;"></div>
+                          <div style="position:absolute;left:${pressurePct}%;top:0;width:3px;height:100%;background:${pressureIdeal?"#5c9e6e":"#e67e22"};transform:translateX(-50%);"></div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;font-size:8px;color:#BBB;margin-top:3px;">
+                          <span>0</span><span style="color:#5c9e6e;">권장 8.5~9.5</span><span>12</span>
+                        </div>
+                      </div>` : ""}
+                    </div>` : ""}
+
                     <!-- 상세 정보 테이블 -->
                     <table style="width:100%;border-collapse:collapse;background:#FAFAF9;border-top:1px solid #ECEAE7;">
                       <tbody>
@@ -515,7 +576,6 @@ export default function RecipeDetailModal({
                         ${row("기록일", recipe.recordDate)}
                         ${row("물 종류", waterLabel)}
                         ${row("희석", diluteLabel)}
-                        ${recipe.brewPressureBar?row("추출압력", `${recipe.brewPressureBar} BAR`):""}
                         ${recipe.syrup?row("시럽", recipe.syrup):""}
                         ${weatherLabel?row("날씨", weatherLabel):""}
                         ${recipe.continuousMemo?row("추출 메모", recipe.continuousMemo):""}
