@@ -1130,7 +1130,7 @@ export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal
             const barColor=pct===null?"var(--latte)":pct>50?"#5c9e6e":pct>20?"#d4a843":"#c0392b";
             return (
               <div key={bean.id} className="bean-card" style={{ opacity:isEmpty?0.55:1, cursor:"pointer" }}
-                onClick={()=>setDetailBean(bean)}>
+                onClick={()=>{ setDetailBean(bean); window.history.pushState({modal:true},""); }}>
                 <div className="bean-card-header">
                   <div>
                     <div className="bean-card-name">{bean.name}</div>
@@ -1194,8 +1194,8 @@ export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal
           bean={detailBean}
           user={user}
           lang={lang}
-          onClose={()=>setDetailBean(null)}
-          onEdit={()=>{ setEditTarget(detailBean); setDetailBean(null); setShowModal(true); }}
+          onClose={()=>{ window.history.go(-1); setDetailBean(null); }}
+          onEdit={()=>{ window.history.go(-1); setEditTarget(detailBean); setDetailBean(null); setShowModal(true); }}
         />
       )}
       {showModal && <BeanModal lang={lang} user={user} editTarget={editTarget} onClose={()=>setShowModal(false)}
