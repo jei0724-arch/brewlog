@@ -131,6 +131,17 @@ function similar(a, b) {
   return levenshtein(na, nb) <= threshold;
 }
 
+// ── 검색 전용 매칭 — 한/영 별칭 정규화 후 포함 관계만 확인 (오타 보정 없이, 더 가벼움) ──
+// "브레빌"로 검색해도 "Breville"로 저장된 항목이 매칭되도록 BRAND_ALIASES를 거쳐 비교
+function matchesSearch(text, query) {
+  if (!text || !query) return false;
+  const nt = normalizeAlias(text);
+  const nq = normalizeAlias(query);
+  if (nt.includes(nq)) return true;
+  // 별칭 매핑을 못 탄 일반 텍스트도 그대로 포함 검사 (산지명, 지역명 등)
+  return text.toLowerCase().includes(query.toLowerCase());
+}
+
 function BeanWikiForm({ user, lang, editTarget, allBeans, onClose, onSaved }) {
   const t = I18N[lang];
   const [form, setForm] = useState({
@@ -925,23 +936,24 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // 한/영 브랜드 별칭을 고려해 검색 — "브레빌"로 검색해도 "Breville"로 저장된 항목이 매칭됨
   const filteredBeans = useMemo(() => {
     if (!search.trim()) return beans;
-    const q = search.toLowerCase();
     return beans.filter(b =>
-      b.name?.toLowerCase().includes(q) ||
-      b.origin?.toLowerCase().includes(q) ||
-      b.region?.toLowerCase().includes(q) ||
-      b.roastery?.toLowerCase().includes(q)
+      matchesSearch(b.name, search) ||
+      matchesSearch(b.origin, search) ||
+      matchesSearch(b.region, search) ||
+      matchesSearch(b.roastery, search) ||
+      matchesSearch(b.blendComposition, search)
     );
   }, [beans, search]);
 
   const filteredEquips = useMemo(() => {
     if (!search.trim()) return equips;
-    const q = search.toLowerCase();
     return equips.filter(e =>
-      e.brand?.toLowerCase().includes(q) ||
-      e.model?.toLowerCase().includes(q)
+      matchesSearch(e.brand, search) ||
+      matchesSearch(e.model, search) ||
+      matchesSearch(`${e.brand} ${e.model}`, search)
     );
   }, [equips, search]);
 
