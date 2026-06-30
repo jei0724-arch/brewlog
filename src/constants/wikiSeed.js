@@ -30,6 +30,26 @@ export const SEED_EQUIPMENTS = [
     hasSteam: true, description: "WiFi 연결 지원, Breville+ 앱 연동 가능.",
   },
   {
+    category: "machine", brand: "Breville", model: "880 (Barista Touch)",
+    type: "semi", boilerType: "thermoblock", pumpBar: "15", tankL: "2",
+    hasSteam: true, description: "터치스크린 + 내장 그라인더 일체형. ThermoJet 가열로 3초 예열, 30단계 분쇄 조절.",
+  },
+  {
+    category: "machine", brand: "Breville", model: "881 (Barista Touch Impress)",
+    type: "semi", boilerType: "thermoblock", pumpBar: "15", tankL: "2",
+    hasSteam: true, description: "880의 후속작. Impress 자동 탬핑(약 10kg 압력) 탑재, 9bar 추출압력 유지.",
+  },
+  {
+    category: "machine", brand: "Breville", model: "500 (Bambino Plus)",
+    type: "semi", boilerType: "thermoblock", pumpBar: "15", tankL: "1.9",
+    hasSteam: true, description: "그라인더 미포함 소형 머신. 자동 스팀완드, 1·2샷 원터치 추출량 설정.",
+  },
+  {
+    category: "machine", brand: "Breville", model: "995 (Oracle Dual Boiler)",
+    type: "semi", boilerType: "dual", pumpBar: "19", tankL: "2.3",
+    hasSteam: true, description: "최상위 라인업. 자동 탬핑+45단계 그라인더 일체형, Breville+ 앱으로 원격 예열 지원.",
+  },
+  {
     category: "machine", brand: "Gaggia", model: "Classic Pro",
     type: "semi", boilerType: "single", pumpBar: "15", tankL: "2.1",
     hasSteam: true, description: "스테인리스 보일러, 상업용 포터필터(58mm) 호환으로 입문용 머신 중 인기.",
