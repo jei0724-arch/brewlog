@@ -238,6 +238,7 @@ export default function MainApp({
   const showModalRef     = useRef(false);
   const showMyModalRef   = useRef(false);
   const beanShowModalRef = useRef(false);
+  const beanDetailOpenRef = useRef(false); // BeanVault 내부 원두 상세 모달 열림 여부
   const equipShowModalRef= useRef(false);
   const compareTargetRef = useRef(null);
   const pendingDetailRef = useRef(null);
@@ -274,6 +275,7 @@ export default function MainApp({
         return;
       }
       if (showMyModalRef.current)  { setShowMyModalWrapped(false); return; }
+      if (beanDetailOpenRef.current){ return; } // BeanVault 자체 popstate 핸들러가 처리, base 복구만 스킵
       if (beanShowModalRef.current){ setBeanShowModal(false); return; }
       if (equipShowModalRef.current){ setEquipShowModal(false); return; }
 
@@ -796,6 +798,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
             filterStatus={beanFilterStatus} setFilterStatus={setBeanFilterStatus}
             showModal={beanShowModal} setShowModal={(v)=>{ beanShowModalRef.current=v; if(v) window.history.pushState({modal:true},""); setBeanShowModal(v); }}
             editTarget={beanEditTarget} setEditTarget={setBeanEditTarget}
+            onDetailOpenChange={(open)=>{ beanDetailOpenRef.current=open; }}
             currency={loadCurrency()}/>
         )}
         {feedTab==="equip" && user && (

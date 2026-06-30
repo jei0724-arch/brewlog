@@ -6,7 +6,7 @@
    ─ EquipmentModal : 장비 추가/수정 (내부 서브컴포넌트)
    ─ EquipmentVault : 장비 목록 + 대표 장비 설정
    ============================================================ */
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   collection, doc, addDoc, updateDoc, deleteDoc,
   getDocs, query, where, serverTimestamp,
@@ -906,13 +906,30 @@ JSON only: {"gram":"number","seconds":"number","espressoMl":"number","waterTemp"
 // ─────────────────────────────────────────────────────────────────
 // BeanVault
 // ─────────────────────────────────────────────────────────────────
-export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setShowModal, editTarget, setEditTarget, currency="KRW" }) {
+export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal, setShowModal, editTarget, setEditTarget, currency="KRW", onDetailOpenChange }) {
   const t = I18N[lang];
   const [beans,        setBeans]        = useState([]);
   const [usedGramsMap, setUsedGramsMap] = useState({});
   const [statsResetDate, setStatsResetDate] = useState(() => localStorage.getItem(`brewlog_stats_reset_${user?.uid}`)||null);
   const [firstBrewTarget, setFirstBrewTarget] = useState(null); // 신규 원두 첫 추출 제안
   const [detailBean,     setDetailBean]     = useState(null);  // 상세 모달 대상 원두
+  const detailBeanRef = useRef(null);
+  useEffect(() => {
+    detailBeanRef.current = detailBean;
+    onDetailOpenChange?.(!!detailBean);
+  }, [detailBean]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 뒤로가기 → 원두 상세 모달 닫기 (앱 밖으로 나가는 것 방지)
+  // MainApp의 popstate 핸들러가 BeanVault 내부 상태(detailBean)를 모르기 때문에
+  // BeanVault 자체에서 독립적으로 처리한다.
+  useEffect(() => {
+    const onPop = () => {
+      if (detailBeanRef.current) { setDetailBean(null); }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   const [usdRate,    setUsdRate]    = useState(()=>loadCachedRate()||null);
   const [rateLoading,setRateLoading]= useState(false);
 
