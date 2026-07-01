@@ -184,9 +184,15 @@ export default function RecipeDetailModal({
           <div className="stat">
             <span className="stat-val">{recipe.seconds?`${recipe.seconds}s`:"—"}</span>
             <span className="stat-label">{t.statSeconds}</span>
-            {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && (
+            {recipe.machineType==="handdrip" && Array.isArray(recipe.pours) && recipe.pours.length>0 ? (
+              <span style={{ fontSize:"0.55rem", color:"var(--muted)", display:"block", lineHeight:1.3, marginTop:"1px" }}>
+                {recipe.pours.map(p => `${p.label} ${p.seconds}s${p.waterG?`(+${p.waterG}g)`:""}`).join(" · ")}
+              </span>
+            ) : recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && (
               <span style={{ fontSize:"0.55rem", color:"var(--muted)", display:"block", lineHeight:1.2, marginTop:"1px", whiteSpace:"nowrap" }}>
-                {lang==="en"?`${recipe.infusionSeconds}+${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`:`인퓨전 ${recipe.infusionSeconds}+추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`}
+                {recipe.machineType==="handdrip"
+                  ? (lang==="en"?`Bloom ${recipe.infusionSeconds}s`:`블룸 ${recipe.infusionSeconds}초`)
+                  : (lang==="en"?`${recipe.infusionSeconds}+${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`:`인퓨전 ${recipe.infusionSeconds}+추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`)}
               </span>
             )}
           </div>
@@ -442,8 +448,13 @@ export default function RecipeDetailModal({
                   const tempLabel = recipe.isIced ? "ICE" : "HOT";
                   const roastLabel = recipe.roastLevel ? (ROAST_NAMES[recipe.roastLevel]||recipe.roastLevel) : "";
                   const weatherLabel = recipe.weather ? `${recipe.weather.icon||""} ${recipe.weather.descKo||recipe.weather.condition||""} ${recipe.weather.temp||""}°C · 습도 ${recipe.weather.humidity||""}%` : "";
-                  const infusionLabel = recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0
-                    ? `인퓨전 ${recipe.infusionSeconds}s + 추출 ${parseInt(recipe.seconds||0)-parseInt(recipe.infusionSeconds)}s` : "";
+                  const infusionLabel = recipe.machineType==="handdrip" && Array.isArray(recipe.pours) && recipe.pours.length>0
+                    ? recipe.pours.map(p => `${p.label} ${p.seconds}s${p.waterG?`(+${p.waterG}g)`:""}`).join(" · ")
+                    : recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0
+                    ? (recipe.machineType==="handdrip"
+                        ? `블룸 ${recipe.infusionSeconds}s`
+                        : `인퓨전 ${recipe.infusionSeconds}s + 추출 ${parseInt(recipe.seconds||0)-parseInt(recipe.infusionSeconds)}s`)
+                    : "";
 
                   // ── DOM 조립 ──────────────────────────────────────
                   const el = document.createElement("div");
