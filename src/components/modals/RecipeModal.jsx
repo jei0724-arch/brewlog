@@ -796,7 +796,22 @@ export default function RecipeModal({
           } catch (e) { console.error("[consumedG] 수정 반영 실패:", e.message); }
         }
         const { id, ...rest } = payload;
-        await updateDoc(doc(db, "recipes", editTarget.id), rest);
+        try {
+          await updateDoc(doc(db, "recipes", editTarget.id), rest);
+        } catch (updateErr) {
+          if (updateErr.code === "not-found") {
+            alert(
+              lang === "en"
+                ? "This recipe was already deleted (possibly from another device). Your edits weren't saved."
+                : "이 레시피는 이미 삭제되었어요 (다른 기기에서 삭제됐을 수 있어요). 수정 내용은 저장되지 않았습니다."
+            );
+            onSave();   // 목록 새로고침 → 사라진 카드 정리
+            onClose();
+            setSaving(false);
+            return;
+          }
+          throw updateErr;
+        }
 
       } else {
         await addDoc(collection(db, "recipes"), {
