@@ -49,11 +49,11 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
   }, []);
 
   const runWikiSeed = async () => {
-    if (!confirm("관리자 명의로 한국 로스터리 20곳 + 산지 12곳 + 장비 30종을 위키에 등록할까요?\n이미 등록된 항목과 이름이 같으면 건너뜁니다.")) return;
-
-    setWikiSeedStatus("running");
     const allBeanSeeds  = [...SEED_BEAN_ORIGINS, ...SEED_KOREAN_ROASTERS];
     const allEquipSeeds = SEED_EQUIPMENTS;
+    if (!confirm(`관리자 명의로 로스터리·산지 ${allBeanSeeds.length}곳 + 장비 ${allEquipSeeds.length}종을 위키에 등록할까요?\n이미 등록된 항목과 이름이 같으면 건너뜁니다.`)) return;
+
+    setWikiSeedStatus("running");
     const total = allBeanSeeds.length + allEquipSeeds.length;
     let done = 0;
     setWikiSeedProgress({ done: 0, total });
@@ -115,6 +115,11 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
           material: seed.material || "",
           dripperShape: seed.dripperShape || "",
           capacityCups: seed.capacityCups || "",
+          accessoryType: seed.accessoryType || "",
+          diameterMm: seed.diameterMm || "",
+          spoutType: seed.spoutType || "",
+          basketCapacityG: seed.basketCapacityG || "",
+          basketHoleType: seed.basketHoleType || "",
           description: seedText(seed.description, "ko"),
           createdBy: user.uid,
           createdByName: user.displayName || "관리자",

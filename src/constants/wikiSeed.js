@@ -235,6 +235,252 @@ export const SEED_EQUIPMENTS = [
       en: "Petal-shaped ribs allow compatibility with multiple filter shapes (cone/flat-bottom).",
     },
   },
+
+  // ── 악세사리: 포타필터 ──
+  {
+    category: "accessory", brand: "Breville", accessoryType: "portafilter", model: "the Naked Portafilter 58mm",
+    diameterMm: "58", spoutType: "bottomless",
+    description: {
+      ko: "브레빌 오라클/듀얼보일러용 순정 바텀리스 포타필터. 월넛 손잡이.",
+      en: "OEM bottomless portafilter for Breville Oracle/Dual Boiler. Walnut handle.",
+    },
+  },
+  {
+    category: "accessory", brand: "Breville", accessoryType: "portafilter", model: "the Naked Portafilter 54mm",
+    diameterMm: "54", spoutType: "bottomless",
+    description: {
+      ko: "바리스타 익스프레스/프로/터치용 순정 바텀리스 포타필터.",
+      en: "OEM bottomless portafilter for Barista Express/Pro/Touch.",
+    },
+  },
+  {
+    category: "accessory", brand: "Crema Coffee Products", accessoryType: "portafilter", model: "Bottomless Naked Portafilter 54mm",
+    diameterMm: "54", spoutType: "bottomless",
+    description: {
+      ko: "브레빌 54mm 머신 호환 서드파티 바텀리스 포타필터. 더블샷 바스켓 포함.",
+      en: "Third-party bottomless portafilter for 54mm Breville machines. Includes double-shot basket.",
+    },
+  },
+  {
+    category: "accessory", brand: "Crema Coffee Products", accessoryType: "portafilter", model: "Bottomless Naked Portafilter 58mm",
+    diameterMm: "58", spoutType: "bottomless",
+    description: {
+      ko: "E61/58mm 그룹헤드 범용 서드파티 바텀리스 포타필터.",
+      en: "Third-party bottomless portafilter for E61/58mm group heads.",
+    },
+  },
+  {
+    category: "accessory", brand: "IKAPE", accessoryType: "portafilter", model: "Bottomless Portafilter 58mm",
+    diameterMm: "58", spoutType: "bottomless",
+    description: {
+      ko: "304 스테인리스 + 우드 손잡이. 델롱기 51mm/브레빌 54mm/가찌아 58mm 등 폭넓은 호환.",
+      en: "304 stainless steel with wood handle. Wide compatibility across Delonghi 51mm/Breville 54mm/Gaggia 58mm.",
+    },
+  },
+  {
+    category: "accessory", brand: "IKAPE", accessoryType: "portafilter", model: "Bottomless Portafilter 54mm",
+    diameterMm: "54", spoutType: "bottomless",
+    description: {
+      ko: "브레빌 54mm 머신용 바텀리스 포타필터. 논프레셔라이즈드 바스켓 포함.",
+      en: "Bottomless portafilter for 54mm Breville machines, includes non-pressurized basket.",
+    },
+  },
+  {
+    category: "accessory", brand: "Normcore", accessoryType: "portafilter", model: "Bottomless Portafilter 54mm",
+    diameterMm: "54", spoutType: "bottomless",
+    description: {
+      ko: "아메리칸 월넛 손잡이, 18g 바스켓 동봉. 바리스타 익스프레스 계열 호환.",
+      en: "American walnut handle with 18g basket included. Compatible with Barista Express series.",
+    },
+  },
+  {
+    category: "accessory", brand: "La Marzocco", accessoryType: "portafilter", model: "Standard Spouted Portafilter 58mm",
+    diameterMm: "58", spoutType: "double",
+    description: {
+      ko: "라마르조코 순정 더블 스파웃 포타필터. E61/58mm 그룹헤드 표준.",
+      en: "OEM double-spout portafilter from La Marzocco. Standard 58mm/E61 group head fit.",
+    },
+  },
+  {
+    category: "accessory", brand: "Rancilio", accessoryType: "portafilter", model: "Silvia Bottomless Portafilter",
+    diameterMm: "58", spoutType: "bottomless",
+    description: {
+      ko: "란칠리오 실비아 전용 바텀리스 포타필터. 트리플샷(21g) 바스켓 포함 버전 존재.",
+      en: "Bottomless portafilter specific to the Rancilio Silvia, some versions include a triple-shot (21g) basket.",
+    },
+  },
+  {
+    category: "accessory", brand: "Gaggia", accessoryType: "portafilter", model: "Bottomless Portafilter 58mm",
+    diameterMm: "58", spoutType: "bottomless",
+    description: {
+      ko: "가찌아 클래식 프로 등 58mm 머신용 바텀리스 포타필터.",
+      en: "Bottomless portafilter for 58mm Gaggia machines such as the Classic Pro.",
+    },
+  },
+
+  // ── 악세사리: 바스켓 ──
+  {
+    category: "accessory", brand: "VST", accessoryType: "basket", model: "Precision Basket 18g",
+    diameterMm: "58", basketCapacityG: "18", basketHoleType: "precision",
+    description: {
+      ko: "정밀 필터 바스켓의 기준점. 모든 홀을 개별 측정해 오차범위를 관리. 가장 대중적인 용량.",
+      en: "The benchmark precision basket. Every hole is individually measured for tolerance. The most popular capacity.",
+    },
+  },
+  {
+    category: "accessory", brand: "VST", accessoryType: "basket", model: "Precision Basket 20g",
+    diameterMm: "58", basketCapacityG: "20", basketHoleType: "precision",
+    description: {
+      ko: "18g보다 도징량이 많은 레시피용. 58mm 표준 규격.",
+      en: "For recipes with a higher dose than 18g. Standard 58mm size.",
+    },
+  },
+  {
+    category: "accessory", brand: "VST", accessoryType: "basket", model: "Precision Basket 15g",
+    diameterMm: "58", basketCapacityG: "15", basketHoleType: "precision",
+    description: {
+      ko: "적은 도징량(리스트레토 등)에 적합한 소용량 정밀 바스켓.",
+      en: "Smaller-capacity precision basket suited to lighter doses (e.g. ristretto).",
+    },
+  },
+  {
+    category: "accessory", brand: "VST", accessoryType: "basket", model: "Precision Basket 22g",
+    diameterMm: "58", basketCapacityG: "22", basketHoleType: "precision",
+    description: {
+      ko: "고도징 레시피용 대용량 정밀 바스켓.",
+      en: "High-capacity precision basket for high-dose recipes.",
+    },
+  },
+  {
+    category: "accessory", brand: "IMS", accessoryType: "basket", model: "Competition Nanotech Basket 18-20g",
+    diameterMm: "58", basketCapacityG: "18-20", basketHoleType: "precision",
+    description: {
+      ko: "레이저 커팅 홀 + 나노텍 코팅으로 세척이 쉽고 균일한 추출을 돕는 대회용 바스켓.",
+      en: "Laser-cut holes with nanotech coating for easy cleaning and even extraction; a competition-grade basket.",
+    },
+  },
+  {
+    category: "accessory", brand: "IMS", accessoryType: "basket", model: "Big Bang Basket 18-20g",
+    diameterMm: "58", basketCapacityG: "18-20", basketHoleType: "precision",
+    description: {
+      ko: "IMS의 하이엔드 라인업 중 하나. 균일한 홀 분포로 채널링을 줄여줌.",
+      en: "One of IMS's high-end lineups, with uniform hole distribution that reduces channeling.",
+    },
+  },
+  {
+    category: "accessory", brand: "Pullman", accessoryType: "basket", model: "Barista Basket 17-19g",
+    diameterMm: "58", basketCapacityG: "17-19", basketHoleType: "precision",
+    description: {
+      ko: "호주 풀먼의 정밀 바스켓. 빅스텝 탬퍼와 궁합이 좋고 링리스 디자인.",
+      en: "Australian Pullman's precision basket. Pairs well with the Big Step tamper, ridgeless design.",
+    },
+  },
+  {
+    category: "accessory", brand: "Pullman", accessoryType: "basket", model: "Barista Basket 19-22g",
+    diameterMm: "58", basketCapacityG: "19-22", basketHoleType: "precision",
+    description: {
+      ko: "풀먼 바스켓의 고용량 버전. VST/IMS와 유사한 추출력, 독자적 홀 패턴.",
+      en: "Higher-capacity version of the Pullman basket. Similar extraction to VST/IMS with a distinctive hole pattern.",
+    },
+  },
+  {
+    category: "accessory", brand: "Breville", accessoryType: "basket", model: "Dual Wall (Pressurized) Basket",
+    diameterMm: "54", basketCapacityG: "18", basketHoleType: "standard",
+    description: {
+      ko: "브레빌 머신 순정 동봉 압력 바스켓. 신선하지 않은 원두로도 크레마를 만들어주지만 정밀도는 낮음.",
+      en: "OEM pressurized basket bundled with Breville machines. Helps produce crema even with stale beans, but lower precision.",
+    },
+  },
+  {
+    category: "accessory", brand: "Breville", accessoryType: "basket", model: "Single Wall (Non-Pressurized) Basket",
+    diameterMm: "54", basketCapacityG: "18", basketHoleType: "standard",
+    description: {
+      ko: "브레빌 머신 순정 논프레셔라이즈드 바스켓. 신선한 원두 기준 표준 추출에 적합.",
+      en: "OEM non-pressurized basket for Breville machines. Suited to standard extraction with fresh beans.",
+    },
+  },
+
+  // ── 악세사리: 샤워스크린 ──
+  {
+    category: "accessory", brand: "IMS", accessoryType: "showerscreen", model: "Competition Nanotech Shower Screen (MA200NT)",
+    diameterMm: "56.4", material: "metal",
+    description: {
+      ko: "라마르조코/슬레이어/시네소용. 200마이크론 통합 멤브레인, 나노쿼츠 코팅으로 물방울을 균일하게 분산.",
+      en: "For La Marzocco/Slayer/Synesso. 200-micron integrated membrane with NanoQuartz coating for uniform water dispersion.",
+    },
+  },
+  {
+    category: "accessory", brand: "IMS", accessoryType: "showerscreen", model: "E61 Nanotec Shower Screen",
+    diameterMm: "60", material: "metal",
+    description: {
+      ko: "E61 그룹헤드 전용 나노텍 샤워스크린. 균일한 물 분산으로 채널링 감소.",
+      en: "Nanotec shower screen specific to E61 group heads. Reduces channeling via even water dispersion.",
+    },
+  },
+  {
+    category: "accessory", brand: "IMS", accessoryType: "showerscreen", model: "Precision Shower Screen for Breville 54mm (BV200NT)",
+    diameterMm: "54", material: "metal",
+    description: {
+      ko: "브레빌 54mm 머신(익스프레스/밤비노/터치 등) 호환 나노텍 정밀 샤워스크린.",
+      en: "Nanotech precision shower screen compatible with 54mm Breville machines (Express, Bambino, Touch, etc.).",
+    },
+  },
+  {
+    category: "accessory", brand: "La Marzocco", accessoryType: "showerscreen", model: "OEM Dispersion Screen",
+    diameterMm: "57", material: "metal",
+    description: {
+      ko: "라마르조코 순정 디스퍼전 스크린. 정기 교체가 권장되는 소모품.",
+      en: "OEM dispersion screen from La Marzocco. A wear part recommended for periodic replacement.",
+    },
+  },
+  {
+    category: "accessory", brand: "E&B Lab", accessoryType: "showerscreen", model: "Quartz Nanotechnology Shower Screen",
+    diameterMm: "58", material: "metal",
+    description: {
+      ko: "필터링 멤브레인 일체형 샤워스크린. 나노 코팅으로 물이 균일한 물방울로 분산.",
+      en: "Shower screen with an integrated filtering membrane. Nano coating disperses water into uniform droplets.",
+    },
+  },
+  {
+    category: "accessory", brand: "ROK", accessoryType: "showerscreen", model: "Smartshot Screen",
+    diameterMm: "58", material: "plastic",
+    description: {
+      ko: "유연한 식품용 실리콘 소재의 교체용 샤워스크린. 균일한 물 분산을 돕는 저가형 대안.",
+      en: "Flexible food-grade silicone replacement shower screen. A budget-friendly alternative for even water dispersion.",
+    },
+  },
+  {
+    category: "accessory", brand: "Rancilio", accessoryType: "showerscreen", model: "Silvia OEM Shower Screen",
+    diameterMm: "53", material: "metal",
+    description: {
+      ko: "란칠리오 실비아 순정 샤워스크린. 정기 교체 및 세척이 필요한 소모품.",
+      en: "OEM shower screen for the Rancilio Silvia. A wear part requiring periodic cleaning/replacement.",
+    },
+  },
+  {
+    category: "accessory", brand: "Breville", accessoryType: "showerscreen", model: "OEM Shower Screen",
+    diameterMm: "54", material: "metal",
+    description: {
+      ko: "브레빌 머신(54mm/58mm 버전 별도) 순정 샤워스크린.",
+      en: "OEM shower screen for Breville machines (separate 54mm/58mm versions).",
+    },
+  },
+  {
+    category: "accessory", brand: "San Marco", accessoryType: "showerscreen", model: "Shower Screen",
+    diameterMm: "58", material: "metal",
+    description: {
+      ko: "상업용 머신에 널리 쓰이는 산마르코 순정/호환 샤워스크린.",
+      en: "OEM/compatible shower screen widely used on San Marco commercial machines.",
+    },
+  },
+  {
+    category: "accessory", brand: "Synesso", accessoryType: "showerscreen", model: "Sproline Precision Shower Screen",
+    diameterMm: "58", material: "metal",
+    description: {
+      ko: "시네소 스프로라인 전용 정밀 샤워스크린.",
+      en: "Precision shower screen specific to the Synesso Sproline.",
+    },
+  },
 ];
 
 // ── 알려진 원두 산지 정보 (자동완성용) ──────────────────────────
