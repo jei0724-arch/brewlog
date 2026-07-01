@@ -12,6 +12,7 @@
    ─ 완료된 기록의 수동 편집(랩별 초/물량 수정)도 병행 가능
    ============================================================ */
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useWakeLock } from "../../hooks/useWakeLock";
 
 // ── 포맷 헬퍼 ───────────────────────────────────────────────────
 function fmt(s) {
@@ -58,11 +59,11 @@ function vibrate() {
 
 // ─────────────────────────────────────────────────────────────────
 export default function PourTimer({
-  value, infusionValue, pours, onChange, onInfusionChange, onPoursChange,
+  value, infusionValue, pours, initialPlan, onChange, onInfusionChange, onPoursChange,
   lang, t, soundEnabled = true,
 }) {
   // mode: "manual" (탭으로 기록) | "scheduled" (미리 짠 단계별 계획대로 자동 알림)
-  const [mode, setMode] = useState("manual");
+  const [mode, setMode] = useState(() => (Array.isArray(initialPlan) && initialPlan.length ? "scheduled" : "manual"));
   // phase: "idle" | "running" | "done"
   const [phase,   setPhase]   = useState("idle");
   const [laps,    setLaps]    = useState(() => Array.isArray(pours) && pours.length ? pours : []);
@@ -70,13 +71,28 @@ export default function PourTimer({
   const [muted,   setMuted]   = useState(!soundEnabled);
 
   // ── 예약 모드: 시작 전에 짜두는 단계별 계획 (시간 + 선택적 물량g) ──
-  const [plannedStages, setPlannedStages] = useState([
-    { seconds: 30, waterG: 0 }, { seconds: 30, waterG: 0 },
+  const [plannedStages, setPlannedStages] = useState(() =>
+    Array.isArray(initialPlan) && initialPlan.length
+      ? initialPlan.map((p) => ({ seconds: p.seconds, waterG: p.waterG || 0 }))
+      : [
+        { seconds: 30, waterG: 0 }, { seconds: 30, waterG: 0 },
     { seconds: 30, waterG: 0 }, { seconds: 30, waterG: 0 },
   ]);
   const [stagesFired, setStagesFired] = useState(0); // 지금까지 자동 발화된 단계 수
 
+  // 마운트 이후에 프리셋을 적용해서 initialPlan이 바뀐 경우 — 아직 시작 전이면 계획을 갱신
+  useEffect(() => {
+    if (phase !== "idle" || laps.length > 0) return;
+    if (Array.isArray(initialPlan) && initialPlan.length) {
+      setPlannedStages(initialPlan.map((p) => ({ seconds: p.seconds, waterG: p.waterG || 0 })));
+      setMode("scheduled");
+    }
+  }, [initialPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const intervalRef = useRef(null);
+
+  // 타이머가 실행 중인 동안 화면이 자동으로 꺼지지 않도록
+  useWakeLock(phase === "running");
 
   const clearTimer = useCallback(() => {
     clearInterval(intervalRef.current);
@@ -217,6 +233,31 @@ export default function PourTimer({
     );
   };
 
+  // ── 내가 저장한 예약 스케줄 (localStorage) ──────────────────────
+  const SCHEDULE_KEY = "brewlog_pourtimer_schedules";
+  const [savedSchedules, setSavedSchedules] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(SCHEDULE_KEY) || "[]"); } catch { return []; }
+  });
+  const persistSchedules = (next) => {
+    setSavedSchedules(next);
+    try { localStorage.setItem(SCHEDULE_KEY, JSON.stringify(next)); } catch {}
+  };
+  const saveCurrentSchedule = () => {
+    const name = window.prompt(
+      lang === "en" ? "Save this schedule as:" : "이 스케줄을 어떤 이름으로 저장할까요?"
+    );
+    const trimmed = name?.trim();
+    if (!trimmed) return;
+    const stages = plannedStages.map((s) => ({ ...s }));
+    const next = [...savedSchedules.filter((s) => s.name !== trimmed), { name: trimmed, stages }].slice(-8);
+    persistSchedules(next);
+  };
+  const applySchedule = (s) => setPlannedStages(s.stages.map((x) => ({ ...x })));
+  const deleteSchedule = (name, e) => {
+    e.stopPropagation();
+    persistSchedules(savedSchedules.filter((s) => s.name !== name));
+  };
+
   const runningTotal  = laps.reduce((s, l) => s + l.seconds, 0) + (phase === "running" ? elapsed : 0);
   const waterSoFar    = laps.reduce((s, l) => s + (l.waterG || 0), 0);
   const canEditMode   = phase === "idle" && laps.length === 0;
@@ -252,8 +293,8 @@ export default function PourTimer({
 
           {mode === "scheduled" && (
             <div style={{ marginBottom: "8px", padding: "10px", background: "var(--cream)", borderRadius: "8px", border: "1px solid var(--divider)" }}>
-              {/* 빠른 채우기 (모두 같은 간격으로) */}
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+              {/* 빠른 채우기 (모두 같은 간격으로) + 내가 저장한 스케줄 */}
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px", flexWrap: "wrap" }}>
                 <span style={{ fontSize: "0.66rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap" }}>
                   {lang === "en" ? "Quick fill:" : "일괄 채우기:"}
                 </span>
@@ -264,6 +305,18 @@ export default function PourTimer({
                 <button type="button" onClick={() => fillEqualStages(3, 45)}
                   style={{ padding: "4px 10px", border: "1px solid var(--latte)", borderRadius: "999px", background: "#FDF6EF", color: "var(--latte)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.7rem", cursor: "pointer" }}>
                   3 × 45s
+                </button>
+                {savedSchedules.map((s) => (
+                  <button key={s.name} type="button" onClick={() => applySchedule(s)}
+                    style={{ padding: "4px 6px 4px 10px", border: "1px solid var(--espresso)", borderRadius: "999px", background: "var(--foam)", color: "var(--espresso)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.7rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
+                    title={s.stages.map((x) => `${x.seconds}s`).join("+")}>
+                    ★ {s.name}
+                    <span onClick={(e) => deleteSchedule(s.name, e)} style={{ color: "var(--muted)", padding: "0 2px" }}>×</span>
+                  </button>
+                ))}
+                <button type="button" onClick={saveCurrentSchedule}
+                  style={{ padding: "4px 10px", border: "1px dashed var(--steam)", borderRadius: "999px", background: "none", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.7rem", cursor: "pointer" }}>
+                  {lang === "en" ? "+ Save current" : "+ 현재 계획 저장"}
                 </button>
               </div>
 

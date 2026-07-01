@@ -454,8 +454,11 @@ export default function RecipeModal({
   }, [weather]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 메뉴 선택 ───────────────────────────────────────────────────
+  // 새 레시피 진입 시엔 항상 미선택 상태로 시작 (마지막 사용 장비가 핸드드립이어도
+  // 메뉴를 자동으로 "핸드드립"으로 선택하지 않음 — machineType과 별개 시스템이라
+  // 서로 어긋나면 "메뉴는 핸드드립인데 타이머는 에스프레소용" 같은 불일치가 생겼었음)
   const [selectedMenu, setSelectedMenu] = useState(
-    (isEdit || isCopy) ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : "")
+    (isEdit || isCopy) ? (editTarget.menuId || "") : ""
   );
 
   const MENU_DEFAULTS = {
@@ -483,8 +486,13 @@ export default function RecipeModal({
 
   // 핸드드립 메뉴 ↔ machineType 동기화
   const applyingPresetRef = useRef(false);
+  const menuSyncMountedRef = useRef(false);
   useEffect(() => {
     if (applyingPresetRef.current) return;
+    // 최초 마운트 시에는 스킵 — selectedMenu가 이제 항상 ""로 시작하므로,
+    // 여기서 그대로 실행하면 isHandDrip 기반으로 세팅된 초기 machineType("handdrip")이
+    // 즉시 "auto"로 되돌아가버려 마지막 사용 장비 기억 기능이 무력화됨
+    if (!menuSyncMountedRef.current) { menuSyncMountedRef.current = true; return; }
     if (selectedMenu === "hand_drip") {
       setMachineType("handdrip");
       setSelectedEquipIds((prev) => {
@@ -591,6 +599,7 @@ export default function RecipeModal({
       syrup:           preset.syrup           ?? "",
       brewPressureBar: preset.brewPressureBar ?? "",
       continuousMemo:  preset.continuousMemo  ?? "",
+      pours:           preset.pours ?? [],
     }));
     setTimeout(() => { applyingPresetRef.current = false; }, 300);
   };
@@ -646,6 +655,7 @@ export default function RecipeModal({
       syrup:           form.syrup           || "",
       brewPressureBar: form.brewPressureBar || "",
       continuousMemo:  form.continuousMemo  || "",
+      pours:           hdMode ? (form.pours || []) : [],
       createdAt: new Date().toISOString(),
     };
     const updated = existing
@@ -1424,7 +1434,8 @@ export default function RecipeModal({
               <PourTimer
                 value={form.seconds}
                 infusionValue={form.infusionSeconds || "0"}
-                pours={form.pours || []}
+                pours={isEdit ? (form.pours || []) : []}
+                initialPlan={!isEdit && Array.isArray(form.pours) && form.pours.length ? form.pours : undefined}
                 onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
                 onInfusionChange={(v) => set("infusionSeconds", v)}
                 onPoursChange={(p) => set("pours", p)}
