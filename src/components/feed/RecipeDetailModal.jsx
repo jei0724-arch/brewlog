@@ -19,7 +19,6 @@ import { I18N }       from "../../constants/localization";
 import { COFFEE_MENUS, FLAVOR_AXES } from "../../constants/coffeeMenus";
 import { FlavorRadar } from "../ui";
 import ReportModal      from "../modals/ReportModal";
-import { translateFields, hasKorean } from "../../utils/translate";
 
 // ─────────────────────────────────────────────────────────────────
 export default function RecipeDetailModal({
@@ -43,32 +42,6 @@ export default function RecipeDetailModal({
   const [replyTo,       setReplyTo]       = useState(null);
   const [showMore,      setShowMore]      = useState(false);
   const [isBlocked,     setIsBlocked]     = useState(false);
-
-  // ── 영문 모드 자동 번역 (메모/머신/그라인더/연속추출메모) ──────
-  const [translated, setTranslated] = useState(null); // null = 번역 안 됨/불필요
-  const [translating, setTranslating] = useState(false);
-
-  useEffect(() => {
-    if (lang !== "en") { setTranslated(null); return; }
-    const fields = {
-      note: recipe.note || "",
-      machine: recipe.machine || "",
-      grinder: recipe.grinder || "",
-      continuousMemo: recipe.continuousMemo || "",
-    };
-    const needsTranslation = Object.values(fields).some(v => hasKorean(v));
-    if (!needsTranslation) { setTranslated(null); return; }
-
-    let cancelled = false;
-    setTranslating(true);
-    translateFields(fields).then(result => {
-      if (!cancelled) { setTranslated(result); setTranslating(false); }
-    });
-    return () => { cancelled = true; };
-  }, [lang, recipe.note, recipe.machine, recipe.grinder, recipe.continuousMemo]);
-
-  // 표시용 헬퍼 — 번역본이 있으면 번역본, 없으면 원문
-  const tr = (key, fallback) => translated?.[key] || fallback;
   const [blockLoading,  setBlockLoading]  = useState(false);
 
   const BLOCKED_KEY = `brewlog_blocked_${currentUid}`;
@@ -163,10 +136,9 @@ export default function RecipeDetailModal({
   // 라벨 행 데이터
   const labelRows = [
     recipe.machine    && { lbl: lang==="en"?(recipe.machineType==="handdrip"?"Equipment":"Machine"):(recipe.machineType==="handdrip"?"핸드드립 기구":"커피머신"),
-      val: <span>{tr("machine", recipe.machine)}{recipe.machineType && recipe.machineType!=="handdrip" && <span style={{ marginLeft:"0.3rem", fontSize:"0.65rem", background:recipe.machineType==="auto"?"var(--latte)":"var(--steam)", color:"var(--espresso)", padding:"0.05rem 0.3rem", borderRadius:"999px" }}>{recipe.machineType==="auto"?(lang==="en"?"Auto":"전자동"):(lang==="en"?"Semi":"반자동")}</span>}</span> },
-    recipe.grinder    && { lbl: lang==="en"?"Grinder":"그라인더", val: tr("grinder", recipe.grinder) },
+      val: <span>{recipe.machine}{recipe.machineType && recipe.machineType!=="handdrip" && <span style={{ marginLeft:"0.3rem", fontSize:"0.65rem", background:recipe.machineType==="auto"?"var(--latte)":"var(--steam)", color:"var(--espresso)", padding:"0.05rem 0.3rem", borderRadius:"999px" }}>{recipe.machineType==="auto"?(lang==="en"?"Auto":"전자동"):(lang==="en"?"Semi":"반자동")}</span>}</span> },
+    recipe.grinder    && { lbl: lang==="en"?"Grinder":"그라인더", val: recipe.grinder },
     recipe.grindSize  && { lbl: lang==="en"?"Grind":"분쇄도",    val: recipe.grindSize },
-    recipe.basketBrand && { lbl: lang==="en"?"Basket":"바스켓", val: <span>{recipe.basketBrand}{recipe.basketSize && <span style={{ marginLeft:"0.3rem", fontSize:"0.65rem", color:"var(--muted)" }}>({recipe.basketSize==="single"?(lang==="en"?"Single":"싱글"):recipe.basketSize==="triple"?(lang==="en"?"Triple":"트리플"):(lang==="en"?"Double":"더블")}{recipe.basketCapacity?` · ${recipe.basketCapacity}g`:""})</span>}</span> },
     recipe.company    && { lbl: lang==="en"?"Brand":"원두 회사",  val: recipe.company },
     recipe.roastDate  && { lbl: lang==="en"?"Roasted":"로스팅",  val: new Date(recipe.roastDate).toLocaleDateString(lang==="ko"?"ko-KR":"en-US") },
     recipe.menuLabel  && { lbl: lang==="en"?"Menu":"메뉴", val: <span style={{ display:"flex", alignItems:"center", gap:"5px" }}>
@@ -239,7 +211,7 @@ export default function RecipeDetailModal({
           </div>
         )}
 
-        {recipe.note && <div className="card-note">"{tr("note", recipe.note)}"{translating && hasKorean(recipe.note) && lang==="en" && <span style={{ fontSize:"0.65rem", color:"var(--muted)", marginLeft:"6px" }}>(translating…)</span>}</div>}
+        {recipe.note && <div className="card-note">"{recipe.note}"</div>}
 
         {/* 태그 */}
         {(recipe.tags||[]).length>0 && (
@@ -250,6 +222,24 @@ export default function RecipeDetailModal({
                 #{tag}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* 예상 압력 (ULKA E5 펌프 곡선 기반 자동 계산) */}
+        {recipe.showerBar && recipe.machineType!=="handdrip" && (
+          <div style={{
+            display:"flex", alignItems:"center", justifyContent:"space-between", gap:"8px", marginBottom:"6px", padding:"8px 12px",
+            borderRadius:"var(--r-chip)",
+            background: recipe.showerBar>=9&&recipe.showerBar<=11?"#27ae6010":"#e74c3c10",
+            border: `1px solid ${recipe.showerBar>=9&&recipe.showerBar<=11?"#27ae6025":"#e74c3c25"}`,
+          }}>
+            <span style={{ display:"flex", alignItems:"center", gap:"8px", fontSize:"0.72rem", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif" }}>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1.5c2.5 3 4 5.2 4 7.3a4 4 0 1 1-8 0c0-2.1 1.5-4.3 4-7.3z" stroke={recipe.showerBar>=9&&recipe.showerBar<=11?"#27ae60":"#e74c3c"} strokeWidth="1.3" strokeLinejoin="round"/></svg>
+              {t.pressureTitle}
+            </span>
+            <strong style={{ fontSize:"0.72rem", fontWeight:600, color: recipe.showerBar>=9&&recipe.showerBar<=11?"#27ae60":"#e74c3c" }}>
+              {recipe.showerBar} BAR {recipe.showerBar>=9&&recipe.showerBar<=11?"· OK":"· Check"}
+            </strong>
           </div>
         )}
 
@@ -292,7 +282,7 @@ export default function RecipeDetailModal({
             <span style={{ fontSize:"0.62rem", fontWeight:700, color:"var(--latte)", textTransform:"uppercase", letterSpacing:"0.07em", display:"block", marginBottom:"3px" }}>
               {lang==="en"?"Extraction Note":"연속 추출 메모"}
             </span>
-            {tr("continuousMemo", recipe.continuousMemo)}
+            {recipe.continuousMemo}
           </div>
         )}
 
@@ -332,21 +322,8 @@ export default function RecipeDetailModal({
               @{recipe.author}
             </span>
             {recipe.author && recipe.uid!==currentUid && onFollow && (
-              <button className={`follow-btn ${isFollowing?"following":""}`}
-                onClick={e=>{ e.stopPropagation(); onFollow(recipe.uid||recipe.author); }}
-                title={isFollowing?t.following:t.follow}>
-                {isFollowing
-                  ? <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                      <circle cx="8" cy="6" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
-                      <path d="M2 17c0-3.314 2.686-5 6-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      <path d="M13 13l2 2 3-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  : <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                      <circle cx="8" cy="6" r="3.5" stroke="currentColor" strokeWidth="1.5"/>
-                      <path d="M2 17c0-3.314 2.686-5 6-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      <path d="M15 11v5M12.5 13.5h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-                    </svg>
-                }
+              <button className={`follow-btn ${isFollowing?"following":""}`} onClick={e=>{ e.stopPropagation(); onFollow(recipe.uid||recipe.author); }}>
+                {isFollowing?t.following:t.follow}
               </button>
             )}
             <span style={{ color:"var(--muted)", fontSize:"0.75rem", whiteSpace:"nowrap" }}>· {date}</span>
@@ -468,31 +445,9 @@ export default function RecipeDetailModal({
                   const infusionLabel = recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0
                     ? `인퓨전 ${recipe.infusionSeconds}s + 추출 ${parseInt(recipe.seconds||0)-parseInt(recipe.infusionSeconds)}s` : "";
 
-                  // 추출 비율 (1:N)
-                  const gramNum = parseFloat(recipe.gram), mlNum = parseFloat(recipe.espressoMl);
-                  const ratioLabel = (gramNum > 0 && mlNum > 0) ? `1 : ${(mlNum/gramNum).toFixed(1)}` : "";
-
-                  // TDS / 추출 수율
-                  const tdsNum = parseFloat(recipe.tds);
-                  const hasYield = tdsNum > 0 && gramNum > 0 && mlNum > 0;
-                  const yieldPct = hasYield ? (tdsNum * mlNum) / gramNum : null;
-                  const yieldStatus = yieldPct == null ? null
-                    : yieldPct >= 18 && yieldPct <= 22 ? "ideal"
-                    : yieldPct < 18 ? "under" : "over";
-                  const yieldColor = { ideal:"#5c9e6e", under:"#2980b9", over:"#e67e22" }[yieldStatus] || "#9C8E82";
-                  const yieldLabel = { ideal:"이상적", under:"과소추출", over:"과다추출" }[yieldStatus] || "";
-
-                  // 추출 압력 게이지 (0~12 bar 기준, 9bar 근방 권장)
-                  // 실측 압력(brewPressureBar) 우선, 없으면 추출량/시간 기반 자동계산 예상압력(showerBar)으로 폴백
-                  const pressureNum    = parseFloat(recipe.brewPressureBar) || parseFloat(recipe.showerBar) || null;
-                  const isPressureEst  = !recipe.brewPressureBar && !!recipe.showerBar; // 예상치인지 표시용
-                  const hasPressure    = pressureNum > 0;
-                  const pressurePct    = hasPressure ? Math.min(100, (pressureNum / 12) * 100) : 0;
-                  const pressureIdeal  = hasPressure && pressureNum >= 8.5 && pressureNum <= 9.5;
-
                   // ── DOM 조립 ──────────────────────────────────────
                   const el = document.createElement("div");
-                  el.style.cssText = "position:absolute;left:-9999px;top:0;width:840px;overflow:hidden;background:#FBFBFA;font-family:'DM Sans',Arial,sans-serif;border-radius:32px;box-sizing:border-box;";
+                  el.style.cssText = "position:absolute;left:-9999px;top:0;width:420px;overflow:hidden;background:#FBFBFA;font-family:'DM Sans',Arial,sans-serif;border-radius:16px;box-sizing:border-box;";
 
                   el.innerHTML = `
                     <!-- 헤더 -->
@@ -523,54 +478,12 @@ export default function RecipeDetailModal({
                       ${infusionLabel?`<div style="font-size:10px;color:#9C8E82;text-align:center;margin-top:2px;">${infusionLabel}</div>`:""}
                     </div>
 
-                    <!-- 추출 비율 / TDS·수율 / 압력 게이지 -->
-                    ${(ratioLabel || hasYield || hasPressure) ? `
-                    <div style="padding:2px 16px 16px;background:#FBFBFA;display:flex;flex-direction:column;gap:8px;">
-                      <div style="font-size:9px;font-weight:700;color:#C5BFB8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;">Extraction Analysis</div>
-                      ${ratioLabel ? `
-                      <div style="display:flex;align-items:center;justify-content:space-between;background:#FAFAF9;border:1px solid #ECEAE7;border-radius:8px;padding:9px 14px;">
-                        <span style="font-size:10px;color:#9C8E82;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">추출 비율</span>
-                        <span style="font-size:14px;font-weight:700;color:#1A1614;font-family:'Georgia',serif;">${ratioLabel}</span>
-                      </div>` : ""}
-
-                      ${hasYield ? `
-                      <div style="background:#FAFAF9;border:1px solid #ECEAE7;border-radius:8px;padding:10px 14px;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                          <span style="font-size:10px;color:#9C8E82;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">TDS ${tdsNum}% · 추출 수율</span>
-                          <span style="font-size:14px;font-weight:700;color:${yieldColor};font-family:'Georgia',serif;">${yieldPct.toFixed(1)}%${yieldLabel?` <span style="font-size:9px;font-weight:600;">(${yieldLabel})</span>`:""}</span>
-                        </div>
-                        <div style="position:relative;height:6px;background:#ECEAE7;border-radius:3px;overflow:hidden;">
-                          <div style="position:absolute;left:${(18/30)*100}%;width:${((22-18)/30)*100}%;height:100%;background:#5c9e6e30;"></div>
-                          <div style="position:absolute;left:${Math.min(Math.max((yieldPct/30)*100,0),100)}%;top:0;width:3px;height:100%;background:${yieldColor};transform:translateX(-50%);"></div>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;font-size:8px;color:#BBB;margin-top:3px;">
-                          <span>0%</span><span style="color:#5c9e6e;">SCA 18~22%</span><span>30%</span>
-                        </div>
-                      </div>` : ""}
-
-                      ${hasPressure ? `
-                      <div style="background:#FAFAF9;border:1px solid #ECEAE7;border-radius:8px;padding:10px 14px;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                          <span style="font-size:10px;color:#9C8E82;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">추출 압력${isPressureEst?" (예상)":""}</span>
-                          <span style="font-size:14px;font-weight:700;color:${pressureIdeal?"#5c9e6e":"#e67e22"};font-family:'Georgia',serif;">${pressureNum} BAR</span>
-                        </div>
-                        <div style="position:relative;height:6px;background:#ECEAE7;border-radius:3px;overflow:hidden;">
-                          <div style="position:absolute;left:${(8.5/12)*100}%;width:${((9.5-8.5)/12)*100}%;height:100%;background:#5c9e6e30;"></div>
-                          <div style="position:absolute;left:${pressurePct}%;top:0;width:3px;height:100%;background:${pressureIdeal?"#5c9e6e":"#e67e22"};transform:translateX(-50%);"></div>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;font-size:8px;color:#BBB;margin-top:3px;">
-                          <span>0</span><span style="color:#5c9e6e;">권장 8.5~9.5</span><span>12</span>
-                        </div>
-                      </div>` : ""}
-                    </div>` : ""}
-
                     <!-- 상세 정보 테이블 -->
                     <table style="width:100%;border-collapse:collapse;background:#FAFAF9;border-top:1px solid #ECEAE7;">
                       <tbody>
                         ${row("머신", recipe.machine)}
                         ${row("그라인더", recipe.grinder)}
                         ${row("분쇄도", recipe.grindSize)}
-                        ${row("바스켓", recipe.basketBrand ? `${recipe.basketBrand}${recipe.basketSize?` (${recipe.basketSize==="single"?"싱글":recipe.basketSize==="triple"?"트리플":"더블"}${recipe.basketCapacity?` · ${recipe.basketCapacity}g`:""})`:""}` : "")}
                         ${row("원두 회사", recipe.company)}
                         ${row("가공법", recipe.process)}
                         ${row("배전도", roastLabel)}
@@ -578,6 +491,8 @@ export default function RecipeDetailModal({
                         ${row("기록일", recipe.recordDate)}
                         ${row("물 종류", waterLabel)}
                         ${row("희석", diluteLabel)}
+                        ${recipe.showerBar&&recipe.machineType!=="handdrip"?row("예상압력", `${recipe.showerBar} BAR`):""}
+                        ${recipe.brewPressureBar?row("측정압력", `${recipe.brewPressureBar} BAR`):""}
                         ${recipe.syrup?row("시럽", recipe.syrup):""}
                         ${weatherLabel?row("날씨", weatherLabel):""}
                         ${recipe.continuousMemo?row("추출 메모", recipe.continuousMemo):""}
@@ -611,7 +526,7 @@ export default function RecipeDetailModal({
                         <div style="font-size:9px;color:#8C8480;">brewlog-jade.vercel.app</div>
                       </div>
                       <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=52x52&data=https://brewlog-jade.vercel.app/landing.html&bgcolor=ECEAE7&color=3D2B1F&margin=2"
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=52x52&data=https://brewlog-jade.vercel.app&bgcolor=ECEAE7&color=3D2B1F&margin=2"
                           width="52" height="52" style="border-radius:4px;display:block;" crossorigin="anonymous"/>
                         <span style="font-size:7px;color:#B07D54;font-weight:600;letter-spacing:0.06em;">SCAN TO BREW</span>
                       </div>
@@ -620,7 +535,7 @@ export default function RecipeDetailModal({
 
                   document.body.appendChild(el);
                   await new Promise(r => setTimeout(r, 900));
-                  const canvas = await html2canvas(el, { scale:3, useCORS:true, allowTaint:false, backgroundColor:"#FBFBFA", logging:false });
+                  const canvas = await html2canvas(el, { scale:2, useCORS:true, allowTaint:false, backgroundColor:"#FBFBFA", logging:false });
                   document.body.removeChild(el);
                   const blob = await new Promise(resolve => canvas.toBlob(resolve,"image/png"));
                   const file = new File([blob], `${recipe.bean||"recipe"}_brewlog.png`, { type:"image/png" });
