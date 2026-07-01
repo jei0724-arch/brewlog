@@ -13,7 +13,7 @@
    ─ loadBrandsFromDB (Firestore 브랜드 캐시 초기화)
    ─ detectDefaultCurrency
    ============================================================ */
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
 import {
   DEFAULT_MACHINE_BRANDS,
@@ -147,11 +147,32 @@ export function saveRecipeDefaults(d) {
 }
 
 // ── 프리셋 ──────────────────────────────────────────────────────
+// localStorage = 빠른 캐시 / Firestore = 영구 백업 (앱 재설치/기기 변경 시 복구용)
 export function loadPresets(uid) {
   try { return JSON.parse(localStorage.getItem(PRESETS_KEY_PREFIX + uid) || "[]"); } catch { return []; }
 }
+
 export function savePresets(uid, list) {
   try { localStorage.setItem(PRESETS_KEY_PREFIX + uid, JSON.stringify(list)); } catch {}
+  // Firestore 백업 (실패해도 localStorage는 이미 저장됐으므로 무시)
+  if (uid) {
+    setDoc(doc(db, "userPresets", uid), { presets: list, updatedAt: Date.now() }).catch(() => {});
+  }
+}
+
+// 앱 진입/재설치 후 호출 — Firestore에 저장된 프리셋을 가져와 localStorage와 병합
+export async function syncPresetsFromFirestore(uid) {
+  if (!uid) return loadPresets(uid);
+  try {
+    const snap = await getDoc(doc(db, "userPresets", uid));
+    const remote = snap.exists() ? (snap.data().presets || []) : [];
+    if (remote.length > 0) {
+      try { localStorage.setItem(PRESETS_KEY_PREFIX + uid, JSON.stringify(remote)); } catch {}
+    }
+    return remote.length > 0 ? remote : loadPresets(uid);
+  } catch {
+    return loadPresets(uid); // 네트워크 실패 시 로컬 캐시로 폴백
+  }
 }
 
 // ── 통화 ────────────────────────────────────────────────────────
