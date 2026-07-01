@@ -2,18 +2,24 @@
    BREWLOG NOTE — src/components/recipes/PourTimer.jsx
    핸드드립 전용 타이머 — 두 가지 모드
    ─ 수동 모드: "다음 물붓기" 탭마다 랩 기록
-   ─ 예약 모드: 시작 전에 단계별 시간(블룸/1차/2차...)을 각각 원하는 만큼
-     미리 계획해두고, "시작"을 누르면 그 계획대로 자동으로 다음 단계로
-     넘어가며 알림 (모든 단계를 같은 시간으로 두면 "N단계 균등 간격"도 그대로 가능)
+   ─ 예약 모드: 시작 전에 단계별 시간(+선택적으로 물량 g)을 각각 원하는
+     만큼 미리 계획해두고, "시작"을 누르면 그 계획대로 자동으로 다음
+     단계로 넘어가며 알림. 진행 중엔 단계별 알약(pill) 바 + TIME/WATER
+     큰 숫자 패널로 표시
    ─ setInterval을 이 컴포넌트 내부에만 격리 (부모 리렌더 방지)
    ─ 알림 = 소리(Web Audio) + 진동
    ─ 완료 시 onChange(총초), onInfusionChange(블룸초), onPoursChange(랩 배열) 호출
-   ─ 완료된 기록의 수동 편집(랩별 초 수정)도 병행 가능
+   ─ 완료된 기록의 수동 편집(랩별 초/물량 수정)도 병행 가능
    ============================================================ */
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // ── 포맷 헬퍼 ───────────────────────────────────────────────────
 function fmt(s) {
+  const m   = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+function fmtShort(s) {
   const m   = Math.floor(s / 60);
   const sec = s % 60;
   return m > 0 ? `${m}:${String(sec).padStart(2, "0")}` : `${String(sec).padStart(2, "0")}`;
@@ -63,9 +69,12 @@ export default function PourTimer({
   const [elapsed, setElapsed] = useState(0); // 현재 랩(구간) 경과 초
   const [muted,   setMuted]   = useState(!soundEnabled);
 
-  // ── 예약 모드: 시작 전에 짜두는 단계별 계획 (각 단계마다 다른 초 가능) ──
-  const [plannedStages, setPlannedStages] = useState([30, 30, 30, 30]); // 기본 4단계 × 30초
-  const [stagesFired,   setStagesFired]   = useState(0); // 지금까지 자동 발화된 단계 수
+  // ── 예약 모드: 시작 전에 짜두는 단계별 계획 (시간 + 선택적 물량g) ──
+  const [plannedStages, setPlannedStages] = useState([
+    { seconds: 30, waterG: 0 }, { seconds: 30, waterG: 0 },
+    { seconds: 30, waterG: 0 }, { seconds: 30, waterG: 0 },
+  ]);
+  const [stagesFired, setStagesFired] = useState(0); // 지금까지 자동 발화된 단계 수
 
   const intervalRef = useRef(null);
 
@@ -105,8 +114,8 @@ export default function PourTimer({
     if (mode !== "scheduled" || phase !== "running") return;
     if (stagesFired >= plannedStages.length) return;
     const target = plannedStages[stagesFired];
-    if (elapsed >= target) {
-      setLaps((prev) => [...prev, { label: lapLabel(prev.length, lang), seconds: target }]);
+    if (elapsed >= target.seconds) {
+      setLaps((prev) => [...prev, { label: lapLabel(prev.length, lang), seconds: target.seconds, waterG: target.waterG || 0 }]);
       setStagesFired((s) => s + 1);
       setElapsed(0);
       alert();
@@ -117,9 +126,9 @@ export default function PourTimer({
   const finish = useCallback(() => {
     clearTimer();
     setLaps((prev) => {
-      // 현재 구간에 남은 시간이 있으면 마지막 랩으로 추가
+      const cur = mode === "scheduled" ? plannedStages[stagesFired] : null;
       const finalLaps = elapsed > 0
-        ? [...prev, { label: lapLabel(prev.length, lang), seconds: elapsed }]
+        ? [...prev, { label: lapLabel(prev.length, lang), seconds: elapsed, waterG: cur?.waterG || 0 }]
         : prev;
       const total = finalLaps.reduce((s, l) => s + l.seconds, 0);
       const bloom = finalLaps[0]?.seconds || 0;
@@ -131,7 +140,7 @@ export default function PourTimer({
     setPhase("done");
     setElapsed(0);
     alert();
-  }, [clearTimer, elapsed, lang, onChange, onInfusionChange, onPoursChange, alert]);
+  }, [clearTimer, elapsed, lang, mode, plannedStages, stagesFired, onChange, onInfusionChange, onPoursChange, alert]);
 
   // ── 리셋 (모드/계획은 유지) ──────────────────────────────────
   const reset = useCallback(() => {
@@ -159,9 +168,18 @@ export default function PourTimer({
     });
   };
 
+  const updateLapWater = (idx, v) => {
+    const g = Math.max(0, Number(v) || 0);
+    setLaps((prev) => {
+      const next = prev.map((l, i) => (i === idx ? { ...l, waterG: g } : l));
+      onPoursChange?.(next);
+      return next;
+    });
+  };
+
   const addManualLap = () => {
     setLaps((prev) => {
-      const next = [...prev, { label: lapLabel(prev.length, lang), seconds: 0 }];
+      const next = [...prev, { label: lapLabel(prev.length, lang), seconds: 0, waterG: 0 }];
       onPoursChange?.(next);
       return next;
     });
@@ -183,24 +201,29 @@ export default function PourTimer({
   };
 
   // ── 계획 단계 편집 (시작 전, 예약 모드) ──────────────────────
-  const updatePlannedStage = (idx, v) => {
-    const secs = Math.max(0, Number(v) || 0);
-    setPlannedStages((prev) => prev.map((s, i) => (i === idx ? secs : s)));
+  const updatePlannedStage = (idx, field, v) => {
+    const num = Math.max(0, Number(v) || 0);
+    setPlannedStages((prev) => prev.map((s, i) => (i === idx ? { ...s, [field]: num } : s)));
   };
   const addPlannedStage = () => {
-    setPlannedStages((prev) => [...prev, prev[prev.length - 1] || 30]);
+    setPlannedStages((prev) => [...prev, { ...(prev[prev.length - 1] || { seconds: 30, waterG: 0 }) }]);
   };
   const removePlannedStage = (idx) => {
     setPlannedStages((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev));
   };
   const fillEqualStages = (count, sec) => {
-    setPlannedStages(Array.from({ length: Math.max(1, count) }, () => Math.max(1, sec)));
+    setPlannedStages((prev) =>
+      Array.from({ length: Math.max(1, count) }, (_, i) => ({ seconds: Math.max(1, sec), waterG: prev[i]?.waterG || 0 }))
+    );
   };
 
-  const runningTotal   = laps.reduce((s, l) => s + l.seconds, 0) + (phase === "running" ? elapsed : 0);
-  const canEditMode    = phase === "idle" && laps.length === 0;
-  const scheduleDone   = mode === "scheduled" && stagesFired >= plannedStages.length;
-  const plannedTotal   = plannedStages.reduce((s, v) => s + v, 0);
+  const runningTotal  = laps.reduce((s, l) => s + l.seconds, 0) + (phase === "running" ? elapsed : 0);
+  const waterSoFar    = laps.reduce((s, l) => s + (l.waterG || 0), 0);
+  const canEditMode   = phase === "idle" && laps.length === 0;
+  const scheduleDone  = mode === "scheduled" && stagesFired >= plannedStages.length;
+  const plannedTotal  = plannedStages.reduce((s, v) => s + v.seconds, 0);
+  const plannedWaterTotal = plannedStages.reduce((s, v) => s + (v.waterG || 0), 0);
+  const hasWater      = plannedStages.some((s) => s.waterG > 0) || laps.some((l) => l.waterG > 0);
 
   return (
     <div>
@@ -244,18 +267,26 @@ export default function PourTimer({
                 </button>
               </div>
 
-              {/* 단계별 계획 리스트 (각 단계 개별 편집) */}
+              {/* 단계별 계획 리스트 (각 단계 시간 + 선택적 물량 편집) */}
               <div style={{ display: "flex", flexDirection: "column", gap: "5px", marginBottom: "8px" }}>
-                {plannedStages.map((sec, i) => (
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "0 2px" }}>
+                  <span style={{ width: "44px", flexShrink: 0 }}/>
+                  <span style={{ width: "64px", fontSize: "0.6rem", color: "var(--muted)", textAlign: "center", fontFamily: "'DM Sans',sans-serif" }}>{lang === "en" ? "sec" : "시간(초)"}</span>
+                  <span style={{ width: "64px", fontSize: "0.6rem", color: "var(--muted)", textAlign: "center", fontFamily: "'DM Sans',sans-serif" }}>{lang === "en" ? "water(g, optional)" : "물량(g, 선택)"}</span>
+                </div>
+                {plannedStages.map((s, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                     <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontFamily: "'DM Sans', sans-serif", width: "44px", flexShrink: 0 }}>
                       {lapLabel(i, lang)}
                     </span>
-                    <input type="number" min="1" value={sec}
+                    <input type="number" min="1" value={s.seconds}
                       onFocus={(e) => e.target.select()}
-                      onChange={(e) => updatePlannedStage(i, e.target.value)}
+                      onChange={(e) => updatePlannedStage(i, "seconds", e.target.value)}
                       style={{ width: "64px", padding: "5px 7px", border: "1px solid var(--steam)", borderRadius: "6px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box", textAlign: "center" }}/>
-                    <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>{lang === "en" ? "sec" : "초"}</span>
+                    <input type="number" min="0" placeholder="—" value={s.waterG || ""}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => updatePlannedStage(i, "waterG", e.target.value)}
+                      style={{ width: "64px", padding: "5px 7px", border: "1px solid var(--steam)", borderRadius: "6px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box", textAlign: "center" }}/>
                     <button type="button" onClick={() => removePlannedStage(i)} disabled={plannedStages.length <= 1}
                       style={{ marginLeft: "auto", background: "none", border: "none", cursor: plannedStages.length <= 1 ? "not-allowed" : "pointer", color: "var(--muted)", fontSize: "0.9rem", padding: "0 4px", opacity: plannedStages.length <= 1 ? 0.3 : 1 }}
                       title={lang === "en" ? "Remove" : "삭제"}>×</button>
@@ -268,10 +299,10 @@ export default function PourTimer({
                   style={{ padding: "5px 12px", border: "1px dashed var(--steam)", borderRadius: "6px", background: "none", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.74rem", cursor: "pointer" }}>
                   {lang === "en" ? "+ Stage" : "+ 단계 추가"}
                 </button>
-                <span style={{ fontSize: "0.68rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif" }}>
+                <span style={{ fontSize: "0.68rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", textAlign: "right" }}>
                   {lang === "en"
-                    ? `${plannedStages.length} stages = ${fmt(plannedTotal)} total`
-                    : `${plannedStages.length}단계 = 총 ${fmt(plannedTotal)} 예상`}
+                    ? `${plannedStages.length} stages = ${fmtShort(plannedTotal)}${plannedWaterTotal > 0 ? ` · ${plannedWaterTotal}g` : ""}`
+                    : `${plannedStages.length}단계 = ${fmtShort(plannedTotal)}${plannedWaterTotal > 0 ? ` · ${plannedWaterTotal}g` : ""}`}
                 </span>
               </div>
             </div>
@@ -308,84 +339,163 @@ export default function PourTimer({
           </button>
         </div>
 
-        {/* 경과 시간 디스플레이 */}
-        <div style={{ textAlign: "center", marginBottom: "10px" }}>
-          {phase === "idle" && laps.length === 0 && (
-            <div style={{ fontSize: "2rem", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: "var(--steam)" }}>
-              00
+        {/* ── 예약 모드: 진행 중/완료 상태 = 단계별 알약(pill) 바 + TIME/WATER 패널 ── */}
+        {mode === "scheduled" && (phase === "running" || phase === "done") ? (
+          <>
+            {/* 알약 바 */}
+            <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "6px", marginBottom: "10px" }}>
+              {plannedStages.map((s, i) => {
+                const isDone    = i < stagesFired || phase === "done";
+                const isCurrent = phase === "running" && i === stagesFired && !scheduleDone;
+                return (
+                  <div key={i} style={{
+                    flex: "0 0 auto", minWidth: "62px", textAlign: "center", padding: "8px 6px", borderRadius: "10px",
+                    background: isCurrent ? "var(--espresso)" : isDone ? "#eafaf1" : "var(--cream)",
+                    border: `1px solid ${isCurrent ? "var(--espresso)" : isDone ? "#a9dfbf" : "var(--steam)"}`,
+                    opacity: isCurrent || isDone ? 1 : 0.55,
+                  }}>
+                    <div style={{ fontSize: "0.7rem", fontWeight: 700, fontFamily: "'DM Sans',sans-serif", color: isCurrent ? "var(--cream)" : isDone ? "#27ae60" : "var(--muted)" }}>
+                      {s.seconds}s
+                    </div>
+                    <div style={{ fontSize: "0.6rem", fontWeight: 600, fontFamily: "'DM Sans',sans-serif", marginTop: "2px", color: isCurrent ? "var(--cream)" : isDone ? "#27ae60" : "var(--muted)", whiteSpace: "nowrap" }}>
+                      {isDone
+                        ? "✓"
+                        : lapLabel(i, lang).toUpperCase()}
+                    </div>
+                    {s.waterG > 0 && (
+                      <div style={{ fontSize: "0.6rem", fontFamily: "'DM Sans',sans-serif", marginTop: "2px", color: isCurrent ? "#FDF6EF" : "#2980b9" }}>
+                        +{s.waterG}g
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          )}
 
-          {phase === "running" && mode === "manual" && (
-            <div>
-              <div style={{ fontSize: "0.65rem", color: "#e67e22", fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginBottom: "2px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                {lapLabel(laps.length, lang)} {lang === "en" ? "pouring…" : "붓는 중…"}
+            {/* TIME / WATER 큰 패널 */}
+            <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+              <div style={{ flex: 1, textAlign: "center", padding: "10px 6px", background: "var(--cream)", borderRadius: "10px", border: "1px solid var(--divider)" }}>
+                <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "#e67e22", textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: "'DM Sans',sans-serif" }}>
+                  {lang === "en" ? "Time" : "시간"}
+                </div>
+                <div style={{ fontSize: "1.7rem", fontWeight: 700, fontFamily: "'DM Sans',sans-serif", color: "var(--espresso)" }}>
+                  {fmt(phase === "running" ? elapsed : 0)}
+                </div>
+                <div style={{ fontSize: "0.62rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif" }}>
+                  {lang === "en" ? `Total ${fmtShort(runningTotal)}` : `누적 ${fmtShort(runningTotal)}`}
+                </div>
               </div>
-              <div className="timer-display running" style={{ color: "#e67e22" }}>
-                {fmt(elapsed)}
-              </div>
-              <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginTop: "2px", fontFamily: "'DM Sans', sans-serif" }}>
-                {lang === "en" ? `Total ${fmt(runningTotal)}` : `누적 ${fmt(runningTotal)}`}
-              </div>
+              {hasWater && (
+                <div style={{ flex: 1, textAlign: "center", padding: "10px 6px", background: "var(--cream)", borderRadius: "10px", border: "1px solid var(--divider)" }}>
+                  <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "#2980b9", textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: "'DM Sans',sans-serif" }}>
+                    {lang === "en" ? "Water" : "물량"}
+                  </div>
+                  <div style={{ fontSize: "1.7rem", fontWeight: 700, fontFamily: "'DM Sans',sans-serif", color: "var(--espresso)" }}>
+                    {waterSoFar}<span style={{ fontSize: "1rem" }}>g</span>
+                  </div>
+                  <div style={{ fontSize: "0.62rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif" }}>
+                    {!scheduleDone && plannedStages[stagesFired]?.waterG > 0
+                      ? (lang === "en" ? `Step +${plannedStages[stagesFired].waterG}g` : `이번 단계 +${plannedStages[stagesFired].waterG}g`)
+                      : (lang === "en" ? `Planned ${plannedWaterTotal}g` : `예상 ${plannedWaterTotal}g`)}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
 
-          {phase === "running" && mode === "scheduled" && (
-            <div>
-              <div style={{ fontSize: "0.65rem", color: scheduleDone ? "var(--espresso)" : "#e67e22", fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginBottom: "2px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                {scheduleDone
-                  ? (lang === "en" ? "Schedule done — extra time" : "예약 완료 — 추가 시간 진행 중")
-                  : `${lapLabel(laps.length, lang)} ${lang === "en" ? `(${stagesFired + 1}/${plannedStages.length})` : `(${stagesFired + 1}/${plannedStages.length}단계)`}`}
+            {scheduleDone && phase === "running" && (
+              <div style={{ textAlign: "center", fontSize: "0.68rem", color: "var(--espresso)", fontWeight: 600, fontFamily: "'DM Sans',sans-serif", marginBottom: "6px" }}>
+                {lang === "en" ? "Schedule done — extra time running" : "예약 완료 — 추가 시간 진행 중"}
               </div>
-              <div className="timer-display running" style={{ color: scheduleDone ? "var(--espresso)" : "#e67e22" }}>
-                {fmt(elapsed)}
-              </div>
-              <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginTop: "2px", fontFamily: "'DM Sans', sans-serif" }}>
-                {scheduleDone
-                  ? (lang === "en" ? `Total ${fmt(runningTotal)}` : `누적 ${fmt(runningTotal)}`)
-                  : (lang === "en"
-                      ? `Next alert in ${Math.max(0, plannedStages[stagesFired] - elapsed)}s`
-                      : `다음 알림까지 ${Math.max(0, plannedStages[stagesFired] - elapsed)}초`)}
-              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* ── 그 외(수동 모드 또는 idle): 기존 방식 ── */}
+            <div style={{ textAlign: "center", marginBottom: "10px" }}>
+              {phase === "idle" && laps.length === 0 && (
+                <div style={{ fontSize: "2rem", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: "var(--steam)" }}>
+                  00
+                </div>
+              )}
+
+              {phase === "running" && mode === "manual" && (
+                <div>
+                  <div style={{ fontSize: "0.65rem", color: "#e67e22", fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginBottom: "2px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    {lapLabel(laps.length, lang)} {lang === "en" ? "pouring…" : "붓는 중…"}
+                  </div>
+                  <div className="timer-display running" style={{ color: "#e67e22" }}>
+                    {fmtShort(elapsed)}
+                  </div>
+                  <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginTop: "2px", fontFamily: "'DM Sans', sans-serif" }}>
+                    {lang === "en" ? `Total ${fmtShort(runningTotal)}` : `누적 ${fmtShort(runningTotal)}`}
+                  </div>
+                </div>
+              )}
+
+              {phase === "done" && mode === "manual" && (
+                <div>
+                  <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "2px", fontFamily: "'DM Sans', sans-serif" }}>
+                    {laps.map((l) => `${l.label} ${fmtShort(l.seconds)}`).join(" + ") || (lang === "en" ? "No pours yet" : "기록된 물붓기 없음")}
+                  </div>
+                  <div style={{ fontSize: "2rem", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: "var(--espresso)" }}>
+                    {fmtShort(runningTotal)}
+                    <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginLeft: "4px" }}>
+                      {lang === "en" ? "total" : "총"}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
 
-          {phase === "done" && (
-            <div>
-              <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "2px", fontFamily: "'DM Sans', sans-serif" }}>
-                {laps.map((l) => `${l.label} ${fmt(l.seconds)}`).join(" + ") || (lang === "en" ? "No pours yet" : "기록된 물붓기 없음")}
+            {/* 랩 리스트 (수동 모드 진행/완료 상태) */}
+            {laps.length > 0 && mode === "manual" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "5px", marginBottom: "10px" }}>
+                {laps.map((l, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--cream)", borderRadius: "6px", padding: "5px 8px" }}>
+                    <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontFamily: "'DM Sans', sans-serif", width: "44px", flexShrink: 0 }}>
+                      {l.label}
+                    </span>
+                    {phase === "running" ? (
+                      <span style={{ fontSize: "0.78rem", color: "var(--espresso)", fontFamily: "'DM Sans', sans-serif" }}>{fmtShort(l.seconds)}s</span>
+                    ) : (
+                      <input type="number" min="0" value={l.seconds}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => updateLapSeconds(i, e.target.value)}
+                        style={{ width: "56px", padding: "3px 6px", border: "1px solid var(--steam)", borderRadius: "5px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box" }}/>
+                    )}
+                    {phase !== "running" && (
+                      <button type="button" onClick={() => removeLap(i)}
+                        style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "0.9rem", padding: "0 4px" }}
+                        title={lang === "en" ? "Remove" : "삭제"}>×</button>
+                    )}
+                  </div>
+                ))}
               </div>
-              <div style={{ fontSize: "2rem", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: "var(--espresso)" }}>
-                {fmt(runningTotal)}
-                <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginLeft: "4px" }}>
-                  {lang === "en" ? "total" : "총"}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </>
+        )}
 
-        {/* 랩 리스트 (진행 중 + 완료 상태 모두 표시) */}
-        {laps.length > 0 && (
+        {/* 예약 모드 완료 시: 랩(단계)별 시간/물량 편집 리스트 */}
+        {mode === "scheduled" && phase === "done" && laps.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "5px", marginBottom: "10px" }}>
             {laps.map((l, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: "6px", background: "var(--cream)", borderRadius: "6px", padding: "5px 8px" }}>
                 <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontFamily: "'DM Sans', sans-serif", width: "44px", flexShrink: 0 }}>
                   {l.label}
                 </span>
-                {phase === "running" ? (
-                  <span style={{ fontSize: "0.78rem", color: "var(--espresso)", fontFamily: "'DM Sans', sans-serif" }}>{fmt(l.seconds)}s</span>
-                ) : (
-                  <input type="number" min="0" value={l.seconds}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => updateLapSeconds(i, e.target.value)}
-                    style={{ width: "56px", padding: "3px 6px", border: "1px solid var(--steam)", borderRadius: "5px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box" }}/>
-                )}
-                {phase !== "running" && (
-                  <button type="button" onClick={() => removeLap(i)}
-                    style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "0.9rem", padding: "0 4px" }}
-                    title={lang === "en" ? "Remove" : "삭제"}>×</button>
-                )}
+                <input type="number" min="0" value={l.seconds}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => updateLapSeconds(i, e.target.value)}
+                  style={{ width: "50px", padding: "3px 6px", border: "1px solid var(--steam)", borderRadius: "5px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box" }}/>
+                <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>s</span>
+                <input type="number" min="0" placeholder="—" value={l.waterG || ""}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => updateLapWater(i, e.target.value)}
+                  style={{ width: "50px", padding: "3px 6px", border: "1px solid var(--steam)", borderRadius: "5px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box" }}/>
+                <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>g</span>
+                <button type="button" onClick={() => removeLap(i)}
+                  style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "0.9rem", padding: "0 4px" }}
+                  title={lang === "en" ? "Remove" : "삭제"}>×</button>
               </div>
             ))}
           </div>
