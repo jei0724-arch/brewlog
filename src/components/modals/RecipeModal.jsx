@@ -748,6 +748,12 @@ export default function RecipeModal({
         tds:             form.tds             || null,
         tags:            (form.tags || []).filter(Boolean),
         pours:           machineType === "handdrip" ? (form.pours || []) : null,
+        wikiBeanId:      (linkedBeanId && myBeans.find((b) => b.id === linkedBeanId)?.wikiBeanId) || null,
+        wikiEquipIds:    Array.from(new Set(
+          Object.values(selectedEquipIds)
+            .map((id) => myEquips.find((e) => e.id === id)?.wikiEquipId)
+            .filter(Boolean)
+        )),
       };
       delete payload._isCopy; // 저장 시 절대 Firestore에 남지 않도록 제거 (복사모드 영구고착 버그 방지)
 

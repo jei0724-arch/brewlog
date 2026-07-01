@@ -4,7 +4,7 @@
    ============================================================ */
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
-  collection, query, orderBy, limit,
+  collection, query, where, orderBy, limit,
   getDocs, doc, addDoc, updateDoc, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
@@ -797,6 +797,20 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
 
   const tr = (key, fallback) => translated?.[key] || fallback;
 
+  // ── 이 위키 항목으로 기록된 레시피 수 (실시간 조회 — 2단계) ──────
+  const [liveRecipeCount, setLiveRecipeCount] = useState(null); // null = 로딩 중
+  useEffect(() => {
+    let cancelled = false;
+    setLiveRecipeCount(null);
+    const fieldQuery = isBean
+      ? query(collection(db, "recipes"), where("wikiBeanId", "==", item.id))
+      : query(collection(db, "recipes"), where("wikiEquipIds", "array-contains", item.id));
+    getDocs(fieldQuery)
+      .then((snap) => { if (!cancelled) setLiveRecipeCount(snap.size); })
+      .catch((e) => { console.error("[wiki] 레시피 연결 수 조회 실패:", e.message); if (!cancelled) setLiveRecipeCount(item.linkedRecipeCount || 0); });
+    return () => { cancelled = true; };
+  }, [item.id, isBean]);
+
   const fmtDate = (ts) => {
     if (!ts?.toDate) return "";
     return ts.toDate().toLocaleDateString(lang === "en" ? "en-US" : "ko-KR");
@@ -888,7 +902,9 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
           <div style={{ marginTop: "16px", padding: "12px 14px", background: "rgba(176,125,84,0.08)", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="var(--latte)" strokeWidth="1.3"/></svg>
             <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "var(--latte)", fontWeight: 600 }}>
-              {item.linkedRecipeCount || 0}{t.linkedRecipes}
+              {liveRecipeCount === null
+                ? (lang === "en" ? "Counting…" : "집계 중…")
+                : `${liveRecipeCount}${t.linkedRecipes}`}
             </span>
           </div>
 
