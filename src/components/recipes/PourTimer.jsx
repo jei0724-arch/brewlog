@@ -186,52 +186,70 @@ export default function PourTimer({
 
   return (
     <div>
-      {/* ── 모드 선택 (시작 전에만 변경 가능) ── */}
+      {/* ── 시작 전 설정 영역: 모드 선택 + (예약모드) 설정 + 시작 버튼을 한 블록으로 묶어서
+             스크롤 없이 바로 보이도록 구성 ── */}
       {canEditMode && (
-        <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
-          {[
-            { id: "manual",    lbl: lang === "en" ? "Manual (tap)"     : "수동 (직접 탭)" },
-            { id: "scheduled", lbl: lang === "en" ? "Scheduled alerts" : "예약 알림" },
-          ].map((m) => (
-            <button key={m.id} type="button" onClick={() => setMode(m.id)}
-              style={{
-                flex: 1, padding: "8px", borderRadius: "8px",
-                border: `1px solid ${mode === m.id ? "var(--espresso)" : "var(--steam)"}`,
-                background: mode === m.id ? "var(--espresso)" : "var(--foam)",
-                color: mode === m.id ? "var(--cream)" : "var(--muted)",
-                fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: mode === m.id ? 600 : 400,
-                cursor: "pointer", transition: "all 0.15s",
-              }}>
-              {m.lbl}
-            </button>
-          ))}
-        </div>
-      )}
+        <div style={{ marginBottom: "10px" }}>
+          <div style={{ display: "flex", gap: "6px", marginBottom: "8px" }}>
+            {[
+              { id: "manual",    lbl: lang === "en" ? "Manual (tap)"     : "수동 (직접 탭)" },
+              { id: "scheduled", lbl: lang === "en" ? "Scheduled alerts" : "예약 알림" },
+            ].map((m) => (
+              <button key={m.id} type="button" onClick={() => setMode(m.id)}
+                style={{
+                  flex: 1, padding: "8px", borderRadius: "8px",
+                  border: `1px solid ${mode === m.id ? "var(--espresso)" : "var(--steam)"}`,
+                  background: mode === m.id ? "var(--espresso)" : "var(--foam)",
+                  color: mode === m.id ? "var(--cream)" : "var(--muted)",
+                  fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: mode === m.id ? 600 : 400,
+                  cursor: "pointer", transition: "all 0.15s",
+                }}>
+                {m.lbl}
+              </button>
+            ))}
+          </div>
 
-      {/* ── 예약 모드 설정 (시작 전에만) ── */}
-      {canEditMode && mode === "scheduled" && (
-        <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", marginBottom: "10px", padding: "10px", background: "var(--cream)", borderRadius: "8px", border: "1px solid var(--divider)" }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginBottom: "4px", fontFamily: "'DM Sans',sans-serif" }}>
-              {lang === "en" ? "Stages" : "단계 수"}
+          {mode === "scheduled" && (
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", marginBottom: "8px", padding: "10px", background: "var(--cream)", borderRadius: "8px", border: "1px solid var(--divider)" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginBottom: "4px", fontFamily: "'DM Sans',sans-serif" }}>
+                  {lang === "en" ? "Stages" : "단계 수"}
+                </div>
+                <input type="number" min="1" max="12" value={stageCount}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setStageCount(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
+                  style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--steam)", borderRadius: "6px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box", textAlign: "center" }}/>
+              </div>
+              <div style={{ fontSize: "1rem", color: "var(--muted)", paddingBottom: "8px" }}>×</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginBottom: "4px", fontFamily: "'DM Sans',sans-serif" }}>
+                  {lang === "en" ? "Interval (s)" : "간격 (초)"}
+                </div>
+                <input type="number" min="5" step="5" value={intervalSec}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setIntervalSec(Math.max(5, Number(e.target.value) || 5))}
+                  style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--steam)", borderRadius: "6px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box", textAlign: "center" }}/>
+              </div>
+              <div style={{ flex: "1.3", fontSize: "0.68rem", color: "var(--muted)", paddingBottom: "8px", textAlign: "right", fontFamily: "'DM Sans',sans-serif" }}>
+                {lang === "en"
+                  ? `= ${stageCount}× → ${fmt(stageCount * intervalSec)} total`
+                  : `= 총 ${fmt(stageCount * intervalSec)} 예상`}
+              </div>
             </div>
-            <input type="number" min="1" max="12" value={stageCount}
-              onChange={(e) => setStageCount(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
-              style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--steam)", borderRadius: "6px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box", textAlign: "center" }}/>
-          </div>
-          <div style={{ fontSize: "1rem", color: "var(--muted)", paddingBottom: "8px" }}>×</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginBottom: "4px", fontFamily: "'DM Sans',sans-serif" }}>
-              {lang === "en" ? "Interval (s)" : "간격 (초)"}
-            </div>
-            <input type="number" min="5" step="5" value={intervalSec}
-              onChange={(e) => setIntervalSec(Math.max(5, Number(e.target.value) || 5))}
-              style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--steam)", borderRadius: "6px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box", textAlign: "center" }}/>
-          </div>
-          <div style={{ flex: "1.3", fontSize: "0.68rem", color: "var(--muted)", paddingBottom: "8px", textAlign: "right", fontFamily: "'DM Sans',sans-serif" }}>
-            {lang === "en"
-              ? `= ${stageCount}× → ${fmt(stageCount * intervalSec)} total`
-              : `= 총 ${fmt(stageCount * intervalSec)} 예상`}
+          )}
+
+          {/* 시작 버튼 — 설정 바로 아래, 스크롤 없이 바로 보이는 위치 */}
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button type="button" onClick={start}
+              style={{ flex: 1, padding: "12px", border: "none", borderRadius: "10px", background: "#e67e22", color: "#fff", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", fontWeight: 700, cursor: "pointer" }}>
+              {mode === "scheduled"
+                ? (lang === "en" ? `Start (${stageCount}×${intervalSec}s)` : `시작 (${stageCount}단계 × ${intervalSec}초)`)
+                : (lang === "en" ? "Start (Bloom)" : "시작 (블룸)")}
+            </button>
+            <button type="button" onClick={addManualLap}
+              style={{ padding: "12px 14px", border: "1px solid var(--steam)", borderRadius: "10px", background: "var(--foam)", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+              {lang === "en" ? "Enter manually" : "직접 입력"}
+            </button>
           </div>
         </div>
       )}
@@ -318,6 +336,7 @@ export default function PourTimer({
                   <span style={{ fontSize: "0.78rem", color: "var(--espresso)", fontFamily: "'DM Sans', sans-serif" }}>{fmt(l.seconds)}s</span>
                 ) : (
                   <input type="number" min="0" value={l.seconds}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => updateLapSeconds(i, e.target.value)}
                     style={{ width: "56px", padding: "3px 6px", border: "1px solid var(--steam)", borderRadius: "5px", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box" }}/>
                 )}
@@ -333,21 +352,6 @@ export default function PourTimer({
 
         {/* 컨트롤 버튼 */}
         <div className="timer-btns">
-          {phase === "idle" && (
-            <>
-              <button type="button" className="timer-start" onClick={start} style={{ background: "#e67e22" }}>
-                {mode === "scheduled"
-                  ? (lang === "en" ? `Start (${stageCount}×${intervalSec}s)` : `시작 (${stageCount}단계 × ${intervalSec}초)`)
-                  : (lang === "en" ? "Start (Bloom)" : "시작 (블룸)")}
-              </button>
-              {laps.length === 0 && (
-                <button type="button" className="timer-reset" onClick={addManualLap}>
-                  {lang === "en" ? "Enter manually" : "직접 입력"}
-                </button>
-              )}
-            </>
-          )}
-
           {phase === "running" && (
             <>
               {mode === "manual" && (
