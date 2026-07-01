@@ -34,6 +34,7 @@ import {
 import { calcPressure } from "../../utils/pressure";
 import { CoffeeBeanIcon, BrandInput, TagInput, FlavorRadar } from "../ui";
 import Timer from "../recipes/Timer";
+import PourTimer from "../recipes/PourTimer";
 
 // ── OpenWeatherMap API ───────────────────────────────────────────
 const OWM_KEY    = import.meta.env.VITE_OWM_KEY;
@@ -736,6 +737,7 @@ export default function RecipeModal({
         continuousMemo:  form.continuousMemo  || "",
         tds:             form.tds             || null,
         tags:            (form.tags || []).filter(Boolean),
+        pours:           machineType === "handdrip" ? (form.pours || []) : null,
       };
       delete payload._isCopy; // 저장 시 절대 Firestore에 남지 않도록 제거 (복사모드 영구고착 버그 방지)
 
@@ -1415,16 +1417,28 @@ export default function RecipeModal({
             </div>
           )}
 
-          {/* 추출 시간 — Timer 컴포넌트 */}
+          {/* 추출 시간 — Timer / PourTimer(핸드드립) 컴포넌트 */}
           <div className="field" data-field="seconds">
             <label style={{ color: errors.seconds ? "#c0392b" : undefined }}>{t.seconds}</label>
-            <Timer
-              value={form.seconds}
-              infusionValue={form.infusionSeconds || "0"}
-              onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
-              onInfusionChange={(v) => set("infusionSeconds", v)}
-              lang={lang} t={t}
-            />
+            {machineType === "handdrip" ? (
+              <PourTimer
+                value={form.seconds}
+                infusionValue={form.infusionSeconds || "0"}
+                pours={form.pours || []}
+                onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
+                onInfusionChange={(v) => set("infusionSeconds", v)}
+                onPoursChange={(p) => set("pours", p)}
+                lang={lang} t={t}
+              />
+            ) : (
+              <Timer
+                value={form.seconds}
+                infusionValue={form.infusionSeconds || "0"}
+                onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
+                onInfusionChange={(v) => set("infusionSeconds", v)}
+                lang={lang} t={t}
+              />
+            )}
             {errors.seconds && <p style={{ color:"#c0392b", fontSize:"0.78rem", marginTop:"0.3rem" }}>{lang === "en" ? "⚠️ Required" : "⚠️ 필수 항목이에요"}</p>}
           </div>
 
