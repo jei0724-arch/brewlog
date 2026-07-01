@@ -307,18 +307,10 @@ export function useRecipes(user, { onRequireAuth } = {}) {
     if (!confirm("이 레시피를 삭제할까요?")) return;
     try {
       await deleteDoc(doc(db, "recipes", id));
-      // 삭제 직후 서버에 실제로 반영됐는지 재확인 (진단용 — 원인 파악되면 제거 예정)
-      const check = await getDoc(doc(db, "recipes", id));
-      if (check.exists()) {
-        alert(`⚠️ 삭제 요청은 성공했다고 응답했는데, 서버에서 다시 확인해보니 문서가 그대로 남아있어요.\n문서 ID: ${id}\nuid: ${check.data().uid}\n\n이 정보를 캡처해서 알려주세요.`);
-        loadRecipes();
-        return;
-      }
       // 낙관적 업데이트
       setRecipes((prev) => prev.filter((r) => r.id !== id));
     } catch (e) {
       console.error("[useRecipes] handleDelete:", e);
-      alert(`삭제 실패: ${e.code || e.message}\n문서 ID: ${id}`);
       loadRecipes();
     }
   }, [loadRecipes]);
