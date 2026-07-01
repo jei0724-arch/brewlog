@@ -1,8 +1,10 @@
 /* ============================================================
    BREWLOG NOTE — src/components/recipes/PourTimer.jsx
-   핸드드립 전용 랩 타이머 (블룸 → 1차 → 2차 → ...)
+   핸드드립 전용 타이머 — 두 가지 모드
+   ─ 수동 모드: "다음 물붓기" 탭마다 랩 기록
+   ─ 예약 모드: 미리 설정한 단계 수 × 간격(초)마다 자동으로 알림
    ─ setInterval을 이 컴포넌트 내부에만 격리 (부모 리렌더 방지)
-   ─ "다음 물붓기" 탭마다 랩 기록 + 소리(Web Audio) + 진동 알림
+   ─ 알림 = 소리(Web Audio) + 진동
    ─ 완료 시 onChange(총초), onInfusionChange(블룸초), onPoursChange(랩 배열) 호출
    ─ 수동 입력(랩별 초 수정)도 병행 가능
    ============================================================ */
@@ -51,11 +53,18 @@ export default function PourTimer({
   value, infusionValue, pours, onChange, onInfusionChange, onPoursChange,
   lang, t, soundEnabled = true,
 }) {
+  // mode: "manual" (탭으로 기록) | "scheduled" (미리 설정한 간격마다 자동 알림)
+  const [mode, setMode] = useState("manual");
   // phase: "idle" | "running" | "done"
   const [phase,   setPhase]   = useState("idle");
   const [laps,    setLaps]    = useState(() => Array.isArray(pours) && pours.length ? pours : []);
-  const [elapsed, setElapsed] = useState(0); // 현재 랩 경과 초
+  const [elapsed, setElapsed] = useState(0); // 현재 랩(구간) 경과 초
   const [muted,   setMuted]   = useState(!soundEnabled);
+
+  // ── 예약 모드 설정 (idle 상태에서만 편집 가능) ─────────────────
+  const [stageCount,  setStageCount]  = useState(4);  // 단계 수
+  const [intervalSec, setIntervalSec] = useState(30); // 단계당 간격(초)
+  const [stagesFired, setStagesFired] = useState(0);  // 지금까지 자동 발화된 단계 수
 
   const intervalRef = useRef(null);
 
@@ -72,31 +81,44 @@ export default function PourTimer({
     vibrate();
   }, [muted]);
 
-  // ── 시작 (블룸) ─────────────────────────────────────────────
+  // ── 시작 ───────────────────────────────────────────────────
   const start = useCallback(() => {
     clearTimer();
     setPhase("running");
     setElapsed(0);
     setLaps([]);
+    setStagesFired(0);
     intervalRef.current = setInterval(() => setElapsed((p) => p + 1), 1000);
     alert();
   }, [clearTimer, alert]);
 
-  // ── 다음 물붓기 (현재 랩 기록 + 새 랩 시작) ──────────────────
+  // ── 다음 물붓기 (수동 모드 전용 — 현재 구간 기록 + 새 구간 시작) ──
   const nextPour = useCallback(() => {
-    setLaps((prev) => {
-      const next = [...prev, { label: lapLabel(prev.length, lang), seconds: elapsed }];
-      return next;
-    });
+    setLaps((prev) => [...prev, { label: lapLabel(prev.length, lang), seconds: elapsed }]);
     setElapsed(0);
     alert();
   }, [elapsed, lang, alert]);
+
+  // ── 예약 모드: elapsed가 간격에 도달할 때마다 자동으로 랩 기록 ──
+  useEffect(() => {
+    if (mode !== "scheduled" || phase !== "running") return;
+    if (stagesFired >= stageCount) return;
+    if (elapsed >= intervalSec) {
+      setLaps((prev) => [...prev, { label: lapLabel(prev.length, lang), seconds: intervalSec }]);
+      setStagesFired((s) => s + 1);
+      setElapsed(0);
+      alert();
+    }
+  }, [elapsed, mode, phase, stagesFired, stageCount, intervalSec, lang, alert]);
 
   // ── 완료 ───────────────────────────────────────────────────
   const finish = useCallback(() => {
     clearTimer();
     setLaps((prev) => {
-      const finalLaps = [...prev, { label: lapLabel(prev.length, lang), seconds: elapsed }];
+      // 현재 구간에 남은 시간이 있으면 마지막 랩으로 추가
+      const finalLaps = elapsed > 0
+        ? [...prev, { label: lapLabel(prev.length, lang), seconds: elapsed }]
+        : prev;
       const total = finalLaps.reduce((s, l) => s + l.seconds, 0);
       const bloom = finalLaps[0]?.seconds || 0;
       onInfusionChange(String(bloom));
@@ -109,12 +131,13 @@ export default function PourTimer({
     alert();
   }, [clearTimer, elapsed, lang, onChange, onInfusionChange, onPoursChange, alert]);
 
-  // ── 리셋 ───────────────────────────────────────────────────
+  // ── 리셋 (모드/설정은 유지) ──────────────────────────────────
   const reset = useCallback(() => {
     clearTimer();
     setPhase("idle");
     setElapsed(0);
     setLaps([]);
+    setStagesFired(0);
     onInfusionChange("0");
     onChange("0");
     onPoursChange?.([]);
@@ -158,9 +181,61 @@ export default function PourTimer({
   };
 
   const runningTotal = laps.reduce((s, l) => s + l.seconds, 0) + (phase === "running" ? elapsed : 0);
+  const canEditMode  = phase === "idle" && laps.length === 0;
+  const scheduleDone = mode === "scheduled" && stagesFired >= stageCount;
 
   return (
     <div>
+      {/* ── 모드 선택 (시작 전에만 변경 가능) ── */}
+      {canEditMode && (
+        <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
+          {[
+            { id: "manual",    lbl: lang === "en" ? "Manual (tap)"     : "수동 (직접 탭)" },
+            { id: "scheduled", lbl: lang === "en" ? "Scheduled alerts" : "예약 알림" },
+          ].map((m) => (
+            <button key={m.id} type="button" onClick={() => setMode(m.id)}
+              style={{
+                flex: 1, padding: "8px", borderRadius: "8px",
+                border: `1px solid ${mode === m.id ? "var(--espresso)" : "var(--steam)"}`,
+                background: mode === m.id ? "var(--espresso)" : "var(--foam)",
+                color: mode === m.id ? "var(--cream)" : "var(--muted)",
+                fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: mode === m.id ? 600 : 400,
+                cursor: "pointer", transition: "all 0.15s",
+              }}>
+              {m.lbl}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── 예약 모드 설정 (시작 전에만) ── */}
+      {canEditMode && mode === "scheduled" && (
+        <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", marginBottom: "10px", padding: "10px", background: "var(--cream)", borderRadius: "8px", border: "1px solid var(--divider)" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginBottom: "4px", fontFamily: "'DM Sans',sans-serif" }}>
+              {lang === "en" ? "Stages" : "단계 수"}
+            </div>
+            <input type="number" min="1" max="12" value={stageCount}
+              onChange={(e) => setStageCount(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
+              style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--steam)", borderRadius: "6px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box", textAlign: "center" }}/>
+          </div>
+          <div style={{ fontSize: "1rem", color: "var(--muted)", paddingBottom: "8px" }}>×</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginBottom: "4px", fontFamily: "'DM Sans',sans-serif" }}>
+              {lang === "en" ? "Interval (s)" : "간격 (초)"}
+            </div>
+            <input type="number" min="5" step="5" value={intervalSec}
+              onChange={(e) => setIntervalSec(Math.max(5, Number(e.target.value) || 5))}
+              style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--steam)", borderRadius: "6px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem", color: "var(--espresso)", outline: "none", boxSizing: "border-box", textAlign: "center" }}/>
+          </div>
+          <div style={{ flex: "1.3", fontSize: "0.68rem", color: "var(--muted)", paddingBottom: "8px", textAlign: "right", fontFamily: "'DM Sans',sans-serif" }}>
+            {lang === "en"
+              ? `= ${stageCount}× → ${fmt(stageCount * intervalSec)} total`
+              : `= 총 ${fmt(stageCount * intervalSec)} 예상`}
+          </div>
+        </div>
+      )}
+
       {/* ── 타이머 박스 ── */}
       <div className="timer-box">
         {/* 상단: 음소거 토글 */}
@@ -184,7 +259,7 @@ export default function PourTimer({
             </div>
           )}
 
-          {phase === "running" && (
+          {phase === "running" && mode === "manual" && (
             <div>
               <div style={{ fontSize: "0.65rem", color: "#e67e22", fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginBottom: "2px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {lapLabel(laps.length, lang)} {lang === "en" ? "pouring…" : "붓는 중…"}
@@ -194,6 +269,24 @@ export default function PourTimer({
               </div>
               <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginTop: "2px", fontFamily: "'DM Sans', sans-serif" }}>
                 {lang === "en" ? `Total ${fmt(runningTotal)}` : `누적 ${fmt(runningTotal)}`}
+              </div>
+            </div>
+          )}
+
+          {phase === "running" && mode === "scheduled" && (
+            <div>
+              <div style={{ fontSize: "0.65rem", color: scheduleDone ? "var(--espresso)" : "#e67e22", fontWeight: 600, fontFamily: "'DM Sans', sans-serif", marginBottom: "2px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {scheduleDone
+                  ? (lang === "en" ? "Schedule done — extra time" : "예약 완료 — 추가 시간 진행 중")
+                  : `${lapLabel(laps.length, lang)} ${lang === "en" ? `(${stagesFired + 1}/${stageCount})` : `(${stagesFired + 1}/${stageCount}단계)`}`}
+              </div>
+              <div className="timer-display running" style={{ color: scheduleDone ? "var(--espresso)" : "#e67e22" }}>
+                {fmt(elapsed)}
+              </div>
+              <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginTop: "2px", fontFamily: "'DM Sans', sans-serif" }}>
+                {scheduleDone
+                  ? (lang === "en" ? `Total ${fmt(runningTotal)}` : `누적 ${fmt(runningTotal)}`)
+                  : (lang === "en" ? `Next alert in ${Math.max(0, intervalSec - elapsed)}s` : `다음 알림까지 ${Math.max(0, intervalSec - elapsed)}초`)}
               </div>
             </div>
           )}
@@ -243,7 +336,9 @@ export default function PourTimer({
           {phase === "idle" && (
             <>
               <button type="button" className="timer-start" onClick={start} style={{ background: "#e67e22" }}>
-                {lang === "en" ? "Start (Bloom)" : "시작 (블룸)"}
+                {mode === "scheduled"
+                  ? (lang === "en" ? `Start (${stageCount}×${intervalSec}s)` : `시작 (${stageCount}단계 × ${intervalSec}초)`)
+                  : (lang === "en" ? "Start (Bloom)" : "시작 (블룸)")}
               </button>
               {laps.length === 0 && (
                 <button type="button" className="timer-reset" onClick={addManualLap}>
@@ -255,9 +350,11 @@ export default function PourTimer({
 
           {phase === "running" && (
             <>
-              <button type="button" className="timer-start" onClick={nextPour} style={{ background: "#27ae60" }}>
-                {lang === "en" ? "Next pour" : "다음 물붓기"}
-              </button>
+              {mode === "manual" && (
+                <button type="button" className="timer-start" onClick={nextPour} style={{ background: "#27ae60" }}>
+                  {lang === "en" ? "Next pour" : "다음 물붓기"}
+                </button>
+              )}
               <button type="button" className="timer-start" onClick={finish} style={{ background: "var(--espresso)" }}>
                 {lang === "en" ? "Finish" : "완료"}
               </button>
