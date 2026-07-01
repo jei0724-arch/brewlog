@@ -225,8 +225,11 @@ export default function RecipeModal({
   onClose, onSave, user, editTarget, lang = "ko", recipes = [],
 }) {
   const t      = I18N[lang];
-  const isEdit = !!editTarget && !editTarget._isCopy;
-  const isCopy = !!editTarget?._isCopy;
+  // isEdit/isCopy는 "Firestore 문서 id 존재 여부"로 판별한다.
+  // (예전 버그로 일부 레시피에 _isCopy:true가 영구 저장된 경우가 있어,
+  //  _isCopy 플래그만으로 판별하면 실제 문서(id 있음)도 계속 복사 모드로 오인식됨)
+  const isEdit = !!editTarget?.id;
+  const isCopy = !!editTarget && !editTarget.id;
 
   // ── 내 원두 / 장비 로드 ─────────────────────────────────────────
   const [myBeans,         setMyBeans]         = useState([]);
@@ -734,6 +737,7 @@ export default function RecipeModal({
         tds:             form.tds             || null,
         tags:            (form.tags || []).filter(Boolean),
       };
+      delete payload._isCopy; // 저장 시 절대 Firestore에 남지 않도록 제거 (복사모드 영구고착 버그 방지)
 
       if (isEdit) {
         // ── consumedG 차액 반영 (24시간 이내 수정) ──
@@ -867,13 +871,13 @@ export default function RecipeModal({
         <h2>
           {isEdit
             ? t.editTitle
-            : editTarget?._isCopy
+            : isCopy
             ? "레시피 복사하기"
             : t.recordTitle}
         </h2>
 
         {/* 복사 모드 안내 */}
-        {editTarget?._isCopy && (
+        {isCopy && (
           <div style={{ background:"#EBF5FB", border:"1px solid #AED6F1", borderRadius:"8px", padding:"10px 14px", marginBottom:"16px", fontSize:"0.8rem", color:"#2980b9", display:"flex", alignItems:"center", gap:"8px" }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
             다른 레시피를 복사했어요. 내용을 수정하고 저장하면 내 새 레시피로 등록됩니다.
