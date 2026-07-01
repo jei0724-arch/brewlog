@@ -1086,7 +1086,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
           onClose={()=>window.history.go(-1)}
           onLike={r=>{ handleLike(r); }}
           onEdit={r=>{ setEditTarget(r); openModal(); }}
-          onDelete={id=>{ handleDelete(id); setDetailRecipeWrapped(null); }}
+          onDelete={id=>{ handleDelete(id); window.history.go(-1); }}
           onFollow={toggleFollow}
           isFollowing={detailRecipe&&(following.includes(detailRecipe.uid)||following.includes(detailRecipe.author))}
           onBookmark={(id)=>{ setCollectionTarget(id); window.history.pushState({modal:true},""); }}
