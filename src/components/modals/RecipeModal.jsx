@@ -28,7 +28,7 @@ import {
   loadMyGrinder, saveMyGrinder,
   loadMyBean, saveMyBean,
   loadRecipeDefaults, saveRecipeDefaults,
-  loadPresets, savePresets,
+  loadPresets, savePresets, syncPresetsFromFirestore,
   isAutoMachine, isBothModeBrand, getBuiltinGrinder,
 } from "../../utils/storage";
 import { calcPressure } from "../../utils/pressure";
@@ -529,6 +529,16 @@ export default function RecipeModal({
   const [showPresetSave, setShowPresetSave] = useState(false);
   const [presetName,    setPresetName]    = useState("");
   const [activePresetId, setActivePresetId] = useState(null);
+
+  // 모달 진입 시 Firestore 백업과 동기화 (앱 재설치/기기 변경으로 localStorage가 비어있어도 복구)
+  useEffect(() => {
+    if (!user?.uid) return;
+    let cancelled = false;
+    syncPresetsFromFirestore(user.uid).then(remote => {
+      if (!cancelled && remote.length > 0) setPresets(remote);
+    });
+    return () => { cancelled = true; };
+  }, [user?.uid]);
 
   const applyPreset = (preset) => {
     applyingPresetRef.current = true;
