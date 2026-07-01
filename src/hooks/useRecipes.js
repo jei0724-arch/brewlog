@@ -166,22 +166,31 @@ export function useRecipes(user, { onRequireAuth } = {}) {
     setFollowing(localFollowing);
     setCollections(localCollections || {});
 
-    // Firestore 백업과 비교해 더 최신/풍부한 데이터로 복구
+    // Firestore 백업과 비교해 항상 최신 상태로 동기화
+    // (예전 로직: 로컬이 "비어있을 때만" 복구 → 다른 기기에서 바뀐 내용이 있어도
+    //  이 기기 로컬 캐시가 비어있지 않으면 영원히 옛날 값을 계속 보여주는 문제가 있었음)
     getDoc(doc(db, "users", user.uid)).then(snap => {
       if (!snap.exists()) return;
       const data = snap.data();
 
-      // following: 로컬이 비어있으면 Firestore 백업으로 복구
-      if (Array.isArray(data.following) && localFollowing.length === 0 && data.following.length > 0) {
-        setFollowing(data.following);
-        try { localStorage.setItem("brewlog_following_" + user.uid, JSON.stringify(data.following)); } catch {}
+      // following: Firestore 값이 로컬과 다르면 Firestore를 신뢰 (여러 기기 간 진실의 원천)
+      if (Array.isArray(data.following)) {
+        const same =
+          data.following.length === localFollowing.length &&
+          data.following.every((id) => localFollowing.includes(id));
+        if (!same) {
+          setFollowing(data.following);
+          try { localStorage.setItem("brewlog_following_" + user.uid, JSON.stringify(data.following)); } catch {}
+        }
       }
 
-      // collections: 로컬이 비어있으면 Firestore 백업으로 복구
-      const localIsEmpty = !localCollections || Object.keys(localCollections).length === 0;
-      if (data.collections && localIsEmpty && Object.keys(data.collections).length > 0) {
-        setCollections(data.collections);
-        try { localStorage.setItem("brewlog_collections_" + user.uid, JSON.stringify(data.collections)); } catch {}
+      // collections: Firestore 값이 로컬과 다르면 Firestore를 신뢰
+      if (data.collections) {
+        const same = JSON.stringify(data.collections) === JSON.stringify(localCollections || {});
+        if (!same) {
+          setCollections(data.collections);
+          try { localStorage.setItem("brewlog_collections_" + user.uid, JSON.stringify(data.collections)); } catch {}
+        }
       }
     }).catch(() => {});
   }, [user?.uid]);
