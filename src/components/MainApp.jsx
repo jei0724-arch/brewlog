@@ -280,9 +280,10 @@ export default function MainApp({
 
     const onPop = (e) => {
       // 열린 모달이 있으면 닫고, 히스토리는 소비된 것으로 처리
+      // (우선순위 = 가장 최근에 열린(=가장 위에 쌓인) 모달부터 닫는 순서.
+      //  showModal(RecipeModal)은 detail 위에 겹쳐 열릴 수 있으므로 detail보다 먼저 체크한다.)
       if (collectionTargetRef.current) { setCollectionTarget(null); return; }
       if (compareTargetRef.current)  { setCompareTargetState(null); return; }
-      if (detailRecipeRef.current)   { setDetailRecipeWrapped(null); return; }
       if (showModalRef.current) {
         setShowModalWrapped(false); setEditTarget(null);
         if (pendingDetailRef.current) {
@@ -291,6 +292,7 @@ export default function MainApp({
         }
         return;
       }
+      if (detailRecipeRef.current)   { setDetailRecipeWrapped(null); return; }
       if (showMyModalRef.current)  { setShowMyModalWrapped(false); return; }
       if (beanDetailOpenRef.current){ return; } // BeanVault 자체 popstate 핸들러가 처리, base 복구만 스킵
       if (wikiModalOpenRef.current){ return; }   // CoffeeWiki 자체 popstate 핸들러가 처리, base 복구만 스킵
@@ -1083,7 +1085,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
           lang={lang}
           onClose={()=>window.history.go(-1)}
           onLike={r=>{ handleLike(r); }}
-          onEdit={r=>{ setEditTarget(r); window.history.go(-1); setTimeout(()=>openModal(), 50); }}
+          onEdit={r=>{ setEditTarget(r); openModal(); }}
           onDelete={id=>{ handleDelete(id); setDetailRecipeWrapped(null); }}
           onFollow={toggleFollow}
           isFollowing={detailRecipe&&(following.includes(detailRecipe.uid)||following.includes(detailRecipe.author))}
@@ -1112,7 +1114,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
       {showModal && (
         <RecipeModal user={user} editTarget={editTarget} lang={lang} recipes={recipes.filter(r=>r.uid===user?.uid).slice(0,5)}
           onClose={()=>window.history.go(-1)}
-          onSave={()=>{ loadRecipes(); setShowModalWrapped(false); setEditTarget(null); }}/>
+          onSave={()=>{ loadRecipes(); window.history.go(-1); }}/>
       )}
       {profileModal && (
         <BrewerProfileModal

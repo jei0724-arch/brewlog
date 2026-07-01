@@ -805,8 +805,7 @@ export default function RecipeModal({
                 ? "This recipe was already deleted (possibly from another device). Your edits weren't saved."
                 : "이 레시피는 이미 삭제되었어요 (다른 기기에서 삭제됐을 수 있어요). 수정 내용은 저장되지 않았습니다."
             );
-            onSave();   // 목록 새로고침 → 사라진 카드 정리
-            onClose();
+            onSave();   // 목록 새로고침 + 모달 닫기 (go(-1) 포함)
             setSaving(false);
             return;
           }
