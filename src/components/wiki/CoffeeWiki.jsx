@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   collection, query, orderBy, limit,
-  getDocs, doc, addDoc, updateDoc, serverTimestamp,
+  getDocs, doc, addDoc, updateDoc, deleteDoc, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
 import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, SEED_ACCESSORIES, seedText } from "../../constants/wikiSeed";
@@ -17,6 +17,8 @@ const I18N = {
     title: "Coffee Wiki", sub: "원두와 장비, 함께 만드는 커피 데이터베이스",
     tabBeans: "원두", tabEquip: "장비", tabAccessories: "악세사리",
     accCategories: { basket:"바스켓/필터", tamper:"탬퍼", prep:"준비도구", cleaning:"세척", measure:"계측", milk:"우유/라떼아트", storage:"보관" },
+    addAccessory: "악세사리 추가하기", accName: "이름", accCategory: "분류",
+    curated: "관리자 등록", delete: "삭제", deleteConfirm: "이 악세사리를 삭제할까요?",
     search: "원두명, 산지, 브랜드로 검색",
     addBean: "원두 추가하기", addEquip: "장비 추가하기",
     empty: "아직 등록된 항목이 없어요. 첫 항목을 추가해보세요!",
@@ -50,6 +52,8 @@ const I18N = {
     title: "Coffee Wiki", sub: "A community-built coffee bean & equipment database",
     tabBeans: "Beans", tabEquip: "Equipment", tabAccessories: "Accessories",
     accCategories: { basket:"Basket/Filter", tamper:"Tamper", prep:"Prep Tools", cleaning:"Cleaning", measure:"Measuring", milk:"Milk/Latte Art", storage:"Storage" },
+    addAccessory: "Add Accessory", accName: "Name", accCategory: "Category",
+    curated: "Curated", delete: "Delete", deleteConfirm: "Delete this accessory?",
     search: "Search by name, origin, or brand",
     addBean: "Add Bean", addEquip: "Add Equipment",
     empty: "No entries yet. Be the first to add one!",
@@ -766,6 +770,85 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
   );
 }
 
+// ── 악세사리 추가/수정 폼 (유저 기여형) ─────────────────────────
+const ACC_CATEGORIES = ["basket","tamper","prep","cleaning","measure","milk","storage"];
+
+function AccessoryWikiForm({ user, lang, editTarget, onClose, onSaved }) {
+  const t = I18N[lang];
+  const [form, setForm] = useState({
+    category: editTarget?.category || "prep",
+    name: typeof editTarget?.name === "string" ? editTarget.name : (editTarget ? seedText(editTarget.name, lang) : ""),
+    description: typeof editTarget?.description === "string" ? editTarget.description : (editTarget ? seedText(editTarget.description, lang) : ""),
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { alert(t.required); return; }
+    setSaving(true);
+    try {
+      if (editTarget?.id) {
+        await updateDoc(doc(db, "wiki_accessories", editTarget.id), {
+          ...form,
+          editedBy: [...(editTarget.editedBy || []), user.uid].slice(-10),
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        await addDoc(collection(db, "wiki_accessories"), {
+          ...form,
+          createdBy: user.uid,
+          createdByName: user.displayName || "익명",
+          editedBy: [],
+          createdAt: serverTimestamp(),
+        });
+      }
+      onSaved();
+      onClose();
+    } catch (e) {
+      console.error("[wiki accessory save]", e);
+      alert(lang === "en" ? "Failed to save." : "저장에 실패했어요.");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: "440px" }}>
+        <h2 style={{ marginBottom: "18px" }}>{editTarget ? t.edit : t.addAccessory}</h2>
+
+        <div className="field full" style={{ marginBottom: "12px" }}>
+          <label>{t.accCategory}</label>
+          <select value={form.category} onChange={e => set("category", e.target.value)}
+            style={{ width: "100%", padding: "0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", boxSizing: "border-box" }}>
+            {ACC_CATEGORIES.map(c => <option key={c} value={c}>{t.accCategories[c]}</option>)}
+          </select>
+        </div>
+
+        <div className="field full" style={{ marginBottom: "12px" }}>
+          <label>{t.accName}</label>
+          <input value={form.name} onChange={e => set("name", e.target.value)}
+            placeholder={lang === "en" ? "e.g. Bottomless Portafilter" : "예) 보텀리스 포터필터"}
+            style={{ width: "100%", padding: "0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", boxSizing: "border-box" }} />
+        </div>
+
+        <div className="field full" style={{ marginBottom: "12px" }}>
+          <label>{t.description}</label>
+          <textarea value={form.description} onChange={e => set("description", e.target.value)}
+            rows={3} placeholder={lang === "en" ? "What it's for, tips..." : "용도, 사용 팁 등을 자유롭게 적어주세요"}
+            style={{ width: "100%", padding: "0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", resize: "vertical", boxSizing: "border-box" }} />
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn-cancel" onClick={onClose}>{t.cancel}</button>
+          <button className="btn-primary" style={{ marginTop:0, width:"auto", padding:"0.7rem 1.5rem" }} onClick={handleSave} disabled={saving}>
+            {saving ? "..." : t.save}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
   const t = I18N[lang];
   const isBean = type === "bean";
@@ -926,6 +1009,7 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
 
   const [beans, setBeans] = useState([]);
   const [equips, setEquips] = useState([]);
+  const [accessories, setAccessories] = useState([]);
   const [searchInternal, setSearchInternal] = useState("");
   const search = searchProp !== undefined ? searchProp : searchInternal;
   const setSearch = onSearchChange || setSearchInternal;
@@ -933,16 +1017,19 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
 
   const [showBeanForm, setShowBeanForm] = useState(false);
   const [showEquipForm, setShowEquipForm] = useState(false);
+  const [showAccessoryForm, setShowAccessoryForm] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
 
   // 모달 상태 ref (popstate 핸들러에서 최신값 참조용)
   const showBeanFormRef  = useRef(false);
   const showEquipFormRef = useRef(false);
+  const showAccessoryFormRef = useRef(false);
   const editTargetRef    = useRef(null);
   const detailItemRef    = useRef(null);
   useEffect(() => { showBeanFormRef.current  = showBeanForm;  }, [showBeanForm]);
   useEffect(() => { showEquipFormRef.current = showEquipForm; }, [showEquipForm]);
+  useEffect(() => { showAccessoryFormRef.current = showAccessoryForm; }, [showAccessoryForm]);
   useEffect(() => { editTargetRef.current    = editTarget;    }, [editTarget]);
   useEffect(() => { detailItemRef.current    = detailItem;    }, [detailItem]);
 
@@ -958,6 +1045,7 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
     const onPop = () => {
       if (showBeanFormRef.current)  { showBeanFormRef.current=false;  setShowBeanForm(false);  return; }
       if (showEquipFormRef.current) { showEquipFormRef.current=false; setShowEquipForm(false); return; }
+      if (showAccessoryFormRef.current) { showAccessoryFormRef.current=false; setShowAccessoryForm(false); return; }
       if (editTargetRef.current)    { editTargetRef.current=null;     setEditTarget(null);     return; }
       if (detailItemRef.current)    { detailItemRef.current=null;     setDetailItem(null);     return; }
     };
@@ -968,18 +1056,20 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
   // 모달 열기 래퍼 — pushState와 함께
   const openBeanForm  = () => { window.history.pushState({ wikiModal: true }, ""); setShowBeanForm(true); };
   const openEquipForm = () => { window.history.pushState({ wikiModal: true }, ""); setShowEquipForm(true); };
+  const openAccessoryForm = () => { window.history.pushState({ wikiModal: true }, ""); setShowAccessoryForm(true); };
   const openEditTarget = (item) => { window.history.pushState({ wikiModal: true }, ""); setEditTarget(item); };
   const openDetailItem = (item) => { window.history.pushState({ wikiModal: true }, ""); setDetailItem(item); };
 
   // 부모(MainApp)가 헤더의 "추가하기" 버튼에서 호출할 수 있도록 함수 노출
   useEffect(() => {
-    onExposeActions?.({ openBeanForm, openEquipForm });
+    onExposeActions?.({ openBeanForm, openEquipForm, openAccessoryForm });
   }, [onExposeActions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 모달 닫기 래퍼 — go(-1)만 호출 (실제 상태 변경은 popstate 핸들러(onPop)가 책임짐)
   // go(-1)과 setState를 동시에 호출하면, go(-1)이 트리거하는 비동기 popstate 이벤트가
   // 도착했을 때 이미 state가 바뀐 뒤라서 onPop이 다음 단계(탭 등)까지 잘못 처리하는 문제가 있었음
   const closeBeanForm  = () => window.history.go(-1);
+  const closeAccessoryForm = () => window.history.go(-1);
   const closeEquipForm = () => window.history.go(-1);
   const closeEditTarget = () => window.history.go(-1);
   const closeDetailItem = () => window.history.go(-1);
@@ -987,12 +1077,14 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [beanSnap, equipSnap] = await Promise.all([
+      const [beanSnap, equipSnap, accSnap] = await Promise.all([
         getDocs(query(collection(db, "wiki_beans"), orderBy("createdAt", "desc"), limit(200))),
         getDocs(query(collection(db, "wiki_equipments"), orderBy("createdAt", "desc"), limit(200))),
+        getDocs(query(collection(db, "wiki_accessories"), orderBy("createdAt", "desc"), limit(200))),
       ]);
       setBeans(beanSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setEquips(equipSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setAccessories(accSnap.docs.map(d => ({ id: d.id, ...d.data(), isSeed: false })));
     } catch (e) {
       console.error("[wiki load]", e);
     }
@@ -1022,15 +1114,25 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
     );
   }, [equips, search]);
 
-  // 악세사리 — 관리자 큐레이션 정적 카탈로그 (Firestore 조회 없이 wikiSeed.js에서 직접 필터링)
+  // 악세사리 — 관리자 큐레이션(wikiSeed.js, 고정) + 유저 등록(Firestore wiki_accessories) 병합
+  const allAccessories = useMemo(() => [
+    ...SEED_ACCESSORIES.map((a, i) => ({ ...a, id: `seed_${i}`, isSeed: true })),
+    ...accessories,
+  ], [accessories]);
+
   const filteredAccessories = useMemo(() => {
-    if (!search.trim()) return SEED_ACCESSORIES;
-    return SEED_ACCESSORIES.filter(a =>
+    if (!search.trim()) return allAccessories;
+    return allAccessories.filter(a =>
       matchesSearch(seedText(a.name, lang), search) ||
       matchesSearch(seedText(a.description, lang), search) ||
       matchesSearch(t.accCategories[a.category] || "", search)
     );
-  }, [search, lang, t]);
+  }, [allAccessories, search, lang, t]);
+
+  const deleteAccessory = async (id) => {
+    if (!confirm(t.deleteConfirm)) return;
+    try { await deleteDoc(doc(db, "wiki_accessories", id)); loadData(); } catch (e) { console.error("[wiki accessory delete]", e); }
+  };
 
   return (
     <div style={{ maxWidth: "720px", margin: "0 auto" }}>
@@ -1075,20 +1177,40 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
           </p>
         ) : (
           <div style={{ display: "grid", gap: "10px" }}>
-            {filteredAccessories.map((a, i) => (
-              <div key={i}
+            {filteredAccessories.map((a) => (
+              <div key={a.id}
                 style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "12px", padding: "14px 16px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
-                  <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--latte)", background: "#B07D5415", border: "1px solid #B07D5430", borderRadius: "4px", padding: "1px 6px", whiteSpace: "nowrap" }}>
-                    {t.accCategories[a.category] || a.category}
-                  </span>
-                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)" }}>
-                    {seedText(a.name, lang)}
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px", marginBottom: "4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", minWidth: 0 }}>
+                    <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--latte)", background: "#B07D5415", border: "1px solid #B07D5430", borderRadius: "4px", padding: "1px 6px", whiteSpace: "nowrap" }}>
+                      {t.accCategories[a.category] || a.category}
+                    </span>
+                    {a.isSeed && (
+                      <span style={{ fontSize: "0.58rem", fontWeight: 700, color: "var(--muted)", background: "var(--cream)", border: "1px solid var(--steam)", borderRadius: "4px", padding: "1px 6px", whiteSpace: "nowrap" }}>
+                        {t.curated}
+                      </span>
+                    )}
+                    <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)" }}>
+                      {seedText(a.name, lang)}
+                    </div>
                   </div>
+                  {!a.isSeed && a.createdBy === user?.uid && (
+                    <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                      <button onClick={() => openEditTarget(a)}
+                        style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.72rem", cursor: "pointer", padding: 0, fontFamily: "'DM Sans',sans-serif" }}>{t.edit}</button>
+                      <button onClick={() => deleteAccessory(a.id)}
+                        style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.72rem", cursor: "pointer", padding: 0, fontFamily: "'DM Sans',sans-serif" }}>{t.delete}</button>
+                    </div>
+                  )}
                 </div>
                 <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5 }}>
                   {seedText(a.description, lang)}
                 </div>
+                {!a.isSeed && (
+                  <div style={{ marginTop: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)" }}>
+                    {t.contributedBy}: @{a.createdByName || "익명"}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1128,12 +1250,20 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
         <EquipWikiForm user={user} lang={lang} editTarget={null} allEquips={equips}
           onClose={closeEquipForm} onSaved={loadData} />
       )}
+      {showAccessoryForm && (
+        <AccessoryWikiForm user={user} lang={lang} editTarget={null}
+          onClose={closeAccessoryForm} onSaved={loadData} />
+      )}
       {editTarget && tab === "beans" && (
         <BeanWikiForm user={user} lang={lang} editTarget={editTarget} allBeans={beans}
           onClose={closeEditTarget} onSaved={loadData} />
       )}
       {editTarget && tab === "equip" && (
         <EquipWikiForm user={user} lang={lang} editTarget={editTarget} allEquips={equips}
+          onClose={closeEditTarget} onSaved={loadData} />
+      )}
+      {editTarget && tab === "accessories" && (
+        <AccessoryWikiForm user={user} lang={lang} editTarget={editTarget}
           onClose={closeEditTarget} onSaved={loadData} />
       )}
 

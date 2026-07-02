@@ -718,9 +718,13 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                         </button>
                       ))}
                     </div>
-                    {user && wikiTab!=="accessories" && (
+                    {user && (
                       <button className="btn-new" style={{ flexShrink:0 }}
-                        onClick={()=>{ wikiTab==="beans" ? wikiActionsRef.current?.openBeanForm() : wikiActionsRef.current?.openEquipForm(); }}>
+                        onClick={()=>{
+                          if (wikiTab==="beans") wikiActionsRef.current?.openBeanForm();
+                          else if (wikiTab==="accessories") wikiActionsRef.current?.openAccessoryForm();
+                          else wikiActionsRef.current?.openEquipForm();
+                        }}>
                         <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                         {lang==="en"?"Add":"추가하기"}
                       </button>
