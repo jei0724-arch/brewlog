@@ -1741,6 +1741,7 @@ textarea:focus { border-color: var(--latte); box-shadow: 0 0 0 3px rgba(176,125,
   html, body { overscroll-behavior-x: none; }
   * { touch-action: pan-y; }
   input, textarea, select { touch-action: manipulation; }
+  button, .card-action-btn, .notif-btn, .follow-btn, .btn-primary, .btn-cancel, a { touch-action: manipulation; }
 
   .btn-new {
     padding: 0 10px;
