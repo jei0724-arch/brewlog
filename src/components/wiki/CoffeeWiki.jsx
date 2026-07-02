@@ -1107,9 +1107,9 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
   // 위키 내부 모달 중 하나라도 열려있으면 부모(MainApp)에게 알림
   // → MainApp의 popstate 핸들러가 "히스토리 소진"으로 잘못 판단해 base를 재푸시하는 것을 방지
   useEffect(() => {
-    const anyOpen = !!(showBeanForm || showEquipForm || editTarget || detailItem);
+    const anyOpen = !!(showBeanForm || showEquipForm || showAccessoryForm || editTarget || detailItem);
     onModalOpenChange?.(anyOpen);
-  }, [showBeanForm, showEquipForm, editTarget, detailItem]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showBeanForm, showEquipForm, showAccessoryForm, editTarget, detailItem]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 뒤로가기 → 위키 모달 닫기 (앱 밖으로 나가는 것 방지)
   useEffect(() => {
@@ -1245,7 +1245,7 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
       ) : tab === "accessories" ? (
         filteredAccessories.length === 0 ? (
           <p style={{ textAlign: "center", color: "var(--muted)", padding: "40px 0", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem" }}>
-            {t.noResult}
+            {search ? t.noResult : t.empty}
           </p>
         ) : (
           <div style={{ display: "grid", gap: "10px" }}>
