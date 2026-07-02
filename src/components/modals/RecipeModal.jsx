@@ -457,7 +457,7 @@ export default function RecipeModal({
 
   // ── 메뉴 선택 ───────────────────────────────────────────────────
   const [selectedMenu, setSelectedMenu] = useState(
-    (isEdit || isCopy) ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : "")
+    (isEdit || isCopy) ? (editTarget.menuId || "") : ""
   );
 
   const MENU_DEFAULTS = {
@@ -485,8 +485,12 @@ export default function RecipeModal({
 
   // 핸드드립 메뉴 ↔ machineType 동기화
   const applyingPresetRef = useRef(false);
+  const menuSyncMountedRef = useRef(false);
   useEffect(() => {
     if (applyingPresetRef.current) return;
+    // 최초 마운트 시엔 스킵 — 저장된 내 머신이 핸드드립이어도
+    // 메뉴가 아직 선택 안 된 상태(빈 값)일 뿐이지, machineType까지 되돌리면 안 됨
+    if (!menuSyncMountedRef.current) { menuSyncMountedRef.current = true; return; }
     if (selectedMenu === "hand_drip") {
       setMachineType("handdrip");
       setSelectedEquipIds((prev) => {
