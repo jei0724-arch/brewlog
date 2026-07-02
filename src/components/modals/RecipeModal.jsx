@@ -602,6 +602,7 @@ export default function RecipeModal({
       syrup:           preset.syrup           ?? "",
       brewPressureBar: preset.brewPressureBar ?? "",
       continuousMemo:  preset.continuousMemo  ?? "",
+      pourStages:      preset.pourStages      ?? [],
     }));
     setTimeout(() => { applyingPresetRef.current = false; }, 300);
   };
@@ -657,6 +658,7 @@ export default function RecipeModal({
       syrup:           form.syrup           || "",
       brewPressureBar: form.brewPressureBar || "",
       continuousMemo:  form.continuousMemo  || "",
+      pourStages:      hdMode ? (form.pourStages || []) : [],
       createdAt: new Date().toISOString(),
     };
     const updated = existing
