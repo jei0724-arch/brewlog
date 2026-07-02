@@ -116,7 +116,7 @@ export const COFFEE_MENUS = [
   { id: "cappuccino", label: "카푸치노",   labelEn: "Cappuccino",  needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "우유", diluteCategory: "milk" },
   { id: "flatwhite",  label: "플랫화이트", labelEn: "Flat White",  needsDilute: true,  hasSyrup: false, canIce: false, defaultDilute: "우유", diluteCategory: "milk" },
   { id: "macchiato",  label: "마끼아또",   labelEn: "Macchiato",   needsDilute: true,  hasSyrup: true,  canIce: true,  defaultDilute: "우유", diluteCategory: "milk" },
-  { id: "hand_drip",  label: "핸드드립",   labelEn: "Hand Drip",   needsDilute: false, hasSyrup: false, canIce: false },
+  { id: "hand_drip",  label: "핸드드립",   labelEn: "Hand Drip",   needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "물", diluteCategory: "water" },
   { id: "cold_brew",  label: "콜드브루",   labelEn: "Cold Brew",   needsDilute: true,  hasSyrup: true,  canIce: true,  defaultDilute: "",    diluteCategory: "both" },
   { id: "other",      label: "기타",       labelEn: "Other",       needsDilute: true,  hasSyrup: false, canIce: true,  defaultDilute: "",    diluteCategory: "both" },
 ];
