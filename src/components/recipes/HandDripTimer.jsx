@@ -1,11 +1,13 @@
 /* ============================================================
    BREWLOG NOTE — src/components/recipes/HandDripTimer.jsx
    핸드드립 전용 타이머
-   ─ 기록 모드: 단계가 없을 때 — "구간 기록"으로 새로 계획을 만듦
-   ─ 가이드 모드: 이미 기록된 단계(pourStages, 프리셋에서 불러온 것 포함)가
-     있을 때 — 그 시간표대로 진행 상황을 안내(진동+비프음+하이라이트)
-   ─ 두 모드 모두 같은 컴포넌트 안에서 자동 전환됨(계획 유무로 판단)
-   ─ 진행 중에도 "구간 추가"로 계획에 없던 단계를 즉석에서 추가 가능
+   ─ pourStages의 각 time 값은 "그 구간 자체의 길이(duration)"이며,
+     배열 순서 = 실제 브루잉 순서. 절대시간이 아니므로 정렬하지 않고
+     순서대로 누적(cumulative)해서 시작/종료 시점을 계산함
+   ─ 기록 모드: 계획된 구간이 없을 때 — "구간 기록"으로 새로 만듦
+     (직전 기록 시점 이후 흐른 시간이 그 구간의 duration으로 저장됨)
+   ─ 가이드 모드: 이미 기록된 구간이 있을 때 — 누적 시간표대로 안내
+     (진동+비프음, 현재/다음 단계 표시)
    ============================================================ */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useWakeLock } from "../../hooks/useWakeLock";
@@ -16,7 +18,6 @@ function fmt(s) {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-// 짧은 비프음 (Web Audio) — 진동 미지원 환경(데스크탑 등) 대비
 function beep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -29,29 +30,36 @@ function beep() {
     osc.start(); osc.stop(ctx.currentTime + 0.4);
   } catch {}
 }
-
 function alertStage() {
   beep();
   if (navigator.vibrate) navigator.vibrate([200, 80, 200]);
 }
 
 export default function HandDripTimer({ value, pourStages, onChange, onStagesChange, lang }) {
-  // phase: "idle" | "running" | "done"
-  const [phase, setPhase] = useState("idle");
+  const [phase, setPhase] = useState("idle"); // idle | running | done
   const [elapsed, setElapsed] = useState(0);
   const intervalRef = useRef(null);
-  const firedRef = useRef(new Set()); // 이미 알림 울린 단계 인덱스
+  const firedRef = useRef(new Set());
+  const lastLapRef = useRef(0); // 마지막 "구간 기록" 시점 (기록 모드에서 duration 계산용)
 
   useWakeLock(phase === "running");
 
-  // 계획된 단계(시간 기록이 있는 것) — 이게 있으면 "가이드 모드"
+  // 배열 순서대로 누적(cumulative) 시작/종료 시점 계산 — duration 모델
+  // 시간이 비어있는(0) "빈 단계"는 누적 계산 전에 제외 — 안 그러면 그 순간 즉시 "현재 단계"로
+  // 판정되면서 다음(사실상 마지막) 단계로 순식간에 넘어가버리는 버그가 생김
   const plan = useMemo(() => {
+    let cum = 0;
     return (pourStages || [])
-      .map((s, idx) => ({ ...s, _idx: idx, time: parseInt(s.time) || 0 }))
-      .filter(s => s.time > 0)
-      .sort((a, b) => a.time - b.time);
+      .filter(s => (parseInt(s.time) || 0) > 0)
+      .map((s, idx) => {
+        const dur = parseInt(s.time) || 0;
+        const start = cum;
+        cum += dur;
+        return { ...s, _idx: idx, dur, start, end: cum };
+      });
   }, [pourStages]);
   const isGuideMode = plan.length > 0;
+  const totalPlanned = plan.length ? plan[plan.length - 1].end : 0;
 
   const clearTimer = useCallback(() => {
     clearInterval(intervalRef.current);
@@ -63,24 +71,30 @@ export default function HandDripTimer({ value, pourStages, onChange, onStagesCha
     clearTimer();
     setPhase("running");
     setElapsed(0);
+    lastLapRef.current = 0;
     firedRef.current = new Set();
     intervalRef.current = setInterval(() => setElapsed(p => p + 1), 1000);
   }, [clearTimer]);
 
-  // 가이드 모드 — 계획된 시간에 도달하면 알림
+  // 가이드 모드 — 새 구간 시작 시점(start)에 도달하면 알림 (0번째는 시작 버튼으로 이미 인지했으니 스킵)
   useEffect(() => {
     if (phase !== "running" || !isGuideMode) return;
     plan.forEach((s, i) => {
-      if (elapsed >= s.time && !firedRef.current.has(i)) {
+      if (i === 0) return;
+      if (s.dur <= 0) return;
+      if (elapsed >= s.start && !firedRef.current.has(i)) {
         firedRef.current.add(i);
         alertStage();
       }
     });
   }, [elapsed, phase, isGuideMode, plan]);
 
+  // 구간 기록 — 직전 기록 이후 흐른 시간을 이번 구간의 duration으로 저장
   const lap = useCallback(() => {
+    const dur = Math.max(0, elapsed - lastLapRef.current);
+    lastLapRef.current = elapsed;
     const stages = pourStages || [];
-    onStagesChange([...stages, { time: String(elapsed), amount: "", label: "", desc: "" }]);
+    onStagesChange([...stages, { time: String(dur), amount: "", label: "", desc: "" }]);
   }, [elapsed, pourStages, onStagesChange]);
 
   const stop = useCallback(() => {
@@ -93,12 +107,12 @@ export default function HandDripTimer({ value, pourStages, onChange, onStagesCha
     clearTimer();
     setPhase("idle");
     setElapsed(0);
+    lastLapRef.current = 0;
     firedRef.current = new Set();
   }, [clearTimer]);
 
-  // 현재/다음 단계 계산 (가이드 모드)
   const currentStageIdx = isGuideMode
-    ? plan.reduce((acc, s, i) => (elapsed >= s.time ? i : acc), -1)
+    ? plan.reduce((acc, s, i) => (elapsed >= s.start ? i : acc), -1)
     : -1;
   const nextStage = isGuideMode ? plan[currentStageIdx + 1] : null;
 
@@ -106,7 +120,9 @@ export default function HandDripTimer({ value, pourStages, onChange, onStagesCha
     <div className="timer-box">
       {isGuideMode && (
         <div style={{ fontSize: "0.62rem", fontWeight: 700, color: "var(--latte)", textAlign: "center", marginBottom: "6px", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-          {lang === "en" ? `Guide Mode · ${plan.length} stages` : `가이드 모드 · 단계 ${plan.length}개`}
+          {lang === "en"
+            ? `Guide Mode · ${plan.length} stages · Total ${fmt(totalPlanned)}`
+            : `가이드 모드 · 단계 ${plan.length}개 · 총 ${fmt(totalPlanned)}`}
         </div>
       )}
 
@@ -123,7 +139,6 @@ export default function HandDripTimer({ value, pourStages, onChange, onStagesCha
           </div>
         )}
 
-        {/* 가이드 모드 — 현재/다음 단계 안내 */}
         {isGuideMode && phase === "running" && (
           <div style={{ marginTop: "4px" }}>
             {currentStageIdx >= 0 && (
@@ -133,7 +148,7 @@ export default function HandDripTimer({ value, pourStages, onChange, onStagesCha
             )}
             {nextStage && (
               <div style={{ fontSize: "0.68rem", color: "var(--muted)", fontFamily: "'DM Sans',sans-serif", marginTop: "2px" }}>
-                {lang === "en" ? "Next: " : "다음: "}{nextStage.label || (lang === "en" ? `Stage ${plan.indexOf(nextStage)+1}` : `${plan.indexOf(nextStage)+1}단계`)} · {fmt(nextStage.time)} ({lang==="en"?"in":""} {Math.max(0, nextStage.time - elapsed)}{lang==="en"?"s":"초 뒤"})
+                {lang === "en" ? "Next: " : "다음: "}{nextStage.label || (lang === "en" ? `Stage ${plan.indexOf(nextStage)+1}` : `${plan.indexOf(nextStage)+1}단계`)} · {Math.max(0, nextStage.start - elapsed)}{lang==="en"?"s":"초"} {lang==="en"?"left":"뒤"}
               </div>
             )}
             {!nextStage && currentStageIdx === plan.length - 1 && (
@@ -151,18 +166,16 @@ export default function HandDripTimer({ value, pourStages, onChange, onStagesCha
         )}
       </div>
 
-      {/* 가이드 모드 진행 바 */}
-      {isGuideMode && phase !== "idle" && (
+      {isGuideMode && phase !== "idle" && totalPlanned > 0 && (
         <div style={{ display: "flex", height: "6px", borderRadius: "3px", overflow: "hidden", marginBottom: "10px", background: "var(--steam)" }}>
-          {plan.map((s, i) => {
-            const prevT = i === 0 ? 0 : plan[i-1].time;
-            const isPast = elapsed >= s.time;
-            const isCurrent = i === currentStageIdx;
+          {plan.filter(s => s.dur > 0).map((s, i, arr) => {
+            const isPast = elapsed >= s.end;
+            const isCurrent = currentStageIdx === s._idx;
             return (
               <div key={i} style={{
-                width: `${((s.time - prevT) / (plan[plan.length-1].time || 1)) * 100}%`,
+                width: `${(s.dur / totalPlanned) * 100}%`,
                 background: isPast ? "#27ae60" : isCurrent ? "#e67e22" : "var(--steam)",
-                borderRight: i < plan.length-1 ? "1px solid var(--foam)" : "none",
+                borderRight: i < arr.length - 1 ? "1px solid var(--foam)" : "none",
                 transition: "background 0.3s",
               }}/>
             );
