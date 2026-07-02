@@ -4,18 +4,19 @@
    ============================================================ */
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
-  collection, query, where, orderBy, limit,
+  collection, query, orderBy, limit,
   getDocs, doc, addDoc, updateDoc, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
-import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, seedText } from "../../constants/wikiSeed";
+import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, SEED_ACCESSORIES, seedText } from "../../constants/wikiSeed";
 import { translateFields, hasKorean } from "../../utils/translate";
 import { ROAST_LEVELS } from "../../constants/coffeeMenus";
 
 const I18N = {
   ko: {
     title: "Coffee Wiki", sub: "원두와 장비, 함께 만드는 커피 데이터베이스",
-    tabBeans: "원두", tabEquip: "장비",
+    tabBeans: "원두", tabEquip: "장비", tabAccessories: "악세사리",
+    accCategories: { basket:"바스켓/필터", tamper:"탬퍼", prep:"준비도구", cleaning:"세척", measure:"계측", milk:"우유/라떼아트", storage:"보관" },
     search: "원두명, 산지, 브랜드로 검색",
     addBean: "원두 추가하기", addEquip: "장비 추가하기",
     empty: "아직 등록된 항목이 없어요. 첫 항목을 추가해보세요!",
@@ -27,7 +28,7 @@ const I18N = {
     variety: "품종", process: "가공법", altitude: "고도", roastLevel: "배전도",
     description: "설명", roastery: "로스터리(선택)",
     equipCategory: "분류", equipBrand: "브랜드", equipModel: "모델명",
-    equipType: "타입", machine: "머신", grinder: "그라인더", handdrip: "핸드드립", accessory: "악세사리",
+    equipType: "타입", machine: "머신", grinder: "그라인더", handdrip: "핸드드립",
     fullAuto: "전자동", semiAuto: "반자동", manual: "수동",
     required: "필수 항목을 입력해주세요.",
     duplicateWarn: "비슷한 항목이 이미 있어요:",
@@ -44,16 +45,11 @@ const I18N = {
     specMaterial: "재질", specShape: "드리퍼 형태", specCapacity: "용량(컵)",
     materialCeramic: "도자기", materialGlass: "유리", materialPlastic: "플라스틱", materialMetal: "금속",
     shapeCone: "원뿔형", shapeFlat: "평저형", shapeWave: "웨이브",
-    // 악세사리 스펙
-    accessoryType: "종류", portafilter: "포타필터", basket: "바스켓", showerscreen: "샤워스크린",
-    specDiameter: "직경(mm)", specSpout: "스파웃 타입",
-    spoutBottomless: "노스파웃(바텀리스)", spoutSingle: "싱글 스파웃", spoutDouble: "더블 스파웃",
-    specBasketCapacity: "용량(g)", specHoleType: "홀 타입",
-    holePrecision: "정밀(프리시전)", holeStandard: "일반(스탬프)",
   },
   en: {
     title: "Coffee Wiki", sub: "A community-built coffee bean & equipment database",
-    tabBeans: "Beans", tabEquip: "Equipment",
+    tabBeans: "Beans", tabEquip: "Equipment", tabAccessories: "Accessories",
+    accCategories: { basket:"Basket/Filter", tamper:"Tamper", prep:"Prep Tools", cleaning:"Cleaning", measure:"Measuring", milk:"Milk/Latte Art", storage:"Storage" },
     search: "Search by name, origin, or brand",
     addBean: "Add Bean", addEquip: "Add Equipment",
     empty: "No entries yet. Be the first to add one!",
@@ -65,7 +61,7 @@ const I18N = {
     variety: "Variety", process: "Process", altitude: "Altitude", roastLevel: "Roast Level",
     description: "Description", roastery: "Roastery (optional)",
     equipCategory: "Category", equipBrand: "Brand", equipModel: "Model",
-    equipType: "Type", machine: "Machine", grinder: "Grinder", handdrip: "Hand Drip", accessory: "Accessory",
+    equipType: "Type", machine: "Machine", grinder: "Grinder", handdrip: "Hand Drip",
     fullAuto: "Full-Auto", semiAuto: "Semi-Auto", manual: "Manual",
     required: "Please fill in required fields.",
     duplicateWarn: "Similar entries already exist:",
@@ -79,11 +75,6 @@ const I18N = {
     specMaterial: "Material", specShape: "Dripper Shape", specCapacity: "Capacity (cups)",
     materialCeramic: "Ceramic", materialGlass: "Glass", materialPlastic: "Plastic", materialMetal: "Metal",
     shapeCone: "Cone", shapeFlat: "Flat-bottom", shapeWave: "Wave",
-    accessoryType: "Type", portafilter: "Portafilter", basket: "Basket", showerscreen: "Shower Screen",
-    specDiameter: "Diameter (mm)", specSpout: "Spout Type",
-    spoutBottomless: "Bottomless (Naked)", spoutSingle: "Single Spout", spoutDouble: "Double Spout",
-    specBasketCapacity: "Capacity (g)", specHoleType: "Hole Type",
-    holePrecision: "Precision (laser-cut)", holeStandard: "Standard (stamped)",
   },
 };
 
@@ -452,12 +443,6 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
     material: editTarget?.material || "",
     dripperShape: editTarget?.dripperShape || "",
     capacityCups: editTarget?.capacityCups || "",
-    // 악세사리 스펙
-    accessoryType: editTarget?.accessoryType || "portafilter",
-    diameterMm: editTarget?.diameterMm || "",
-    spoutType: editTarget?.spoutType || "",
-    basketCapacityG: editTarget?.basketCapacityG || "",
-    basketHoleType: editTarget?.basketHoleType || "",
   });
   const [saving, setSaving] = useState(false);
   const [dupWarn, setDupWarn] = useState(null);
@@ -493,8 +478,6 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
       hasSteam: seed.hasSteam ?? true,
       burrType: seed.burrType || "", grindSteps: seed.grindSteps || "", motorType: seed.motorType || "", rpm: seed.rpm || "",
       material: seed.material || "", dripperShape: seed.dripperShape || "", capacityCups: seed.capacityCups || "",
-      accessoryType: seed.accessoryType || f.accessoryType, diameterMm: seed.diameterMm || "",
-      spoutType: seed.spoutType || "", basketCapacityG: seed.basketCapacityG || "", basketHoleType: seed.basketHoleType || "",
       description: seedText(seed.description, lang),
     }));
   };
@@ -549,7 +532,7 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
         <div className="field full" style={{ marginBottom: "12px" }}>
           <label>{t.equipCategory}</label>
           <div style={{ display: "flex", gap: "8px" }}>
-            {[["machine", t.machine], ["grinder", t.grinder], ["handdrip", t.handdrip], ["accessory", t.accessory]].map(([v, lbl]) => (
+            {[["machine", t.machine], ["grinder", t.grinder], ["handdrip", t.handdrip]].map(([v, lbl]) => (
               <button key={v} type="button" onClick={() => set("category", v)}
                 style={{ flex: 1, padding: "9px", borderRadius: "8px", border: `1px solid ${form.category === v ? "var(--espresso)" : "var(--steam)"}`,
                   background: form.category === v ? "var(--espresso)" : "var(--foam)",
@@ -747,88 +730,6 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
           </>
         )}
 
-        {form.category === "accessory" && (
-          <>
-            {/* ── 악세사리 종류 ── */}
-            <div className="field full" style={{ marginBottom: "12px" }}>
-              <label>{t.accessoryType}</label>
-              <div style={{ display: "flex", gap: "8px" }}>
-                {[["portafilter", t.portafilter], ["basket", t.basket], ["showerscreen", t.showerscreen]].map(([v, lbl]) => (
-                  <button key={v} type="button" onClick={() => set("accessoryType", v)}
-                    style={{ flex: 1, padding: "8px", borderRadius: "8px", border: `1px solid ${form.accessoryType === v ? "var(--latte)" : "var(--steam)"}`,
-                      background: form.accessoryType === v ? "var(--latte)" : "var(--foam)",
-                      color: form.accessoryType === v ? "white" : "var(--muted)",
-                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer" }}>
-                    {lbl}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* ── 공통: 직경(mm) — 그룹헤드/포타필터/바스켓/샤워스크린 공통 규격 ── */}
-            <div className="field full" style={{ marginBottom: "12px" }}>
-              <label>{t.specDiameter}</label>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "8px" }}>
-                {["51", "53", "54", "58"].map(v => (
-                  <button key={v} type="button" onClick={() => set("diameterMm", v)}
-                    style={{ padding: "8px", borderRadius: "8px", border: `1px solid ${form.diameterMm === v ? "var(--latte)" : "var(--steam)"}`,
-                      background: form.diameterMm === v ? "var(--latte)" : "var(--foam)",
-                      color: form.diameterMm === v ? "white" : "var(--muted)",
-                      fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer" }}>
-                    {v}mm
-                  </button>
-                ))}
-              </div>
-              <input type="number" step="0.1" value={form.diameterMm} onChange={e => set("diameterMm", e.target.value)}
-                placeholder={lang === "en" ? "or enter exact mm" : "또는 정확한 mm 직접 입력"}
-                style={{ marginTop: "6px" }}/>
-            </div>
-
-            {/* ── 포타필터 전용: 스파웃 타입 ── */}
-            {form.accessoryType === "portafilter" && (
-              <div className="field full" style={{ marginBottom: "12px" }}>
-                <label>{t.specSpout}</label>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  {[["bottomless", t.spoutBottomless], ["single", t.spoutSingle], ["double", t.spoutDouble]].map(([v, lbl]) => (
-                    <button key={v} type="button" onClick={() => set("spoutType", v)}
-                      style={{ flex: 1, padding: "8px", borderRadius: "8px", border: `1px solid ${form.spoutType === v ? "var(--latte)" : "var(--steam)"}`,
-                        background: form.spoutType === v ? "var(--latte)" : "var(--foam)",
-                        color: form.spoutType === v ? "white" : "var(--muted)",
-                        fontFamily: "'DM Sans',sans-serif", fontSize: "0.76rem", cursor: "pointer" }}>
-                      {lbl}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── 바스켓 전용: 용량(g) + 홀 타입 ── */}
-            {form.accessoryType === "basket" && (
-              <>
-                <div className="field full" style={{ marginBottom: "12px" }}>
-                  <label>{t.specBasketCapacity}</label>
-                  <input value={form.basketCapacityG} onChange={e => set("basketCapacityG", e.target.value)}
-                    placeholder={lang === "en" ? "e.g. 18 or 17-19" : "예) 18 또는 17-19"}/>
-                </div>
-                <div className="field full" style={{ marginBottom: "12px" }}>
-                  <label>{t.specHoleType}</label>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    {[["precision", t.holePrecision], ["standard", t.holeStandard]].map(([v, lbl]) => (
-                      <button key={v} type="button" onClick={() => set("basketHoleType", v)}
-                        style={{ flex: 1, padding: "8px", borderRadius: "8px", border: `1px solid ${form.basketHoleType === v ? "var(--latte)" : "var(--steam)"}`,
-                          background: form.basketHoleType === v ? "var(--latte)" : "var(--foam)",
-                          color: form.basketHoleType === v ? "white" : "var(--muted)",
-                          fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", cursor: "pointer" }}>
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </>
-        )}
-
         <div className="field full" style={{ marginBottom: "12px" }}>
           <label>{t.description}</label>
           <textarea value={form.description} onChange={e => set("description", e.target.value)}
@@ -898,20 +799,6 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
 
   const tr = (key, fallback) => translated?.[key] || fallback;
 
-  // ── 이 위키 항목으로 기록된 레시피 수 (실시간 조회 — 2단계) ──────
-  const [liveRecipeCount, setLiveRecipeCount] = useState(null); // null = 로딩 중
-  useEffect(() => {
-    let cancelled = false;
-    setLiveRecipeCount(null);
-    const fieldQuery = isBean
-      ? query(collection(db, "recipes"), where("wikiBeanId", "==", item.id))
-      : query(collection(db, "recipes"), where("wikiEquipIds", "array-contains", item.id));
-    getDocs(fieldQuery)
-      .then((snap) => { if (!cancelled) setLiveRecipeCount(snap.size); })
-      .catch((e) => { console.error("[wiki] 레시피 연결 수 조회 실패:", e.message); if (!cancelled) setLiveRecipeCount(item.linkedRecipeCount || 0); });
-    return () => { cancelled = true; };
-  }, [item.id, isBean]);
-
   const fmtDate = (ts) => {
     if (!ts?.toDate) return "";
     return ts.toDate().toLocaleDateString(lang === "en" ? "en-US" : "ko-KR");
@@ -934,8 +821,7 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
               ? (item.beanType === "blend"
                   ? [tr("roastery", item.roastery), item.blendComposition].filter(Boolean).join(" · ")
                   : [tr("origin", item.origin), tr("region", item.region), tr("process", item.process)].filter(Boolean).join(" · "))
-              : [item.category === "machine" ? t.machine : item.category === "grinder" ? t.grinder : item.category === "accessory" ? t.accessory : t.handdrip,
-                 item.category === "accessory" ? { portafilter: t.portafilter, basket: t.basket, showerscreen: t.showerscreen }[item.accessoryType] : null,
+              : [item.category === "machine" ? t.machine : item.category === "grinder" ? t.grinder : t.handdrip,
                  item.type === "full" ? t.fullAuto : item.type === "semi" ? t.semiAuto : item.type === "manual" ? t.manual : null
                 ].filter(Boolean).join(" · ")}
           </div>
@@ -995,19 +881,6 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
             </div>
           ))}
 
-          {!isBean && item.category === "accessory" && [
-            [t.accessoryType, { portafilter:t.portafilter, basket:t.basket, showerscreen:t.showerscreen }[item.accessoryType]],
-            [t.specDiameter, item.diameterMm ? `${item.diameterMm}mm` : null],
-            [t.specSpout, item.accessoryType === "portafilter" ? { bottomless:t.spoutBottomless, single:t.spoutSingle, double:t.spoutDouble }[item.spoutType] : null],
-            [t.specBasketCapacity, item.accessoryType === "basket" && item.basketCapacityG ? `${item.basketCapacityG}g` : null],
-            [t.specHoleType, item.accessoryType === "basket" ? { precision:t.holePrecision, standard:t.holeStandard }[item.basketHoleType] : null],
-          ].map(([label, value]) => value && (
-            <div key={label} style={{ display: "flex", gap: "8px", padding: "7px 0", borderBottom: "1px solid var(--divider)" }}>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--muted)", width: "100px", flexShrink: 0 }}>{label}</span>
-              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--espresso)" }}>{value}</span>
-            </div>
-          ))}
-
           {item.description && (
             <div style={{ marginTop: "14px", padding: "12px 14px", background: "var(--cream)", borderRadius: "8px", borderLeft: "3px solid var(--latte)" }}>
               <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.82rem", color: "var(--muted)", lineHeight: 1.65 }}>{tr("description", item.description)}</p>
@@ -1017,9 +890,7 @@ function WikiDetailModal({ item, type, lang, onClose, onEdit }) {
           <div style={{ marginTop: "16px", padding: "12px 14px", background: "rgba(176,125,84,0.08)", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="var(--latte)" strokeWidth="1.3"/></svg>
             <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "var(--latte)", fontWeight: 600 }}>
-              {liveRecipeCount === null
-                ? (lang === "en" ? "Counting…" : "집계 중…")
-                : `${liveRecipeCount}${t.linkedRecipes}`}
+              {item.linkedRecipeCount || 0}{t.linkedRecipes}
             </span>
           </div>
 
@@ -1151,6 +1022,16 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
     );
   }, [equips, search]);
 
+  // 악세사리 — 관리자 큐레이션 정적 카탈로그 (Firestore 조회 없이 wikiSeed.js에서 직접 필터링)
+  const filteredAccessories = useMemo(() => {
+    if (!search.trim()) return SEED_ACCESSORIES;
+    return SEED_ACCESSORIES.filter(a =>
+      matchesSearch(seedText(a.name, lang), search) ||
+      matchesSearch(seedText(a.description, lang), search) ||
+      matchesSearch(t.accCategories[a.category] || "", search)
+    );
+  }, [search, lang, t]);
+
   return (
     <div style={{ maxWidth: "720px", margin: "0 auto" }}>
       {/* 탭버튼/검색창/추가버튼은 MainApp의 두 번째 행(beans/equip 탭과 동일한 자리)에서 렌더링됨 */}
@@ -1187,6 +1068,31 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
             ))}
           </div>
         )
+      ) : tab === "accessories" ? (
+        filteredAccessories.length === 0 ? (
+          <p style={{ textAlign: "center", color: "var(--muted)", padding: "40px 0", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem" }}>
+            {t.noResult}
+          </p>
+        ) : (
+          <div style={{ display: "grid", gap: "10px" }}>
+            {filteredAccessories.map((a, i) => (
+              <div key={i}
+                style={{ background: "var(--foam)", border: "1px solid var(--divider)", borderRadius: "12px", padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "4px" }}>
+                  <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--latte)", background: "#B07D5415", border: "1px solid #B07D5430", borderRadius: "4px", padding: "1px 6px", whiteSpace: "nowrap" }}>
+                    {t.accCategories[a.category] || a.category}
+                  </span>
+                  <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)" }}>
+                    {seedText(a.name, lang)}
+                  </div>
+                </div>
+                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5 }}>
+                  {seedText(a.description, lang)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
       ) : (
         filteredEquips.length === 0 ? (
           <p style={{ textAlign: "center", color: "var(--muted)", padding: "40px 0", fontFamily: "'DM Sans',sans-serif", fontSize: "0.85rem" }}>
@@ -1201,9 +1107,7 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
                   {e.brand} {e.model}
                 </div>
                 <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)" }}>
-                  {e.category === "machine" ? t.machine : e.category === "grinder" ? t.grinder : e.category === "accessory"
-                    ? [t.accessory, { portafilter: t.portafilter, basket: t.basket, showerscreen: t.showerscreen }[e.accessoryType]].filter(Boolean).join(" · ")
-                    : t.handdrip}
+                  {e.category === "machine" ? t.machine : e.category === "grinder" ? t.grinder : t.handdrip}
                 </div>
                 {e.linkedRecipeCount > 0 && (
                   <div style={{ marginTop: "8px", display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "0.7rem", color: "var(--latte)", fontFamily: "'DM Sans',sans-serif" }}>
