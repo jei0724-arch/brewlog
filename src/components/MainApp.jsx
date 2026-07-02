@@ -561,7 +561,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                                 if (!n.read) await updateDoc(doc(db,"notifications",n.id),{read:true}).catch(()=>{});
                                 if (n.recipeId) {
                                   const snap = await getDoc(doc(db,"recipes",n.recipeId)).catch(()=>null);
-                                  if (snap?.exists()) setDetailRecipeWrapped({ id:snap.id, ...snap.data() });
+                                  if (snap?.exists()) { window.history.pushState({modal:true},""); setDetailRecipeWrapped({ id:snap.id, ...snap.data() }); }
                                 } else if (n.type==="newRecipe") { setFeedTab("all"); setSearch(n.fromUser||""); }
                               }}>
                               <div className="notif-item-text">
