@@ -565,7 +565,9 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                                 } else if (n.type==="newRecipe") { setFeedTab("all"); setSearch(n.fromUser||""); }
                               }}>
                               <div className="notif-item-text">
-                                {n.type==="comment"
+                                {n.type==="reply"
+                                  ? (lang==="en"?`${n.fromUser} replied to your comment on "${n.beanName}"`:`${n.fromUser}님이 회원님의 댓글에 답글을 남겼어요 ("${n.beanName}")`)
+                                  : n.type==="comment"
                                   ? (lang==="en"?`${n.fromUser} commented on "${n.beanName}"`:`${n.fromUser}님이 "${n.beanName}" 레시피에 댓글을 남겼어요`)
                                   : (lang==="en"?`${n.fromUser} posted a new recipe: "${n.beanName}"`:`구독 중인 ${n.fromUser}님이 "${n.beanName}" 레시피를 올렸어요`)}
                               </div>
@@ -1086,7 +1088,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
           onClose={()=>window.history.go(-1)}
           onLike={r=>{ handleLike(r); }}
           onEdit={r=>{ setEditTarget(r); openModal(); }}
-          onDelete={id=>{ handleDelete(id); window.history.go(-1); }}
+          onDelete={id=>{ handleDelete(id); setDetailRecipeWrapped(null); }}
           onFollow={toggleFollow}
           isFollowing={detailRecipe&&(following.includes(detailRecipe.uid)||following.includes(detailRecipe.author))}
           onBookmark={(id)=>{ setCollectionTarget(id); window.history.pushState({modal:true},""); }}

@@ -96,7 +96,10 @@ export default function RecipeDetailModal({
         text, parentId: replyTo?.id||null, parentAuthor: replyTo?.author||null,
         createdAt: serverTimestamp(),
       });
+      const parentUid = replyTo?.uid || null;
       setReplyTo(null);
+
+      // 레시피 주인 알림 (본인 레시피면 스킵)
       if (recipe.uid && recipe.uid !== currentUser.uid) {
         addDoc(collection(db,"notifications"), {
           toUid: recipe.uid, type:"comment", fromUser:currentUser.displayName,
@@ -104,6 +107,16 @@ export default function RecipeDetailModal({
           text: text.slice(0,50), read:false, createdAt: serverTimestamp(),
         }).catch(e => console.error("[알림]",e.message));
       }
+
+      // 답글 알림 — 원댓글 작성자에게 (본인이거나 레시피 주인과 동일하면 중복 발송 방지)
+      if (parentUid && parentUid !== currentUser.uid && parentUid !== recipe.uid) {
+        addDoc(collection(db,"notifications"), {
+          toUid: parentUid, type:"reply", fromUser:currentUser.displayName,
+          recipeId: recipe.id, beanName: recipe.bean||"",
+          text: text.slice(0,50), read:false, createdAt: serverTimestamp(),
+        }).catch(e => console.error("[답글 알림]",e.message));
+      }
+
       setCommentText("");
     } catch(e) { console.error(e); }
     setCommentLoading(false);
@@ -184,15 +197,9 @@ export default function RecipeDetailModal({
           <div className="stat">
             <span className="stat-val">{recipe.seconds?`${recipe.seconds}s`:"—"}</span>
             <span className="stat-label">{t.statSeconds}</span>
-            {recipe.machineType==="handdrip" && Array.isArray(recipe.pours) && recipe.pours.length>0 ? (
-              <span style={{ fontSize:"0.55rem", color:"var(--muted)", display:"block", lineHeight:1.3, marginTop:"1px" }}>
-                {recipe.pours.map(p => `${p.label} ${p.seconds}s${p.waterG?`(+${p.waterG}g)`:""}`).join(" · ")}
-              </span>
-            ) : recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && (
+            {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && (
               <span style={{ fontSize:"0.55rem", color:"var(--muted)", display:"block", lineHeight:1.2, marginTop:"1px", whiteSpace:"nowrap" }}>
-                {recipe.machineType==="handdrip"
-                  ? (lang==="en"?`Bloom ${recipe.infusionSeconds}s`:`블룸 ${recipe.infusionSeconds}초`)
-                  : (lang==="en"?`${recipe.infusionSeconds}+${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`:`인퓨전 ${recipe.infusionSeconds}+추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`)}
+                {lang==="en"?`${recipe.infusionSeconds}+${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`:`인퓨전 ${recipe.infusionSeconds}+추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`}
               </span>
             )}
           </div>
@@ -448,13 +455,8 @@ export default function RecipeDetailModal({
                   const tempLabel = recipe.isIced ? "ICE" : "HOT";
                   const roastLabel = recipe.roastLevel ? (ROAST_NAMES[recipe.roastLevel]||recipe.roastLevel) : "";
                   const weatherLabel = recipe.weather ? `${recipe.weather.icon||""} ${recipe.weather.descKo||recipe.weather.condition||""} ${recipe.weather.temp||""}°C · 습도 ${recipe.weather.humidity||""}%` : "";
-                  const infusionLabel = recipe.machineType==="handdrip" && Array.isArray(recipe.pours) && recipe.pours.length>0
-                    ? recipe.pours.map(p => `${p.label} ${p.seconds}s${p.waterG?`(+${p.waterG}g)`:""}`).join(" · ")
-                    : recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0
-                    ? (recipe.machineType==="handdrip"
-                        ? `블룸 ${recipe.infusionSeconds}s`
-                        : `인퓨전 ${recipe.infusionSeconds}s + 추출 ${parseInt(recipe.seconds||0)-parseInt(recipe.infusionSeconds)}s`)
-                    : "";
+                  const infusionLabel = recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0
+                    ? `인퓨전 ${recipe.infusionSeconds}s + 추출 ${parseInt(recipe.seconds||0)-parseInt(recipe.infusionSeconds)}s` : "";
 
                   // ── DOM 조립 ──────────────────────────────────────
                   const el = document.createElement("div");
@@ -566,10 +568,10 @@ export default function RecipeDetailModal({
             {/* 수정/삭제 (본인) */}
             {isOwner && (
               <>
-                <button className="card-action-btn edit" onClick={()=>{ onEdit(recipe); }} title={lang==="en"?"Edit":"수정"}>
+                <button className="card-action-btn edit" onClick={()=>{ onClose(); onEdit(recipe); }} title={lang==="en"?"Edit":"수정"}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4-11 11H5.5v-4l11-11z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M14 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
                 </button>
-                <button className="card-action-btn delete" onClick={()=>{ onDelete(recipe.id); }} title={lang==="en"?"Delete":"삭제"}>
+                <button className="card-action-btn delete" onClick={()=>{ onClose(); onDelete(recipe.id); }} title={lang==="en"?"Delete":"삭제"}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M9 6V4h6v2M10 11v6M14 11v6M5 6l1 14h12L19 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </button>
               </>
@@ -622,7 +624,7 @@ export default function RecipeDetailModal({
                         <span style={{ color:"var(--muted)", fontSize:"0.72rem" }}>{c.createdAt?.toDate?.()?.toLocaleDateString(lang==="ko"?"ko-KR":"en-US")||""}</span>
                       </div>
                       <div style={{ display:"flex", gap:"0.4rem", alignItems:"center", flexShrink:0 }}>
-                        {currentUser && <button onClick={()=>setReplyTo(replyTo?.id===c.id?null:{id:c.id,author:c.author})} style={{ background:"none", border:"none", color:replyTo?.id===c.id?"var(--accent)":"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Reply":"답글"}</button>}
+                        {currentUser && <button onClick={()=>setReplyTo(replyTo?.id===c.id?null:{id:c.id,author:c.author,uid:c.uid})} style={{ background:"none", border:"none", color:replyTo?.id===c.id?"var(--accent)":"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Reply":"답글"}</button>}
                         {c.uid===currentUid && <button onClick={()=>deleteComment(c.id)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0 }}>{t.commentDelete}</button>}
                         {c.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:c.id})} style={{ background:"none", border:"1px solid #e74c3c40", borderRadius:"2px", color:"#e74c3c", fontSize:"0.68rem", cursor:"pointer", padding:"0.05rem 0.35rem", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
                       </div>
@@ -637,7 +639,8 @@ export default function RecipeDetailModal({
                           <span style={{ color:"var(--latte)", fontSize:"0.7rem", marginRight:"0.3rem" }}>→ @{r.parentAuthor}</span>
                           <span style={{ color:"var(--muted)", fontSize:"0.7rem" }}>{r.createdAt?.toDate?.()?.toLocaleDateString(lang==="ko"?"ko-KR":"en-US")||""}</span>
                         </div>
-                        <div style={{ display:"flex", gap:"0.3rem", flexShrink:0 }}>
+                        <div style={{ display:"flex", gap:"0.4rem", alignItems:"center", flexShrink:0 }}>
+                          {currentUser && <button onClick={()=>setReplyTo(replyTo?.id===c.id&&replyTo?.author===r.author?null:{id:c.id,author:r.author,uid:r.uid})} style={{ background:"none", border:"none", color:(replyTo?.id===c.id&&replyTo?.author===r.author)?"var(--accent)":"var(--muted)", fontSize:"0.7rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Reply":"답글"}</button>}
                           {r.uid===currentUid && <button onClick={()=>deleteComment(r.id)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.7rem", cursor:"pointer", padding:0 }}>{t.commentDelete}</button>}
                           {r.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:r.id})} style={{ background:"none", border:"1px solid #e74c3c40", borderRadius:"2px", color:"#e74c3c", fontSize:"0.65rem", cursor:"pointer", padding:"0.05rem 0.3rem", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
                         </div>
