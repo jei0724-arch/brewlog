@@ -219,6 +219,24 @@ export default function RecipeDetailModal({
             const infPct = total > 0 ? (inf / total) * 100 : 0;
             const extPct = total > 0 ? (ext / total) * 100 : 100;
             const fmtT = (s) => { const m = Math.floor(s/60), sec = s%60; return m>0 ? `${m}:${String(sec).padStart(2,"0")}` : `${sec}s`; };
+
+            const stages = (recipe.pourStages || [])
+              .map(s => ({ time: parseInt(s.time)||0, amount: parseInt(s.amount)||0, note: s.note||"" }))
+              .filter(s => s.time > 0 || s.amount > 0)
+              .sort((a,b) => a.time - b.time);
+            const hasStages = stages.length > 0;
+            const palette = ["#e67e22","#27ae60","#2980b9","#8e44ad","#c0625a","#16a085","#d35400"];
+
+            // 단계별 구간 계산 (0초 지점부터 시작 → 각 기록 시점까지)
+            const segments = hasStages ? stages.map((s, i) => {
+              const prevTime = i === 0 ? 0 : stages[i-1].time;
+              return { ...s, dur: Math.max(0, s.time - prevTime), fromMl: i === 0 ? 0 : stages[i-1].amount, color: palette[i % palette.length] };
+            }) : [];
+            const lastStageTime = hasStages ? stages[stages.length-1].time : 0;
+            if (hasStages && total > lastStageTime) {
+              segments.push({ time: total, amount: stages[stages.length-1].amount, note: lang==="en"?"Drawdown":"낙수/완료", dur: total - lastStageTime, fromMl: stages[stages.length-1].amount, color: "var(--steam)" });
+            }
+
             return (
               <div style={{ marginBottom:"1rem", padding:"14px 16px", background:"var(--cream)", borderRadius:"var(--r-card)", border:"1px solid var(--divider)" }}>
                 <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:"10px" }}>
@@ -230,31 +248,64 @@ export default function RecipeDetailModal({
                   </span>
                 </div>
 
-                {/* 타임라인 바 */}
-                {total>0 && (
-                  <div style={{ display:"flex", height:"22px", borderRadius:"6px", overflow:"hidden", marginBottom:"6px" }}>
-                    {inf>0 && (
-                      <div style={{ width:`${infPct}%`, background:"#e67e22", display:"flex", alignItems:"center", justifyContent:"center", minWidth:inf>0?"28px":0 }}>
-                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(inf)}</span>
+                {hasStages ? (
+                  <>
+                    {/* 세분화 타임라인 바 */}
+                    <div style={{ display:"flex", height:"22px", borderRadius:"6px", overflow:"hidden", marginBottom:"10px" }}>
+                      {segments.map((seg, i) => (
+                        <div key={i} style={{ width:`${total>0?(seg.dur/total)*100:0}%`, background:seg.color, display:"flex", alignItems:"center", justifyContent:"center", minWidth:"20px" }}>
+                          <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.58rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(seg.dur)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 단계별 리스트 */}
+                    <div style={{ display:"flex", flexDirection:"column", gap:"6px", marginBottom:"12px" }}>
+                      {segments.map((seg, i) => (
+                        <div key={i} style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+                          <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:seg.color, flexShrink:0 }}/>
+                          <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.74rem", color:"var(--espresso)", fontWeight:600, flexShrink:0 }}>
+                            {fmtT(i===0?0:segments[i-1].time)} → {fmtT(seg.time)}
+                          </span>
+                          {seg.amount>0 && (
+                            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--latte)", fontWeight:600, flexShrink:0 }}>
+                              {seg.fromMl}→{seg.amount}ml
+                            </span>
+                          )}
+                          {seg.note && <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)" }}>{seg.note}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* 타임라인 바 (2단계 — 상세 푸어 기록이 없는 레시피) */}
+                    {total>0 && (
+                      <div style={{ display:"flex", height:"22px", borderRadius:"6px", overflow:"hidden", marginBottom:"6px" }}>
+                        {inf>0 && (
+                          <div style={{ width:`${infPct}%`, background:"#e67e22", display:"flex", alignItems:"center", justifyContent:"center", minWidth:inf>0?"28px":0 }}>
+                            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(inf)}</span>
+                          </div>
+                        )}
+                        <div style={{ width:`${extPct}%`, background:"#27ae60", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                          <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(ext)}</span>
+                        </div>
                       </div>
                     )}
-                    <div style={{ width:`${extPct}%`, background:"#27ae60", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                      <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(ext)}</span>
-                    </div>
-                  </div>
-                )}
-                {/* 범례 */}
-                {inf>0 && (
-                  <div style={{ display:"flex", gap:"14px", marginBottom:"12px" }}>
-                    <span style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)" }}>
-                      <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:"#e67e22", display:"inline-block" }}/>
-                      {lang==="en"?"Bloom / Infusion":"인퓨전(블루밍)"}
-                    </span>
-                    <span style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)" }}>
-                      <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:"#27ae60", display:"inline-block" }}/>
-                      {lang==="en"?"Extraction":"추출"}
-                    </span>
-                  </div>
+                    {/* 범례 */}
+                    {inf>0 && (
+                      <div style={{ display:"flex", gap:"14px", marginBottom:"12px" }}>
+                        <span style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)" }}>
+                          <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:"#e67e22", display:"inline-block" }}/>
+                          {lang==="en"?"Bloom / Infusion":"인퓨전(블루밍)"}
+                        </span>
+                        <span style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)" }}>
+                          <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:"#27ae60", display:"inline-block" }}/>
+                          {lang==="en"?"Extraction":"추출"}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* 원두/물/온도 서브 스탯 */}

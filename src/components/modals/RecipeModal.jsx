@@ -34,7 +34,6 @@ import {
 import { calcPressure } from "../../utils/pressure";
 import { CoffeeBeanIcon, BrandInput, TagInput, FlavorRadar } from "../ui";
 import Timer from "../recipes/Timer";
-import PourTimer from "../recipes/PourTimer";
 
 // ── OpenWeatherMap API ───────────────────────────────────────────
 const OWM_KEY    = import.meta.env.VITE_OWM_KEY;
@@ -408,9 +407,11 @@ export default function RecipeModal({
           continuousMemo:  "",
           tds:             "",
           tags: [],
+          pourStages: [],
         }
   );
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const setPourStages = (stages) => setForm((f) => ({ ...f, pourStages: stages }));
 
   const [saving,  setSaving]  = useState(false);
   const [errors,  setErrors]  = useState({});
@@ -454,11 +455,8 @@ export default function RecipeModal({
   }, [weather]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 메뉴 선택 ───────────────────────────────────────────────────
-  // 새 레시피 진입 시엔 항상 미선택 상태로 시작 (마지막 사용 장비가 핸드드립이어도
-  // 메뉴를 자동으로 "핸드드립"으로 선택하지 않음 — machineType과 별개 시스템이라
-  // 서로 어긋나면 "메뉴는 핸드드립인데 타이머는 에스프레소용" 같은 불일치가 생겼었음)
   const [selectedMenu, setSelectedMenu] = useState(
-    (isEdit || isCopy) ? (editTarget.menuId || "") : ""
+    (isEdit || isCopy) ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : "")
   );
 
   const MENU_DEFAULTS = {
@@ -486,13 +484,8 @@ export default function RecipeModal({
 
   // 핸드드립 메뉴 ↔ machineType 동기화
   const applyingPresetRef = useRef(false);
-  const menuSyncMountedRef = useRef(false);
   useEffect(() => {
     if (applyingPresetRef.current) return;
-    // 최초 마운트 시에는 스킵 — selectedMenu가 이제 항상 ""로 시작하므로,
-    // 여기서 그대로 실행하면 isHandDrip 기반으로 세팅된 초기 machineType("handdrip")이
-    // 즉시 "auto"로 되돌아가버려 마지막 사용 장비 기억 기능이 무력화됨
-    if (!menuSyncMountedRef.current) { menuSyncMountedRef.current = true; return; }
     if (selectedMenu === "hand_drip") {
       setMachineType("handdrip");
       setSelectedEquipIds((prev) => {
@@ -599,7 +592,6 @@ export default function RecipeModal({
       syrup:           preset.syrup           ?? "",
       brewPressureBar: preset.brewPressureBar ?? "",
       continuousMemo:  preset.continuousMemo  ?? "",
-      pours:           preset.pours ?? [],
     }));
     setTimeout(() => { applyingPresetRef.current = false; }, 300);
   };
@@ -655,7 +647,6 @@ export default function RecipeModal({
       syrup:           form.syrup           || "",
       brewPressureBar: form.brewPressureBar || "",
       continuousMemo:  form.continuousMemo  || "",
-      pours:           hdMode ? (form.pours || []) : [],
       createdAt: new Date().toISOString(),
     };
     const updated = existing
@@ -747,13 +738,9 @@ export default function RecipeModal({
         continuousMemo:  form.continuousMemo  || "",
         tds:             form.tds             || null,
         tags:            (form.tags || []).filter(Boolean),
-        pours:           machineType === "handdrip" ? (form.pours || []) : null,
-        wikiBeanId:      (linkedBeanId && myBeans.find((b) => b.id === linkedBeanId)?.wikiBeanId) || null,
-        wikiEquipIds:    Array.from(new Set(
-          Object.values(selectedEquipIds)
-            .map((id) => myEquips.find((e) => e.id === id)?.wikiEquipId)
-            .filter(Boolean)
-        )),
+        pourStages:      selectedMenu === "hand_drip"
+          ? (form.pourStages || []).filter(s => s.time !== "" && s.amount !== "")
+          : [],
       };
       delete payload._isCopy; // 저장 시 절대 Firestore에 남지 않도록 제거 (복사모드 영구고착 버그 방지)
 
@@ -1433,31 +1420,71 @@ export default function RecipeModal({
             </div>
           )}
 
-          {/* 추출 시간 — Timer / PourTimer(핸드드립) 컴포넌트 */}
+          {/* 추출 시간 — Timer 컴포넌트 */}
           <div className="field" data-field="seconds">
             <label style={{ color: errors.seconds ? "#c0392b" : undefined }}>{t.seconds}</label>
-            {machineType === "handdrip" ? (
-              <PourTimer
-                value={form.seconds}
-                infusionValue={form.infusionSeconds || "0"}
-                pours={isEdit ? (form.pours || []) : []}
-                initialPlan={!isEdit && Array.isArray(form.pours) && form.pours.length ? form.pours : undefined}
-                onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
-                onInfusionChange={(v) => set("infusionSeconds", v)}
-                onPoursChange={(p) => set("pours", p)}
-                lang={lang} t={t}
-              />
-            ) : (
-              <Timer
-                value={form.seconds}
-                infusionValue={form.infusionSeconds || "0"}
-                onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
-                onInfusionChange={(v) => set("infusionSeconds", v)}
-                lang={lang} t={t}
-              />
-            )}
+            <Timer
+              value={form.seconds}
+              infusionValue={form.infusionSeconds || "0"}
+              onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
+              onInfusionChange={(v) => set("infusionSeconds", v)}
+              lang={lang} t={t}
+            />
             {errors.seconds && <p style={{ color:"#c0392b", fontSize:"0.78rem", marginTop:"0.3rem" }}>{lang === "en" ? "⚠️ Required" : "⚠️ 필수 항목이에요"}</p>}
           </div>
+
+          {/* 푸어 단계별 기록 — 핸드드립 전용 */}
+          {selectedMenu === "hand_drip" && (
+            <div className="field full" data-field="pourStages">
+              <label>{lang === "en" ? "Pour Stages (optional)" : "푸어 단계 기록 (선택)"}</label>
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginBottom:"8px", lineHeight:1.5 }}>
+                {lang === "en"
+                  ? "Record each pour so others can reproduce your recipe step by step."
+                  : "1차/2차 푸어 등 단계별로 기록하면 다른 사람이 그대로 따라 할 수 있어요."}
+              </p>
+
+              {(form.pourStages || []).map((stage, i) => (
+                <div key={i} style={{ display:"flex", gap:"8px", alignItems:"center", marginBottom:"8px" }}>
+                  <input type="number" min="0" value={stage.time}
+                    onChange={e => {
+                      const next = [...(form.pourStages || [])];
+                      next[i] = { ...next[i], time: e.target.value };
+                      setPourStages(next);
+                    }}
+                    placeholder={lang === "en" ? "sec" : "초"}
+                    style={{ width:"70px", padding:"0.6rem 0.5rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", textAlign:"center", boxSizing:"border-box" }}/>
+                  <span style={{ fontSize:"0.72rem", color:"var(--muted)", flexShrink:0 }}>{lang==="en"?"s →":"초 →"}</span>
+                  <input type="number" min="0" value={stage.amount}
+                    onChange={e => {
+                      const next = [...(form.pourStages || [])];
+                      next[i] = { ...next[i], amount: e.target.value };
+                      setPourStages(next);
+                    }}
+                    placeholder={lang === "en" ? "total ml" : "누적 ml"}
+                    style={{ width:"80px", padding:"0.6rem 0.5rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", textAlign:"center", boxSizing:"border-box" }}/>
+                  <span style={{ fontSize:"0.72rem", color:"var(--muted)", flexShrink:0 }}>ml</span>
+                  <input value={stage.note || ""}
+                    onChange={e => {
+                      const next = [...(form.pourStages || [])];
+                      next[i] = { ...next[i], note: e.target.value };
+                      setPourStages(next);
+                    }}
+                    placeholder={lang === "en" ? "e.g. bloom, center pour" : "예) 블루밍, 중앙 주수"}
+                    style={{ flex:1, minWidth:0, padding:"0.6rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", boxSizing:"border-box" }}/>
+                  <button type="button"
+                    onClick={() => setPourStages((form.pourStages || []).filter((_, idx) => idx !== i))}
+                    style={{ background:"none", border:"none", color:"var(--muted)", cursor:"pointer", fontSize:"1rem", padding:"4px", flexShrink:0 }}>✕</button>
+                </div>
+              ))}
+
+              <button type="button"
+                onClick={() => setPourStages([...(form.pourStages || []), { time:"", amount:"", note:"" }])}
+                style={{ width:"100%", padding:"10px", border:"1px dashed var(--latte)", borderRadius:"8px", background:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--latte)", fontWeight:500, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px" }}>
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                {lang === "en" ? "Add Stage" : "단계 추가"}
+              </button>
+            </div>
+          )}
 
           {/* 추출량 */}
           <div className="field" data-field="espressoMl">
