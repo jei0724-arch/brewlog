@@ -22,7 +22,7 @@ import React, {
 } from "react";
 import { signOut } from "firebase/auth";
 import {
-  collection, doc, getDoc, updateDoc,
+  collection, doc, getDoc, updateDoc, deleteDoc,
   query, where, onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
@@ -130,6 +130,15 @@ export default function MainApp({
   const markAllRead = async () => {
     const unread = notifications.filter(n => !n.read);
     await Promise.all(unread.map(n => updateDoc(doc(db,"notifications",n.id), { read:true }).catch(()=>{})));
+  };
+
+  const deleteNotif = async (id) => {
+    try { await deleteDoc(doc(db,"notifications",id)); } catch(e) { console.error("[알림 삭제]", e.message); }
+  };
+
+  const clearReadNotifs = async () => {
+    const read = notifications.filter(n => n.read);
+    await Promise.all(read.map(n => deleteDoc(doc(db,"notifications",n.id)).catch(()=>{})));
   };
 
   // ── 헤더 스크롤 숨김/표시 ────────────────────────────────────────
@@ -546,6 +555,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                           </span>
                           <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
                             {unreadCount>0 && <button onClick={markAllRead} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"0.7rem", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif", padding:0 }}>{lang==="en"?"Mark all read":"전체 읽음"}</button>}
+                            {notifications.some(n=>n.read) && <button onClick={clearReadNotifs} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"0.7rem", color:"var(--muted)", fontFamily:"'DM Sans',sans-serif", padding:0 }}>{lang==="en"?"Clear read":"읽은 알림 삭제"}</button>}
                             <button onClick={()=>setShowNotif(false)} style={{ background:"none", border:"none", cursor:"pointer", color:"var(--muted)", padding:"2px", display:"flex", alignItems:"center" }}>
                               <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                             </button>
@@ -555,7 +565,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                           {notifications.length===0
                             ? <div className="notif-empty">{lang==="en"?"No notifications":"알림이 없어요"}</div>
                             : notifications.map(n => (
-                            <div key={n.id} className={`notif-item ${n.read?"":"unread"}`}
+                            <div key={n.id} className={`notif-item ${n.read?"":"unread"}`} style={{ position:"relative" }}
                               onClick={async()=>{
                                 setShowNotif(false);
                                 if (!n.read) await updateDoc(doc(db,"notifications",n.id),{read:true}).catch(()=>{});
@@ -564,7 +574,11 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                                   if (snap?.exists()) { window.history.pushState({modal:true},""); setDetailRecipeWrapped({ id:snap.id, ...snap.data() }); }
                                 } else if (n.type==="newRecipe") { setFeedTab("all"); setSearch(n.fromUser||""); }
                               }}>
-                              <div className="notif-item-text">
+                              <button onClick={e=>{ e.stopPropagation(); deleteNotif(n.id); }} title={lang==="en"?"Delete":"삭제"}
+                                style={{ position:"absolute", top:"8px", right:"8px", background:"none", border:"none", cursor:"pointer", color:"var(--muted)", padding:"2px", display:"flex", alignItems:"center", opacity:0.6 }}>
+                                <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                              </button>
+                              <div className="notif-item-text" style={{ paddingRight:"18px" }}>
                                 {n.type==="reply"
                                   ? (lang==="en"?`${n.fromUser} replied to your comment on "${n.beanName}"`:`${n.fromUser}님이 회원님의 댓글에 답글을 남겼어요 ("${n.beanName}")`)
                                   : n.type==="comment"
