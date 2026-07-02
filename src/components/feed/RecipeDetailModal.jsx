@@ -40,6 +40,8 @@ export default function RecipeDetailModal({
   const [commentText,   setCommentText]   = useState("");
   const [commentLoading,setCommentLoading]= useState(false);
   const [replyTo,       setReplyTo]       = useState(null);
+  const [editingId,     setEditingId]     = useState(null);
+  const [editText,      setEditText]      = useState("");
   const [showMore,      setShowMore]      = useState(false);
   const [isBlocked,     setIsBlocked]     = useState(false);
   const [blockLoading,  setBlockLoading]  = useState(false);
@@ -125,6 +127,18 @@ export default function RecipeDetailModal({
   const deleteComment = async (id) => {
     if (!confirm("댓글을 삭제할까요?")) return;
     await deleteDoc(doc(db,"comments",id));
+  };
+
+  // 댓글 수정
+  const startEdit = (c) => { setEditingId(c.id); setEditText(c.text); };
+  const cancelEdit = () => { setEditingId(null); setEditText(""); };
+  const saveEdit = async (id) => {
+    const trimmed = editText.trim();
+    if (!trimmed) return;
+    try {
+      await updateDoc(doc(db,"comments",id), { text: trimmed, editedAt: serverTimestamp() });
+      setEditingId(null); setEditText("");
+    } catch(e) { console.error("[댓글 수정]", e.message); }
   };
 
   // 물 종류 표시 헬퍼
@@ -625,11 +639,27 @@ export default function RecipeDetailModal({
                       </div>
                       <div style={{ display:"flex", gap:"0.4rem", alignItems:"center", flexShrink:0 }}>
                         {currentUser && <button onClick={()=>setReplyTo(replyTo?.id===c.id?null:{id:c.id,author:c.author,uid:c.uid})} style={{ background:"none", border:"none", color:replyTo?.id===c.id?"var(--accent)":"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Reply":"답글"}</button>}
+                        {c.uid===currentUid && editingId!==c.id && <button onClick={()=>startEdit(c)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Edit":"수정"}</button>}
                         {c.uid===currentUid && <button onClick={()=>deleteComment(c.id)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0 }}>{t.commentDelete}</button>}
                         {c.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:c.id})} style={{ background:"none", border:"1px solid #e74c3c40", borderRadius:"2px", color:"#e74c3c", fontSize:"0.68rem", cursor:"pointer", padding:"0.05rem 0.35rem", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
                       </div>
                     </div>
-                    <div style={{ color:"var(--espresso)", marginTop:"0.25rem", lineHeight:1.5 }}>{c.text}</div>
+                    {editingId===c.id ? (
+                      <div style={{ marginTop:"0.4rem", display:"flex", flexDirection:"column", gap:"0.4rem" }}>
+                        <input value={editText} onChange={e=>setEditText(e.target.value)}
+                          onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();saveEdit(c.id);} if(e.key==="Escape")cancelEdit(); }}
+                          autoFocus
+                          style={{ width:"100%", padding:"0.5rem 0.7rem", border:"1px solid var(--latte)", borderRadius:"6px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", background:"var(--cream)", color:"var(--espresso)", outline:"none", boxSizing:"border-box" }}/>
+                        <div style={{ display:"flex", gap:"0.4rem", justifyContent:"flex-end" }}>
+                          <button onClick={cancelEdit} style={{ padding:"0.3rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"6px", background:"none", color:"var(--muted)", fontSize:"0.72rem", cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Cancel":"취소"}</button>
+                          <button onClick={()=>saveEdit(c.id)} disabled={!editText.trim()} style={{ padding:"0.3rem 0.9rem", border:"none", borderRadius:"6px", background:"var(--latte)", color:"white", fontSize:"0.72rem", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontWeight:600, opacity:editText.trim()?1:0.5 }}>{lang==="en"?"Save":"저장"}</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ color:"var(--espresso)", marginTop:"0.25rem", lineHeight:1.5 }}>
+                        {c.text}{c.editedAt && <span style={{ color:"var(--muted)", fontSize:"0.65rem", marginLeft:"0.4rem" }}>{lang==="en"?"(edited)":"(수정됨)"}</span>}
+                      </div>
+                    )}
                   </div>
                   {comments.filter(r=>r.parentId===c.id).map(r => (
                     <div key={r.id} style={{ marginLeft:"1.2rem", marginTop:"0.3rem", background:"var(--cream)", borderLeft:"2px solid var(--latte)", borderRadius:"0 6px 6px 0", padding:"0.5rem 0.8rem", fontSize:"0.82rem" }}>
@@ -641,11 +671,27 @@ export default function RecipeDetailModal({
                         </div>
                         <div style={{ display:"flex", gap:"0.4rem", alignItems:"center", flexShrink:0 }}>
                           {currentUser && <button onClick={()=>setReplyTo(replyTo?.id===c.id&&replyTo?.author===r.author?null:{id:c.id,author:r.author,uid:r.uid})} style={{ background:"none", border:"none", color:(replyTo?.id===c.id&&replyTo?.author===r.author)?"var(--accent)":"var(--muted)", fontSize:"0.7rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Reply":"답글"}</button>}
+                          {r.uid===currentUid && editingId!==r.id && <button onClick={()=>startEdit(r)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.7rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Edit":"수정"}</button>}
                           {r.uid===currentUid && <button onClick={()=>deleteComment(r.id)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.7rem", cursor:"pointer", padding:0 }}>{t.commentDelete}</button>}
                           {r.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:r.id})} style={{ background:"none", border:"1px solid #e74c3c40", borderRadius:"2px", color:"#e74c3c", fontSize:"0.65rem", cursor:"pointer", padding:"0.05rem 0.3rem", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
                         </div>
                       </div>
-                      <div style={{ color:"var(--espresso)", marginTop:"0.2rem", lineHeight:1.5 }}>{r.text}</div>
+                      {editingId===r.id ? (
+                        <div style={{ marginTop:"0.3rem", display:"flex", flexDirection:"column", gap:"0.35rem" }}>
+                          <input value={editText} onChange={e=>setEditText(e.target.value)}
+                            onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();saveEdit(r.id);} if(e.key==="Escape")cancelEdit(); }}
+                            autoFocus
+                            style={{ width:"100%", padding:"0.45rem 0.65rem", border:"1px solid var(--latte)", borderRadius:"6px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", background:"var(--foam)", color:"var(--espresso)", outline:"none", boxSizing:"border-box" }}/>
+                          <div style={{ display:"flex", gap:"0.35rem", justifyContent:"flex-end" }}>
+                            <button onClick={cancelEdit} style={{ padding:"0.25rem 0.6rem", border:"1px solid var(--steam)", borderRadius:"6px", background:"none", color:"var(--muted)", fontSize:"0.68rem", cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Cancel":"취소"}</button>
+                            <button onClick={()=>saveEdit(r.id)} disabled={!editText.trim()} style={{ padding:"0.25rem 0.8rem", border:"none", borderRadius:"6px", background:"var(--latte)", color:"white", fontSize:"0.68rem", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontWeight:600, opacity:editText.trim()?1:0.5 }}>{lang==="en"?"Save":"저장"}</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ color:"var(--espresso)", marginTop:"0.2rem", lineHeight:1.5 }}>
+                          {r.text}{r.editedAt && <span style={{ color:"var(--muted)", fontSize:"0.62rem", marginLeft:"0.4rem" }}>{lang==="en"?"(edited)":"(수정됨)"}</span>}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
