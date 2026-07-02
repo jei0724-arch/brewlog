@@ -8,7 +8,7 @@ import {
   getDocs, doc, addDoc, updateDoc, deleteDoc, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
-import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, SEED_ACCESSORIES, seedText } from "../../constants/wikiSeed";
+import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, seedText } from "../../constants/wikiSeed";
 import { translateFields, hasKorean } from "../../utils/translate";
 import { ROAST_LEVELS } from "../../constants/coffeeMenus";
 
@@ -1087,14 +1087,17 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [beanSnap, equipSnap, accSnap] = await Promise.all([
+      const [beanRes, equipRes, accRes] = await Promise.allSettled([
         getDocs(query(collection(db, "wiki_beans"), orderBy("createdAt", "desc"), limit(200))),
         getDocs(query(collection(db, "wiki_equipments"), orderBy("createdAt", "desc"), limit(200))),
         getDocs(query(collection(db, "wiki_accessories"), orderBy("createdAt", "desc"), limit(200))),
       ]);
-      setBeans(beanSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setEquips(equipSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setAccessories(accSnap.docs.map(d => ({ id: d.id, ...d.data(), isSeed: false })));
+      if (beanRes.status === "fulfilled") setBeans(beanRes.value.docs.map(d => ({ id: d.id, ...d.data() })));
+      else console.error("[wiki load] beans:", beanRes.reason);
+      if (equipRes.status === "fulfilled") setEquips(equipRes.value.docs.map(d => ({ id: d.id, ...d.data() })));
+      else console.error("[wiki load] equips:", equipRes.reason);
+      if (accRes.status === "fulfilled") setAccessories(accRes.value.docs.map(d => ({ id: d.id, ...d.data() })));
+      else console.error("[wiki load] accessories:", accRes.reason);
     } catch (e) {
       console.error("[wiki load]", e);
     }
@@ -1124,20 +1127,16 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
     );
   }, [equips, search]);
 
-  // 악세사리 — 관리자 큐레이션(wikiSeed.js, 고정) + 유저 등록(Firestore wiki_accessories) 병합
-  const allAccessories = useMemo(() => [
-    ...SEED_ACCESSORIES.map((a, i) => ({ ...a, id: `seed_${i}`, isSeed: true })),
-    ...accessories,
-  ], [accessories]);
-
+  // 악세사리 — 원두/장비와 동일한 패턴: 100% Firestore(wiki_accessories) 기반
+  // (관리자 시드 데이터는 AdminApp의 "위키 시드 등록"에서 일괄 등록되어 이 컬렉션에 실제 문서로 들어옴)
   const filteredAccessories = useMemo(() => {
-    if (!search.trim()) return allAccessories;
-    return allAccessories.filter(a =>
+    if (!search.trim()) return accessories;
+    return accessories.filter(a =>
       matchesSearch(seedText(a.name, lang), search) ||
       matchesSearch(seedText(a.description, lang), search) ||
       matchesSearch(t.accCategories[a.category] || "", search)
     );
-  }, [allAccessories, search, lang, t]);
+  }, [accessories, search, lang, t]);
 
   const deleteAccessory = async (id) => {
     if (!confirm(t.deleteConfirm)) return;
@@ -1195,16 +1194,11 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
                     <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "var(--latte)", background: "#B07D5415", border: "1px solid #B07D5430", borderRadius: "4px", padding: "1px 6px", whiteSpace: "nowrap" }}>
                       {t.accCategories[a.category] || a.category}
                     </span>
-                    {a.isSeed && (
-                      <span style={{ fontSize: "0.58rem", fontWeight: 700, color: "var(--muted)", background: "var(--cream)", border: "1px solid var(--steam)", borderRadius: "4px", padding: "1px 6px", whiteSpace: "nowrap" }}>
-                        {t.curated}
-                      </span>
-                    )}
                     <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)" }}>
                       {seedText(a.name, lang)}
                     </div>
                   </div>
-                  {!a.isSeed && a.createdBy === user?.uid && (
+                  {a.createdBy === user?.uid && (
                     <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
                       <button onClick={() => openEditTarget(a)}
                         style={{ background: "none", border: "none", color: "var(--muted)", fontSize: "0.72rem", cursor: "pointer", padding: 0, fontFamily: "'DM Sans',sans-serif" }}>{t.edit}</button>
@@ -1216,11 +1210,9 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
                 <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5 }}>
                   {seedText(a.description, lang)}
                 </div>
-                {!a.isSeed && (
-                  <div style={{ marginTop: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)" }}>
-                    {t.contributedBy}: @{a.createdByName || "익명"}
-                  </div>
-                )}
+                <div style={{ marginTop: "8px", fontFamily: "'DM Sans',sans-serif", fontSize: "0.68rem", color: "var(--muted)" }}>
+                  {t.contributedBy}: @{a.createdByName || "익명"}
+                </div>
               </div>
             ))}
           </div>

@@ -18,7 +18,7 @@ import { signOut } from "firebase/auth";
 import { auth, db } from "../config/firebase";
 import { I18N } from "../constants/localization";
 import { MACHINE_BRANDS, GRINDER_BRANDS } from "../utils/storage";
-import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, seedText } from "../constants/wikiSeed";
+import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, SEED_ACCESSORIES, seedText } from "../constants/wikiSeed";
 
 // ─────────────────────────────────────────────────────────────────
 export default function AdminApp({ user, onExit, lang = "ko" }) {
@@ -38,34 +38,38 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
 
   const checkWikiSeedExisting = useCallback(async () => {
     try {
-      const [beanSnap, equipSnap] = await Promise.all([
+      const [beanSnap, equipSnap, accSnap] = await Promise.all([
         getDocs(collection(db, "wiki_beans")),
         getDocs(collection(db, "wiki_equipments")),
+        getDocs(collection(db, "wiki_accessories")).catch(() => ({ size: 0 })),
       ]);
-      setWikiSeedExisting({ beans: beanSnap.size, equips: equipSnap.size });
+      setWikiSeedExisting({ beans: beanSnap.size, equips: equipSnap.size, accessories: accSnap.size });
     } catch (e) {
       console.error("[wikiSeed check]", e);
     }
   }, []);
 
   const runWikiSeed = async () => {
-    const allBeanSeeds  = [...SEED_BEAN_ORIGINS, ...SEED_KOREAN_ROASTERS];
-    const allEquipSeeds = SEED_EQUIPMENTS;
-    if (!confirm(`관리자 명의로 로스터리·산지 ${allBeanSeeds.length}곳 + 장비 ${allEquipSeeds.length}종을 위키에 등록할까요?\n이미 등록된 항목과 이름이 같으면 건너뜁니다.`)) return;
+    if (!confirm("관리자 명의로 한국 로스터리 20곳 + 산지 12곳 + 장비 30종 + 악세사리 22종을 위키에 등록할까요?\n이미 등록된 항목과 이름이 같으면 건너뜁니다.")) return;
 
     setWikiSeedStatus("running");
-    const total = allBeanSeeds.length + allEquipSeeds.length;
+    const allBeanSeeds  = [...SEED_BEAN_ORIGINS, ...SEED_KOREAN_ROASTERS];
+    const allEquipSeeds = SEED_EQUIPMENTS;
+    const allAccSeeds   = SEED_ACCESSORIES;
+    const total = allBeanSeeds.length + allEquipSeeds.length + allAccSeeds.length;
     let done = 0;
     setWikiSeedProgress({ done: 0, total });
 
     try {
       // 기존 등록된 이름 목록 확인 (중복 방지)
-      const [beanSnap, equipSnap] = await Promise.all([
+      const [beanSnap, equipSnap, accSnap] = await Promise.all([
         getDocs(collection(db, "wiki_beans")),
         getDocs(collection(db, "wiki_equipments")),
+        getDocs(collection(db, "wiki_accessories")).catch(() => ({ docs: [] })),
       ]);
       const existingBeanNames  = new Set(beanSnap.docs.map(d => d.data().name));
       const existingEquipKeys  = new Set(equipSnap.docs.map(d => `${d.data().brand}__${d.data().model}`));
+      const existingAccNames   = new Set(accSnap.docs.map(d => d.data().name));
 
       // 원두 등록 (한국어 기준으로 저장 — 표시 시 영문 모드면 자동 번역됨)
       for (const seed of allBeanSeeds) {
@@ -115,16 +119,28 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
           material: seed.material || "",
           dripperShape: seed.dripperShape || "",
           capacityCups: seed.capacityCups || "",
-          accessoryType: seed.accessoryType || "",
-          diameterMm: seed.diameterMm || "",
-          spoutType: seed.spoutType || "",
-          basketCapacityG: seed.basketCapacityG || "",
-          basketHoleType: seed.basketHoleType || "",
           description: seedText(seed.description, "ko"),
           createdBy: user.uid,
           createdByName: user.displayName || "관리자",
           editedBy: [],
           linkedRecipeCount: 0,
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      // 악세사리 등록
+      for (const seed of allAccSeeds) {
+        done++; setWikiSeedProgress({ done, total });
+        const name = seedText(seed.name, "ko");
+        if (existingAccNames.has(name)) continue;
+
+        await addDoc(collection(db, "wiki_accessories"), {
+          category: seed.category,
+          name,
+          description: seedText(seed.description, "ko"),
+          createdBy: user.uid,
+          createdByName: user.displayName || "관리자",
+          editedBy: [],
           createdAt: serverTimestamp(),
         });
       }
@@ -731,7 +747,7 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
           <div className="admin-card">
             <div className="admin-card-title">커피 위키 시드 데이터 등록</div>
             <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", color:"var(--muted)", lineHeight:1.7, marginBottom:"16px" }}>
-              한국 유명 로스터리 20곳, 알려진 원두 산지 12곳, 유명 장비(머신·그라인더·핸드드립) 30종을
+              한국 유명 로스터리 20곳, 알려진 원두 산지 12곳, 유명 장비(머신·그라인더·핸드드립) 30종, 홈카페 악세사리 22종을
               관리자 명의로 위키에 일괄 등록합니다. 이미 등록된 항목은 자동으로 건너뜁니다.
             </p>
 
@@ -744,6 +760,10 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
                 <div style={{ flex:1, background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"12px 14px", textAlign:"center" }}>
                   <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.3rem", fontWeight:700, color:"var(--espresso)" }}>{wikiSeedExisting.equips}</div>
                   <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginTop:"2px" }}>등록된 장비</div>
+                </div>
+                <div style={{ flex:1, background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"12px 14px", textAlign:"center" }}>
+                  <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.3rem", fontWeight:700, color:"var(--espresso)" }}>{wikiSeedExisting.accessories ?? 0}</div>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginTop:"2px" }}>등록된 악세사리</div>
                 </div>
               </div>
             )}
