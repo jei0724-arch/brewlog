@@ -772,6 +772,16 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
 
 // ── 악세사리 추가/수정 폼 (유저 기여형) ─────────────────────────
 const ACC_CATEGORIES = ["basket","bottomless","tamper","prep","cleaning","measure","milk","storage"];
+const ACC_NAME_EXAMPLES = {
+  basket:     { ko: "예) 프리시전 바스켓 (VST/IMS)", en: "e.g. Precision Basket (VST/IMS)" },
+  bottomless: { ko: "예) 보텀리스 포터필터", en: "e.g. Bottomless Portafilter" },
+  tamper:     { ko: "예) 58mm 탬퍼", en: "e.g. 58mm Tamper" },
+  prep:       { ko: "예) WDT 툴", en: "e.g. WDT Tool" },
+  cleaning:   { ko: "예) 넉박스", en: "e.g. Knock Box" },
+  measure:    { ko: "예) 전자저울 (Acaia)", en: "e.g. Coffee Scale (Acaia)" },
+  milk:       { ko: "예) 밀크 피처", en: "e.g. Milk Pitcher" },
+  storage:    { ko: "예) 원두 보관통", en: "e.g. Airtight Coffee Canister" },
+};
 
 function AccessoryWikiForm({ user, lang, editTarget, onClose, onSaved }) {
   const t = I18N[lang];
@@ -827,7 +837,7 @@ function AccessoryWikiForm({ user, lang, editTarget, onClose, onSaved }) {
         <div className="field full" style={{ marginBottom: "12px" }}>
           <label>{t.accName}</label>
           <input value={form.name} onChange={e => set("name", e.target.value)}
-            placeholder={lang === "en" ? "e.g. Bottomless Portafilter" : "예) 보텀리스 포터필터"}
+            placeholder={ACC_NAME_EXAMPLES[form.category]?.[lang] || (lang === "en" ? "e.g. Bottomless Portafilter" : "예) 보텀리스 포터필터")}
             style={{ width: "100%", padding: "0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", boxSizing: "border-box" }} />
         </div>
 
