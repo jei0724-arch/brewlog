@@ -167,19 +167,69 @@ export default function HandDripTimer({ value, pourStages, onChange, onStagesCha
       </div>
 
       {isGuideMode && phase !== "idle" && totalPlanned > 0 && (
-        <div style={{ display: "flex", height: "6px", borderRadius: "3px", overflow: "hidden", marginBottom: "10px", background: "var(--steam)" }}>
-          {plan.filter(s => s.dur > 0).map((s, i, arr) => {
-            const isPast = elapsed >= s.end;
-            const isCurrent = currentStageIdx === s._idx;
-            return (
-              <div key={i} style={{
-                width: `${(s.dur / totalPlanned) * 100}%`,
-                background: isPast ? "#27ae60" : isCurrent ? "#e67e22" : "var(--steam)",
-                borderRight: i < arr.length - 1 ? "1px solid var(--foam)" : "none",
-                transition: "background 0.3s",
+        <div style={{ marginBottom: "12px" }}>
+          {/* 진행 바 + 현재 위치 마커 */}
+          <div style={{ position: "relative", marginBottom: "6px" }}>
+            <div style={{ display: "flex", height: "28px", borderRadius: "6px", overflow: "hidden", background: "var(--steam)" }}>
+              {plan.map((s, i) => {
+                const isPast = elapsed >= s.end;
+                const isCurrent = currentStageIdx === i;
+                return (
+                  <div key={i} style={{
+                    width: `${(s.dur / totalPlanned) * 100}%`,
+                    background: isPast ? "#27ae60" : isCurrent ? "#e67e22" : "var(--steam)",
+                    borderRight: i < plan.length - 1 ? "2px solid var(--foam)" : "none",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "background 0.3s",
+                    animation: isCurrent ? "handdripPulse 1.2s ease-in-out infinite" : "none",
+                    position: "relative",
+                  }}>
+                    <span style={{ fontSize: "0.68rem", fontWeight: 700, color: (isPast || isCurrent) ? "#fff" : "var(--muted)" }}>
+                      {i + 1}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {/* 현재 위치 재생헤드 마커 */}
+            {phase === "running" && (
+              <div style={{
+                position: "absolute", top: "-4px",
+                left: `${Math.min(100, (elapsed / totalPlanned) * 100)}%`,
+                transform: "translateX(-50%)",
+                width: 0, height: 0,
+                borderLeft: "5px solid transparent", borderRight: "5px solid transparent",
+                borderTop: "6px solid var(--espresso)",
+                transition: "left 1s linear",
               }}/>
-            );
-          })}
+            )}
+          </div>
+
+          {/* 단계별 이름 라벨 (바 아래, 각 구간 폭에 맞춰 정렬) */}
+          <div style={{ display: "flex" }}>
+            {plan.map((s, i) => {
+              const isCurrent = currentStageIdx === i;
+              const isPast = elapsed >= s.end;
+              return (
+                <div key={i} style={{ width: `${(s.dur / totalPlanned) * 100}%`, textAlign: "center", overflow: "hidden" }}>
+                  <span style={{
+                    fontSize: "0.6rem", fontFamily: "'DM Sans',sans-serif", whiteSpace: "nowrap",
+                    color: isCurrent ? "#e67e22" : isPast ? "#27ae60" : "var(--muted)",
+                    fontWeight: isCurrent ? 700 : 400,
+                  }}>
+                    {s.label || `${i+1}${lang==="en"?"":"단계"}`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <style>{`
+            @keyframes handdripPulse {
+              0%, 100% { filter: brightness(1); }
+              50% { filter: brightness(1.25); }
+            }
+          `}</style>
         </div>
       )}
 
