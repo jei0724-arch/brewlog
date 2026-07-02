@@ -16,7 +16,7 @@ const I18N = {
   ko: {
     title: "Coffee Wiki", sub: "원두와 장비, 함께 만드는 커피 데이터베이스",
     tabBeans: "원두", tabEquip: "장비", tabAccessories: "악세사리",
-    accCategories: { basket:"바스켓/필터", tamper:"탬퍼", prep:"준비도구", cleaning:"세척", measure:"계측", milk:"우유/라떼아트", storage:"보관" },
+    accCategories: { basket:"바스켓/필터", bottomless:"바텀리스", tamper:"탬퍼", prep:"준비도구", cleaning:"세척", measure:"계측", milk:"우유/라떼아트", storage:"보관" },
     addAccessory: "악세사리 추가하기", accName: "이름", accCategory: "분류",
     curated: "관리자 등록", delete: "삭제", deleteConfirm: "이 악세사리를 삭제할까요?",
     search: "원두명, 산지, 브랜드로 검색",
@@ -51,7 +51,7 @@ const I18N = {
   en: {
     title: "Coffee Wiki", sub: "A community-built coffee bean & equipment database",
     tabBeans: "Beans", tabEquip: "Equipment", tabAccessories: "Accessories",
-    accCategories: { basket:"Basket/Filter", tamper:"Tamper", prep:"Prep Tools", cleaning:"Cleaning", measure:"Measuring", milk:"Milk/Latte Art", storage:"Storage" },
+    accCategories: { basket:"Basket/Filter", bottomless:"Bottomless", tamper:"Tamper", prep:"Prep Tools", cleaning:"Cleaning", measure:"Measuring", milk:"Milk/Latte Art", storage:"Storage" },
     addAccessory: "Add Accessory", accName: "Name", accCategory: "Category",
     curated: "Curated", delete: "Delete", deleteConfirm: "Delete this accessory?",
     search: "Search by name, origin, or brand",
@@ -771,7 +771,7 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
 }
 
 // ── 악세사리 추가/수정 폼 (유저 기여형) ─────────────────────────
-const ACC_CATEGORIES = ["basket","tamper","prep","cleaning","measure","milk","storage"];
+const ACC_CATEGORIES = ["basket","bottomless","tamper","prep","cleaning","measure","milk","storage"];
 
 function AccessoryWikiForm({ user, lang, editTarget, onClose, onSaved }) {
   const t = I18N[lang];

@@ -636,7 +636,7 @@ export const SEED_KOREAN_ROASTERS = [
 // ── 악세사리 (관리자 큐레이션 — 정적 카탈로그, 유저 등록 불가) ────
 // category: "basket" | "tamper" | "prep" | "cleaning" | "measure" | "milk" | "storage"
 export const SEED_ACCESSORIES = [
-  { category: "basket", name: { ko: "보텀리스 포터필터", en: "Bottomless Portafilter" },
+  { category: "bottomless", name: { ko: "보텀리스 포터필터", en: "Bottomless Portafilter" },
     description: { ko: "바닥이 뚫려 있어 추출 흐름(채널링)을 육안으로 확인할 수 있는 포터필터.", en: "A portafilter with no spout, letting you visually check extraction flow and channeling." } },
   { category: "basket", name: { ko: "프리시전 바스켓 (VST/IMS)", en: "Precision Basket (VST/IMS)" },
     description: { ko: "레이저 가공으로 구멍 크기가 균일해 추출 편차를 줄여주는 고정밀 바스켓.", en: "Laser-drilled basket with uniform hole size, reducing extraction variance." } },
