@@ -184,7 +184,7 @@ export default function RecipeDetailModal({
     <div className="modal-backdrop" onClick={e => e.target===e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth:"460px" }}>
         {/* 닫기 */}
-        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:"0.4rem", position:"sticky", top:0, zIndex:5, background:"var(--foam)" }}>
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:"0.4rem" }}>
           <button onClick={onClose}
             style={{
               background:"none", border:"none", fontSize:"1.2rem", cursor:"pointer", color:"var(--muted)",
