@@ -39,7 +39,7 @@ export default function HandDripTimer({ value, pourStages, onChange, onStagesCha
 
   const lap = useCallback(() => {
     const stages = pourStages || [];
-    onStagesChange([...stages, { time: String(elapsed), amount: "", note: "" }]);
+    onStagesChange([...stages, { time: String(elapsed), amount: "", label: "", desc: "" }]);
   }, [elapsed, pourStages, onStagesChange]);
 
   const stop = useCallback(() => {

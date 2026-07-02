@@ -221,7 +221,7 @@ export default function RecipeDetailModal({
             const fmtT = (s) => { const m = Math.floor(s/60), sec = s%60; return m>0 ? `${m}:${String(sec).padStart(2,"0")}` : `${sec}s`; };
 
             const stages = (recipe.pourStages || [])
-              .map(s => ({ time: parseInt(s.time)||0, amount: parseInt(s.amount)||0, note: s.note||"" }))
+              .map(s => ({ time: parseInt(s.time)||0, amount: parseInt(s.amount)||0, label: s.label||"", desc: s.desc||s.note||"" }))
               .filter(s => s.time > 0 || s.amount > 0)
               .sort((a,b) => a.time - b.time);
             const hasStages = stages.length > 0;
@@ -234,7 +234,7 @@ export default function RecipeDetailModal({
             }) : [];
             const lastStageTime = hasStages ? stages[stages.length-1].time : 0;
             if (hasStages && total > lastStageTime) {
-              segments.push({ time: total, amount: stages[stages.length-1].amount, note: lang==="en"?"Drawdown":"낙수/완료", dur: total - lastStageTime, fromMl: stages[stages.length-1].amount, color: "var(--steam)" });
+              segments.push({ time: total, amount: stages[stages.length-1].amount, label: lang==="en"?"Drawdown / Done":"낙수/완료", desc:"", dur: total - lastStageTime, fromMl: stages[stages.length-1].amount, color: "var(--steam)" });
             }
 
             return (
@@ -259,20 +259,28 @@ export default function RecipeDetailModal({
                       ))}
                     </div>
 
-                    {/* 단계별 리스트 */}
-                    <div style={{ display:"flex", flexDirection:"column", gap:"6px", marginBottom:"12px" }}>
+                    {/* 단계별 카드 */}
+                    <div style={{ display:"flex", flexDirection:"column", gap:"10px", marginBottom:"12px" }}>
                       {segments.map((seg, i) => (
-                        <div key={i} style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                          <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:seg.color, flexShrink:0 }}/>
-                          <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.74rem", color:"var(--espresso)", fontWeight:600, flexShrink:0 }}>
-                            {fmtT(i===0?0:segments[i-1].time)} → {fmtT(seg.time)}
-                          </span>
-                          {seg.amount>0 && (
-                            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--latte)", fontWeight:600, flexShrink:0 }}>
-                              {seg.fromMl}→{seg.amount}ml
-                            </span>
-                          )}
-                          {seg.note && <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)" }}>{seg.note}</span>}
+                        <div key={i} style={{ display:"flex", gap:"10px" }}>
+                          <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center" }}>
+                            <span style={{ width:"22px", height:"22px", borderRadius:"50%", background:seg.color, color:"#fff", fontSize:"0.7rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>{i+1}</span>
+                            {i < segments.length-1 && <span style={{ width:"1px", flex:1, background:"var(--divider)", marginTop:"3px" }}/>}
+                          </div>
+                          <div style={{ flex:1, minWidth:0, paddingBottom: i < segments.length-1 ? "4px" : 0 }}>
+                            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:700, color:"var(--espresso)", marginBottom:"1px" }}>
+                              {seg.label || (lang==="en"?`Stage ${i+1}`:`${i+1}단계`)}
+                            </div>
+                            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)", marginBottom: seg.desc ? "4px" : 0 }}>
+                              {fmtT(i===0?0:segments[i-1].time)} ~ {fmtT(seg.time)}
+                              {seg.amount>0 && ` · ${seg.fromMl}→${seg.amount}ml`}
+                            </div>
+                            {seg.desc && (
+                              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--espresso)", lineHeight:1.55, opacity:0.85 }}>
+                                {seg.desc}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

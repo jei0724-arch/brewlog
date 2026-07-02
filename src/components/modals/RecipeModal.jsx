@@ -1457,48 +1457,74 @@ export default function RecipeModal({
           {selectedMenu === "hand_drip" && (
             <div className="field full" data-field="pourStages">
               <label>{lang === "en" ? "Pour Stages (optional)" : "푸어 단계 기록 (선택)"}</label>
-              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginBottom:"8px", lineHeight:1.5 }}>
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginBottom:"10px", lineHeight:1.5 }}>
                 {lang === "en"
-                  ? "Tap \"Record Stage\" on the timer above to auto-fill the time, then just fill in the water amount."
-                  : "위 타이머에서 \"구간 기록\"을 누르면 시간이 자동으로 채워져요. 물량만 채워주시면 돼요."}
+                  ? "Tap \"Record Stage\" on the timer above to auto-fill the time, then fill in the title/amount/description so others can follow your recipe step by step."
+                  : "위 타이머에서 \"구간 기록\"을 누르면 시간이 자동으로 채워져요. 제목·물량·설명을 채우면 다른 사람도 그대로 따라 할 수 있어요."}
               </p>
 
-              {(form.pourStages || []).map((stage, i) => (
-                <div key={i} style={{ display:"flex", gap:"8px", alignItems:"center", marginBottom:"8px" }}>
-                  <input type="number" min="0" value={stage.time}
-                    onChange={e => {
-                      const next = [...(form.pourStages || [])];
-                      next[i] = { ...next[i], time: e.target.value };
-                      setPourStages(next);
-                    }}
-                    placeholder={lang === "en" ? "sec" : "초"}
-                    style={{ width:"70px", padding:"0.6rem 0.5rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", textAlign:"center", boxSizing:"border-box" }}/>
-                  <span style={{ fontSize:"0.72rem", color:"var(--muted)", flexShrink:0 }}>{lang==="en"?"s →":"초 →"}</span>
-                  <input type="number" min="0" value={stage.amount}
-                    onChange={e => {
-                      const next = [...(form.pourStages || [])];
-                      next[i] = { ...next[i], amount: e.target.value };
-                      setPourStages(next);
-                    }}
-                    placeholder={lang === "en" ? "total ml" : "누적 ml"}
-                    style={{ width:"80px", padding:"0.6rem 0.5rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", textAlign:"center", boxSizing:"border-box" }}/>
-                  <span style={{ fontSize:"0.72rem", color:"var(--muted)", flexShrink:0 }}>ml</span>
-                  <input value={stage.note || ""}
-                    onChange={e => {
-                      const next = [...(form.pourStages || [])];
-                      next[i] = { ...next[i], note: e.target.value };
-                      setPourStages(next);
-                    }}
-                    placeholder={lang === "en" ? "e.g. bloom, center pour" : "예) 블루밍, 중앙 주수"}
-                    style={{ flex:1, minWidth:0, padding:"0.6rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", boxSizing:"border-box" }}/>
-                  <button type="button"
-                    onClick={() => setPourStages((form.pourStages || []).filter((_, idx) => idx !== i))}
-                    style={{ background:"none", border:"none", color:"var(--muted)", cursor:"pointer", fontSize:"1rem", padding:"4px", flexShrink:0 }}>✕</button>
+              {(form.pourStages || []).map((stage, i) => {
+                const prevTime = i === 0 ? 0 : (parseInt((form.pourStages||[])[i-1]?.time) || 0);
+                const curTime  = parseInt(stage.time) || 0;
+                return (
+                <div key={i} style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"12px", marginBottom:"10px" }}>
+                  {/* 헤더 행: 번호 + 시간범위 + 삭제 */}
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"8px" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+                      <span style={{ width:"20px", height:"20px", borderRadius:"50%", background:"var(--espresso)", color:"var(--cream)", fontSize:"0.68rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{i+1}</span>
+                      <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)" }}>
+                        {prevTime}{lang==="en"?"s":"초"} → {curTime||"?"}{lang==="en"?"s":"초"}
+                      </span>
+                    </div>
+                    <button type="button"
+                      onClick={() => setPourStages((form.pourStages || []).filter((_, idx) => idx !== i))}
+                      style={{ background:"none", border:"none", color:"var(--muted)", cursor:"pointer", fontSize:"1rem", padding:"2px" }}>✕</button>
+                  </div>
+
+                  {/* 시간 / 물량 */}
+                  <div style={{ display:"flex", gap:"8px", alignItems:"center", marginBottom:"8px" }}>
+                    <input type="number" min="0" value={stage.time}
+                      onChange={e => { const next=[...(form.pourStages||[])]; next[i]={...next[i],time:e.target.value}; setPourStages(next); }}
+                      placeholder={lang === "en" ? "sec" : "초"}
+                      style={{ width:"64px", padding:"0.55rem 0.4rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", textAlign:"center", boxSizing:"border-box" }}/>
+                    <span style={{ fontSize:"0.72rem", color:"var(--muted)", flexShrink:0 }}>{lang==="en"?"s →":"초 →"}</span>
+                    <input type="number" min="0" value={stage.amount}
+                      onChange={e => { const next=[...(form.pourStages||[])]; next[i]={...next[i],amount:e.target.value}; setPourStages(next); }}
+                      placeholder={lang === "en" ? "total ml" : "누적 ml"}
+                      style={{ width:"76px", padding:"0.55rem 0.4rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", textAlign:"center", boxSizing:"border-box" }}/>
+                    <span style={{ fontSize:"0.72rem", color:"var(--muted)", flexShrink:0 }}>ml</span>
+                  </div>
+
+                  {/* 제목 (프리셋 칩) */}
+                  <input value={stage.label || ""}
+                    onChange={e => { const next=[...(form.pourStages||[])]; next[i]={...next[i],label:e.target.value}; setPourStages(next); }}
+                    placeholder={lang === "en" ? "Stage title, e.g. Pre-infusion" : "단계 제목, 예) 뜸 들이기 (Pre-infusion)"}
+                    style={{ width:"100%", padding:"0.6rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:600, boxSizing:"border-box", marginBottom:"6px" }}/>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"5px", marginBottom:"8px" }}>
+                    {(lang==="en"
+                      ? ["Pre-infusion","Main Extraction","2nd Pour","3rd Pour","Drawdown","Remove Dripper"]
+                      : ["뜸 들이기","1차 추출","2차 추출","3차 추출","낙수","드리퍼 제거"]
+                    ).map(preset => (
+                      <button key={preset} type="button"
+                        onClick={() => { const next=[...(form.pourStages||[])]; next[i]={...next[i],label:preset}; setPourStages(next); }}
+                        style={{ padding:"3px 9px", borderRadius:"999px", border:"1px solid var(--steam)", background:"var(--foam)", color:"var(--muted)", fontSize:"0.66rem", fontFamily:"'DM Sans',sans-serif", cursor:"pointer" }}>
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 상세 설명 */}
+                  <textarea value={stage.desc || ""}
+                    onChange={e => { const next=[...(form.pourStages||[])]; next[i]={...next[i],desc:e.target.value}; setPourStages(next); }}
+                    rows={2}
+                    placeholder={lang === "en" ? "How to pour, technique tips..." : "붓는 방법, 요령 등을 자유롭게 적어주세요"}
+                    style={{ width:"100%", padding:"0.6rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", resize:"vertical", boxSizing:"border-box" }}/>
                 </div>
-              ))}
+                );
+              })}
 
               <button type="button"
-                onClick={() => setPourStages([...(form.pourStages || []), { time:"", amount:"", note:"" }])}
+                onClick={() => setPourStages([...(form.pourStages || []), { time:"", amount:"", label:"", desc:"" }])}
                 style={{ width:"100%", padding:"10px", border:"1px dashed var(--latte)", borderRadius:"8px", background:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--latte)", fontWeight:500, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px" }}>
                 <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                 {lang === "en" ? "Add Stage" : "단계 추가"}
