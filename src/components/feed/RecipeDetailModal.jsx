@@ -210,7 +210,72 @@ export default function RecipeDetailModal({
           <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.25rem", fontWeight:700, color:"var(--espresso)", lineHeight:1.25 }}>{recipe.bean}</div>
         </div>
 
-        {/* stat 박스 */}
+        {/* stat 박스 — 핸드드립은 타임라인 카드, 나머지는 기존 4박스 그리드 */}
+        {recipe.menuId === "hand_drip" ? (
+          (() => {
+            const total = parseInt(recipe.seconds) || 0;
+            const inf   = parseInt(recipe.infusionSeconds) || 0;
+            const ext   = Math.max(0, total - inf);
+            const infPct = total > 0 ? (inf / total) * 100 : 0;
+            const extPct = total > 0 ? (ext / total) * 100 : 100;
+            const fmtT = (s) => { const m = Math.floor(s/60), sec = s%60; return m>0 ? `${m}:${String(sec).padStart(2,"0")}` : `${sec}s`; };
+            return (
+              <div style={{ marginBottom:"1rem", padding:"14px 16px", background:"var(--cream)", borderRadius:"var(--r-card)", border:"1px solid var(--divider)" }}>
+                <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:"10px" }}>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.06em", textTransform:"uppercase" }}>
+                    {lang==="en"?"Brew Timeline":"추출 타임라인"}
+                  </span>
+                  <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.5rem", fontWeight:700, color:"var(--espresso)" }}>
+                    {total>0?fmtT(total):"—"}
+                  </span>
+                </div>
+
+                {/* 타임라인 바 */}
+                {total>0 && (
+                  <div style={{ display:"flex", height:"22px", borderRadius:"6px", overflow:"hidden", marginBottom:"6px" }}>
+                    {inf>0 && (
+                      <div style={{ width:`${infPct}%`, background:"#e67e22", display:"flex", alignItems:"center", justifyContent:"center", minWidth:inf>0?"28px":0 }}>
+                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(inf)}</span>
+                      </div>
+                    )}
+                    <div style={{ width:`${extPct}%`, background:"#27ae60", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(ext)}</span>
+                    </div>
+                  </div>
+                )}
+                {/* 범례 */}
+                {inf>0 && (
+                  <div style={{ display:"flex", gap:"14px", marginBottom:"12px" }}>
+                    <span style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)" }}>
+                      <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:"#e67e22", display:"inline-block" }}/>
+                      {lang==="en"?"Bloom / Infusion":"인퓨전(블루밍)"}
+                    </span>
+                    <span style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)" }}>
+                      <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:"#27ae60", display:"inline-block" }}/>
+                      {lang==="en"?"Extraction":"추출"}
+                    </span>
+                  </div>
+                )}
+
+                {/* 원두/물/온도 서브 스탯 */}
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px", paddingTop:"10px", borderTop:"1px solid var(--divider)" }}>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>{recipe.gram?`${recipe.gram}g`:"—"}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)", marginTop:"2px" }}>{t.statGram}</div>
+                  </div>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>{recipe.espressoMl?`${recipe.espressoMl}ml`:"—"}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)", marginTop:"2px" }}>{t.statMl}</div>
+                  </div>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>{recipe.waterTemp?`${recipe.waterTemp}°C`:"—"}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)", marginTop:"2px" }}>{lang==="en"?"Temp":"물온도"}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()
+        ) : (
         <div className="card-stats" style={{ marginBottom:"1rem", gridTemplateColumns:"repeat(4,1fr)" }}>
           <div className="stat"><span className="stat-val">{recipe.gram?`${recipe.gram}g`:"—"}</span><span className="stat-label">{t.statGram}</span></div>
           <div className="stat">
@@ -225,6 +290,7 @@ export default function RecipeDetailModal({
           <div className="stat"><span className="stat-val">{recipe.espressoMl?`${recipe.espressoMl}ml`:"—"}</span><span className="stat-label">{t.statMl}</span></div>
           {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang==="en"?"Temp":"물온도"}</span></div>}
         </div>
+        )}
 
         {/* 추출 비율 */}
         {ratio && (
