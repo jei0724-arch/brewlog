@@ -751,7 +751,7 @@ export default function RecipeModal({
         tds:             form.tds             || null,
         tags:            (form.tags || []).filter(Boolean),
         pourStages:      selectedMenu === "hand_drip"
-          ? (form.pourStages || []).filter(s => s.time !== "" && s.amount !== "")
+          ? (form.pourStages || []).filter(s => (parseInt(s.time) || 0) > 0 || (parseInt(s.amount) || 0) > 0)
           : [],
       };
       delete payload._isCopy; // 저장 시 절대 Firestore에 남지 않도록 제거 (복사모드 영구고착 버그 방지)
