@@ -220,21 +220,26 @@ export default function RecipeDetailModal({
             const extPct = total > 0 ? (ext / total) * 100 : 100;
             const fmtT = (s) => { const m = Math.floor(s/60), sec = s%60; return m>0 ? `${m}:${String(sec).padStart(2,"0")}` : `${sec}s`; };
 
+            // pourStages의 time = 각 구간 자체 길이(duration). 배열 순서가 곧 브루잉 순서이므로
+            // 정렬하지 않고 순서대로 누적해서 시작/종료 시점을 계산함
+            let cumT = 0;
             const stages = (recipe.pourStages || [])
-              .map(s => ({ time: parseInt(s.time)||0, amount: parseInt(s.amount)||0, label: s.label||"", desc: s.desc||s.note||"" }))
-              .filter(s => s.time > 0 || s.amount > 0)
-              .sort((a,b) => a.time - b.time);
+              .map(s => {
+                const dur = parseInt(s.time)||0;
+                const startT = cumT;
+                cumT += dur;
+                return { dur, start: startT, end: cumT, amount: parseInt(s.amount)||0, label: s.label||"", desc: s.desc||s.note||"" };
+              })
+              .filter(s => s.dur > 0 || s.amount > 0);
             const hasStages = stages.length > 0;
             const palette = ["#e67e22","#27ae60","#2980b9","#8e44ad","#c0625a","#16a085","#d35400"];
 
-            // 단계별 구간 계산 (0초 지점부터 시작 → 각 기록 시점까지)
-            const segments = hasStages ? stages.map((s, i) => {
-              const prevTime = i === 0 ? 0 : stages[i-1].time;
-              return { ...s, dur: Math.max(0, s.time - prevTime), fromMl: i === 0 ? 0 : stages[i-1].amount, color: palette[i % palette.length] };
-            }) : [];
-            const lastStageTime = hasStages ? stages[stages.length-1].time : 0;
-            if (hasStages && total > lastStageTime) {
-              segments.push({ time: total, amount: stages[stages.length-1].amount, label: lang==="en"?"Drawdown / Done":"낙수/완료", desc:"", dur: total - lastStageTime, fromMl: stages[stages.length-1].amount, color: "var(--steam)" });
+            const segments = hasStages ? stages.map((s, i) => ({
+              ...s, fromMl: i === 0 ? 0 : stages[i-1].amount, color: palette[i % palette.length],
+            })) : [];
+            const lastStageEnd = hasStages ? stages[stages.length-1].end : 0;
+            if (hasStages && total > lastStageEnd) {
+              segments.push({ start: lastStageEnd, end: total, amount: stages[stages.length-1].amount, label: lang==="en"?"Drawdown / Done":"낙수/완료", desc:"", dur: total - lastStageEnd, fromMl: stages[stages.length-1].amount, color: "var(--steam)" });
             }
 
             return (
@@ -272,7 +277,7 @@ export default function RecipeDetailModal({
                               {seg.label || (lang==="en"?`Stage ${i+1}`:`${i+1}단계`)}
                             </div>
                             <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)", marginBottom: seg.desc ? "4px" : 0 }}>
-                              {fmtT(i===0?0:segments[i-1].time)} ~ {fmtT(seg.time)}
+                              {fmtT(seg.start)} ~ {fmtT(seg.end)}
                               {seg.amount>0 && ` · ${seg.fromMl}→${seg.amount}ml`}
                             </div>
                             {seg.desc && (

@@ -1471,11 +1471,16 @@ export default function RecipeModal({
 
               {(() => {
                 const raw = form.pourStages || [];
-                // 화면엔 항상 "시간순"으로 보여주되, 실제 배열의 원래 인덱스(origIdx)를 기억해서
-                // 그 인덱스로 수정/삭제해야 가이드 타이머가 계산하는 순서와 편집 화면이 항상 일치함
-                const sorted = raw
-                  .map((stage, origIdx) => ({ stage, origIdx }))
-                  .sort((a, b) => (parseInt(a.stage.time) || 0) - (parseInt(b.stage.time) || 0));
+                // time = 각 구간 자체의 길이(duration). 배열 순서가 곧 브루잉 순서이므로
+                // 정렬하지 않고 순서대로 누적해서 시작~종료 구간을 계산함
+                let cum = 0;
+                const withCum = raw.map((stage) => {
+                  const dur = parseInt(stage.time) || 0;
+                  const start = cum;
+                  cum += dur;
+                  return { stage, start, end: cum };
+                });
+                const total = cum;
 
                 const updateStage = (origIdx, patch) => {
                   const next = [...raw];
@@ -1484,17 +1489,16 @@ export default function RecipeModal({
                 };
                 const removeStage = (origIdx) => setPourStages(raw.filter((_, idx) => idx !== origIdx));
 
-                return sorted.map(({ stage, origIdx }, i) => {
-                  const prevTime = i === 0 ? 0 : (parseInt(sorted[i-1].stage.time) || 0);
-                  const curTime  = parseInt(stage.time) || 0;
-                  return (
+                return (
+                  <>
+                    {withCum.map(({ stage, start, end }, origIdx) => (
                   <div key={origIdx} style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"12px", marginBottom:"10px" }}>
-                    {/* 헤더 행: 번호(시간순) + 시간범위 + 삭제 */}
+                    {/* 헤더 행: 번호 + 누적 시간범위 + 삭제 */}
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"8px" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                        <span style={{ width:"20px", height:"20px", borderRadius:"50%", background:"var(--espresso)", color:"var(--cream)", fontSize:"0.68rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{i+1}</span>
+                        <span style={{ width:"20px", height:"20px", borderRadius:"50%", background:"var(--espresso)", color:"var(--cream)", fontSize:"0.68rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{origIdx+1}</span>
                         <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)" }}>
-                          {prevTime}{lang==="en"?"s":"초"} → {curTime||"?"}{lang==="en"?"s":"초"}
+                          {start}{lang==="en"?"s":"초"} → {end}{lang==="en"?"s":"초"} {lang==="en"?"(cumulative)":"(누적)"}
                         </span>
                       </div>
                       <button type="button"
@@ -1502,13 +1506,13 @@ export default function RecipeModal({
                         style={{ background:"none", border:"none", color:"var(--muted)", cursor:"pointer", fontSize:"1rem", padding:"2px" }}>✕</button>
                     </div>
 
-                    {/* 시간 / 물량 */}
+                    {/* 구간 길이(초) / 물량 */}
                     <div style={{ display:"flex", gap:"8px", alignItems:"center", marginBottom:"8px" }}>
                       <input type="number" min="0" value={stage.time}
                         onChange={e => updateStage(origIdx, { time: e.target.value })}
                         placeholder={lang === "en" ? "sec" : "초"}
                         style={{ width:"64px", padding:"0.55rem 0.4rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", textAlign:"center", boxSizing:"border-box" }}/>
-                      <span style={{ fontSize:"0.72rem", color:"var(--muted)", flexShrink:0 }}>{lang==="en"?"s →":"초 →"}</span>
+                      <span style={{ fontSize:"0.72rem", color:"var(--muted)", flexShrink:0 }}>{lang==="en"?"s (this stage) →":"초 (이 구간 길이) →"}</span>
                       <input type="number" min="0" value={stage.amount}
                         onChange={e => updateStage(origIdx, { amount: e.target.value })}
                         placeholder={lang === "en" ? "total ml" : "누적 ml"}
@@ -1541,8 +1545,21 @@ export default function RecipeModal({
                       placeholder={lang === "en" ? "How to pour, technique tips..." : "붓는 방법, 요령 등을 자유롭게 적어주세요"}
                       style={{ width:"100%", padding:"0.6rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", resize:"vertical", boxSizing:"border-box" }}/>
                   </div>
-                  );
-                });
+                    ))}
+
+                    {/* 총 시간 표시 — 개별 구간이 아니라 여기 한 번만 */}
+                    {total > 0 && (
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", background:"var(--foam)", border:"1px solid var(--divider)", borderRadius:"8px", marginBottom:"10px" }}>
+                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--muted)" }}>
+                          {lang === "en" ? "Total planned time" : "계획된 총 시간"}
+                        </span>
+                        <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", fontWeight:700, color:"var(--espresso)" }}>
+                          {Math.floor(total/60)}:{String(total%60).padStart(2,"0")}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                );
               })()}
 
               <button type="button"
