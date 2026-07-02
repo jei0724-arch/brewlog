@@ -8,7 +8,7 @@ import {
   getDocs, doc, addDoc, updateDoc, deleteDoc, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
-import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, seedText } from "../../constants/wikiSeed";
+import { SEED_EQUIPMENTS, SEED_BEAN_ORIGINS, SEED_KOREAN_ROASTERS, SEED_ACCESSORIES, seedText } from "../../constants/wikiSeed";
 import { translateFields, hasKorean } from "../../utils/translate";
 import { ROAST_LEVELS } from "../../constants/coffeeMenus";
 
@@ -772,29 +772,49 @@ function EquipWikiForm({ user, lang, editTarget, allEquips, onClose, onSaved }) 
 
 // ── 악세사리 추가/수정 폼 (유저 기여형) ─────────────────────────
 const ACC_CATEGORIES = ["basket","bottomless","tamper","prep","cleaning","measure","milk","storage"];
-const ACC_NAME_EXAMPLES = {
-  basket:     { ko: "예) 프리시전 바스켓 (VST/IMS)", en: "e.g. Precision Basket (VST/IMS)" },
-  bottomless: { ko: "예) 보텀리스 포터필터", en: "e.g. Bottomless Portafilter" },
-  tamper:     { ko: "예) 58mm 탬퍼", en: "e.g. 58mm Tamper" },
-  prep:       { ko: "예) WDT 툴", en: "e.g. WDT Tool" },
-  cleaning:   { ko: "예) 넉박스", en: "e.g. Knock Box" },
-  measure:    { ko: "예) 전자저울 (Acaia)", en: "e.g. Coffee Scale (Acaia)" },
-  milk:       { ko: "예) 밀크 피처", en: "e.g. Milk Pitcher" },
-  storage:    { ko: "예) 원두 보관통", en: "e.g. Airtight Coffee Canister" },
-};
 
-function AccessoryWikiForm({ user, lang, editTarget, onClose, onSaved }) {
+function AccessoryWikiForm({ user, lang, editTarget, allAccessories, onClose, onSaved }) {
   const t = I18N[lang];
   const [form, setForm] = useState({
     category: editTarget?.category || "prep",
-    name: typeof editTarget?.name === "string" ? editTarget.name : (editTarget ? seedText(editTarget.name, lang) : ""),
-    description: typeof editTarget?.description === "string" ? editTarget.description : (editTarget ? seedText(editTarget.description, lang) : ""),
+    brand: editTarget?.brand || "",
+    model: editTarget?.model || "",
+    description: editTarget?.description || "",
   });
   const [saving, setSaving] = useState(false);
+  const [dupWarn, setDupWarn] = useState(null);
+  const [forceNew, setForceNew] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  // 시드 데이터 자동완성 추천 — 브랜드/모델 입력 시 SEED_ACCESSORIES에서 매칭
+  const seedMatches = !editTarget && (form.brand.trim().length >= 2 || form.model.trim().length >= 2)
+    ? SEED_ACCESSORIES.filter(s => {
+        if (s.category !== form.category) return false;
+        const brandQ = form.brand.trim();
+        const modelQ = form.model.trim();
+        if (brandQ && !similar(s.brand, brandQ)) return false;
+        if (modelQ && modelQ.length >= 2 && !s.model.toLowerCase().includes(modelQ.toLowerCase())) return false;
+        return true;
+      })
+    : [];
+
+  const applySeed = (seed) => {
+    setForm(f => ({ ...f, brand: seed.brand, model: seed.model, description: seedText(seed.description, lang) }));
+  };
+
+  useEffect(() => {
+    if (editTarget || forceNew || !form.brand.trim() || !form.model.trim()) { setDupWarn(null); return; }
+    const fullName = `${form.brand} ${form.model}`;
+    const matches = (allAccessories || []).filter(a =>
+      a.category === form.category &&
+      similar(`${a.brand} ${a.model}`, fullName) &&
+      `${a.brand} ${a.model}` !== fullName
+    );
+    setDupWarn(matches.length > 0 ? matches.slice(0, 3) : null);
+  }, [form.brand, form.model, form.category, allAccessories, editTarget, forceNew]);
+
   const handleSave = async () => {
-    if (!form.name.trim()) { alert(t.required); return; }
+    if (!form.brand.trim() || !form.model.trim()) { alert(t.required); return; }
     setSaving(true);
     try {
       if (editTarget?.id) {
@@ -834,12 +854,36 @@ function AccessoryWikiForm({ user, lang, editTarget, onClose, onSaved }) {
           </select>
         </div>
 
-        <div className="field full" style={{ marginBottom: "12px" }}>
-          <label>{t.accName}</label>
-          <input value={form.name} onChange={e => set("name", e.target.value)}
-            placeholder={ACC_NAME_EXAMPLES[form.category]?.[lang] || (lang === "en" ? "e.g. Bottomless Portafilter" : "예) 보텀리스 포터필터")}
-            style={{ width: "100%", padding: "0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", boxSizing: "border-box" }} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+          <div className="field">
+            <label>{t.equipBrand}</label>
+            <input value={form.brand} onChange={e => set("brand", e.target.value)}
+              placeholder={lang === "en" ? "e.g. Normcore" : "예) Normcore"}
+              style={{ width: "100%", padding: "0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", boxSizing: "border-box" }} />
+          </div>
+          <div className="field">
+            <label>{t.equipModel}</label>
+            <input value={form.model} onChange={e => set("model", e.target.value)}
+              placeholder={lang === "en" ? "e.g. WDT Tool V2" : "예) WDT 툴 V2"}
+              style={{ width: "100%", padding: "0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", boxSizing: "border-box" }} />
+          </div>
         </div>
+
+        {/* 시드 자동완성 추천 */}
+        {seedMatches.length > 0 && (
+          <div style={{ marginBottom: "12px", padding: "10px 12px", background: "var(--cream)", borderRadius: "10px", border: "1px solid var(--divider)" }}>
+            <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.72rem", color: "var(--muted)", marginBottom: "6px" }}>
+              {lang === "en" ? "Suggestions — tap to autofill:" : "추천 항목 — 눌러서 자동입력:"}
+            </p>
+            {seedMatches.slice(0, 5).map((s, i) => (
+              <button key={i} type="button" onClick={() => applySeed(s)}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 8px", background: "none", border: "none", borderRadius: "6px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "var(--espresso)" }}
+                onMouseEnter={e => e.currentTarget.style.background = "var(--foam)"} onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                {s.brand} {s.model}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="field full" style={{ marginBottom: "12px" }}>
           <label>{t.description}</label>
@@ -848,9 +892,26 @@ function AccessoryWikiForm({ user, lang, editTarget, onClose, onSaved }) {
             style={{ width: "100%", padding: "0.7rem 1rem", border: "1px solid var(--steam)", borderRadius: "var(--r-btn)", background: "var(--foam)", fontFamily: "'DM Sans',sans-serif", fontSize: "0.9rem", resize: "vertical", boxSizing: "border-box" }} />
         </div>
 
+        {dupWarn && (
+          <div style={{ background: "#FFF8E1", border: "1px solid #F0C36D", borderRadius: "10px", padding: "12px 14px", marginBottom: "14px" }}>
+            <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.78rem", fontWeight: 600, color: "#8a6d1f", marginBottom: "8px" }}>
+              ⚠️ {t.duplicateWarn}
+            </p>
+            {dupWarn.map(a => (
+              <div key={a.id} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "0.8rem", color: "#5c4a14", padding: "4px 0" }}>
+                · {a.brand} {a.model}
+              </div>
+            ))}
+            <button onClick={() => setForceNew(true)}
+              style={{ marginTop: "8px", fontSize: "0.74rem", color: "#8a6d1f", background: "none", border: "none", textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+              {t.createNew}
+            </button>
+          </div>
+        )}
+
         <div className="modal-actions">
           <button className="btn-cancel" onClick={onClose}>{t.cancel}</button>
-          <button className="btn-primary" style={{ marginTop:0, width:"auto", padding:"0.7rem 1.5rem" }} onClick={handleSave} disabled={saving}>
+          <button className="btn-primary" style={{ marginTop:0, width:"auto", padding:"0.7rem 1.5rem" }} onClick={handleSave} disabled={saving || (dupWarn && !forceNew)}>
             {saving ? "..." : t.save}
           </button>
         </div>
@@ -1132,7 +1193,9 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
   const filteredAccessories = useMemo(() => {
     if (!search.trim()) return accessories;
     return accessories.filter(a =>
-      matchesSearch(seedText(a.name, lang), search) ||
+      matchesSearch(a.brand, search) ||
+      matchesSearch(a.model, search) ||
+      matchesSearch(`${a.brand} ${a.model}`, search) ||
       matchesSearch(seedText(a.description, lang), search) ||
       matchesSearch(t.accCategories[a.category] || "", search)
     );
@@ -1195,7 +1258,7 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
                       {t.accCategories[a.category] || a.category}
                     </span>
                     <div style={{ fontFamily: "'Playfair Display',serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)" }}>
-                      {seedText(a.name, lang)}
+                      {a.brand} {a.model}
                     </div>
                   </div>
                   {a.createdBy === user?.uid && (
@@ -1253,7 +1316,7 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
           onClose={closeEquipForm} onSaved={loadData} />
       )}
       {showAccessoryForm && (
-        <AccessoryWikiForm user={user} lang={lang} editTarget={null}
+        <AccessoryWikiForm user={user} lang={lang} editTarget={null} allAccessories={accessories}
           onClose={closeAccessoryForm} onSaved={loadData} />
       )}
       {editTarget && tab === "beans" && (
@@ -1265,7 +1328,7 @@ export function CoffeeWiki({ user, lang = "ko", onModalOpenChange, tab: tabProp,
           onClose={closeEditTarget} onSaved={loadData} />
       )}
       {editTarget && tab === "accessories" && (
-        <AccessoryWikiForm user={user} lang={lang} editTarget={editTarget}
+        <AccessoryWikiForm user={user} lang={lang} editTarget={editTarget} allAccessories={accessories}
           onClose={closeEditTarget} onSaved={loadData} />
       )}
 

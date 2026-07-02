@@ -50,7 +50,7 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
   }, []);
 
   const runWikiSeed = async () => {
-    if (!confirm("관리자 명의로 한국 로스터리 20곳 + 산지 12곳 + 장비 30종 + 악세사리 22종을 위키에 등록할까요?\n이미 등록된 항목과 이름이 같으면 건너뜁니다.")) return;
+    if (!confirm("관리자 명의로 한국 로스터리 20곳 + 산지 12곳 + 장비 30종 + 악세사리 24종을 위키에 등록할까요?\n이미 등록된 항목과 이름이 같으면 건너뜁니다.")) return;
 
     setWikiSeedStatus("running");
     const allBeanSeeds  = [...SEED_BEAN_ORIGINS, ...SEED_KOREAN_ROASTERS];
@@ -69,7 +69,7 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
       ]);
       const existingBeanNames  = new Set(beanSnap.docs.map(d => d.data().name));
       const existingEquipKeys  = new Set(equipSnap.docs.map(d => `${d.data().brand}__${d.data().model}`));
-      const existingAccNames   = new Set(accSnap.docs.map(d => d.data().name));
+      const existingAccKeys    = new Set(accSnap.docs.map(d => `${d.data().brand}__${d.data().model}`));
 
       // 원두 등록 (한국어 기준으로 저장 — 표시 시 영문 모드면 자동 번역됨)
       for (const seed of allBeanSeeds) {
@@ -131,12 +131,13 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
       // 악세사리 등록
       for (const seed of allAccSeeds) {
         done++; setWikiSeedProgress({ done, total });
-        const name = seedText(seed.name, "ko");
-        if (existingAccNames.has(name)) continue;
+        const key = `${seed.brand}__${seed.model}`;
+        if (existingAccKeys.has(key)) continue;
 
         await addDoc(collection(db, "wiki_accessories"), {
           category: seed.category,
-          name,
+          brand: seed.brand,
+          model: seed.model,
           description: seedText(seed.description, "ko"),
           createdBy: user.uid,
           createdByName: user.displayName || "관리자",
@@ -747,7 +748,7 @@ export default function AdminApp({ user, onExit, lang = "ko" }) {
           <div className="admin-card">
             <div className="admin-card-title">커피 위키 시드 데이터 등록</div>
             <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", color:"var(--muted)", lineHeight:1.7, marginBottom:"16px" }}>
-              한국 유명 로스터리 20곳, 알려진 원두 산지 12곳, 유명 장비(머신·그라인더·핸드드립) 30종, 홈카페 악세사리 22종을
+              한국 유명 로스터리 20곳, 알려진 원두 산지 12곳, 유명 장비(머신·그라인더·핸드드립) 30종, 홈카페 악세사리 24종을
               관리자 명의로 위키에 일괄 등록합니다. 이미 등록된 항목은 자동으로 건너뜁니다.
             </p>
 
