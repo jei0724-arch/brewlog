@@ -34,6 +34,7 @@ import {
 import { calcPressure } from "../../utils/pressure";
 import { CoffeeBeanIcon, BrandInput, TagInput, FlavorRadar } from "../ui";
 import Timer from "../recipes/Timer";
+import HandDripTimer from "../recipes/HandDripTimer";
 
 // ── OpenWeatherMap API ───────────────────────────────────────────
 const OWM_KEY    = import.meta.env.VITE_OWM_KEY;
@@ -497,6 +498,15 @@ export default function RecipeModal({
       setMachineType("auto");
     }
   }, [selectedMenu]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 핸드드립 — 푸어 단계의 최종 누적 물량을 추출량에 자동 반영
+  useEffect(() => {
+    if (selectedMenu !== "hand_drip") return;
+    const amounts = (form.pourStages || []).map(s => parseInt(s.amount) || 0).filter(n => n > 0);
+    if (amounts.length === 0) return;
+    const maxAmt = Math.max(...amounts);
+    if (String(maxAmt) !== form.espressoMl) set("espressoMl", String(maxAmt));
+  }, [form.pourStages, selectedMenu]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 머신 브랜드/모델 → 내장 그라인더 자동 감지
   useEffect(() => {
@@ -1420,27 +1430,37 @@ export default function RecipeModal({
             </div>
           )}
 
-          {/* 추출 시간 — Timer 컴포넌트 */}
+          {/* 추출 시간 — 메뉴에 따라 다른 타이머 */}
           <div className="field" data-field="seconds">
             <label style={{ color: errors.seconds ? "#c0392b" : undefined }}>{t.seconds}</label>
-            <Timer
-              value={form.seconds}
-              infusionValue={form.infusionSeconds || "0"}
-              onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
-              onInfusionChange={(v) => set("infusionSeconds", v)}
-              lang={lang} t={t}
-            />
+            {selectedMenu === "hand_drip" ? (
+              <HandDripTimer
+                value={form.seconds}
+                pourStages={form.pourStages}
+                onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
+                onStagesChange={setPourStages}
+                lang={lang}
+              />
+            ) : (
+              <Timer
+                value={form.seconds}
+                infusionValue={form.infusionSeconds || "0"}
+                onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
+                onInfusionChange={(v) => set("infusionSeconds", v)}
+                lang={lang} t={t}
+              />
+            )}
             {errors.seconds && <p style={{ color:"#c0392b", fontSize:"0.78rem", marginTop:"0.3rem" }}>{lang === "en" ? "⚠️ Required" : "⚠️ 필수 항목이에요"}</p>}
           </div>
 
-          {/* 푸어 단계별 기록 — 핸드드립 전용 */}
+          {/* 푸어 단계별 기록 — 핸드드립 전용. 위 타이머에서 "구간 기록"을 누르면 시간이 자동으로 여기 채워짐 */}
           {selectedMenu === "hand_drip" && (
             <div className="field full" data-field="pourStages">
               <label>{lang === "en" ? "Pour Stages (optional)" : "푸어 단계 기록 (선택)"}</label>
               <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginBottom:"8px", lineHeight:1.5 }}>
                 {lang === "en"
-                  ? "Record each pour so others can reproduce your recipe step by step."
-                  : "1차/2차 푸어 등 단계별로 기록하면 다른 사람이 그대로 따라 할 수 있어요."}
+                  ? "Tap \"Record Stage\" on the timer above to auto-fill the time, then just fill in the water amount."
+                  : "위 타이머에서 \"구간 기록\"을 누르면 시간이 자동으로 채워져요. 물량만 채워주시면 돼요."}
               </p>
 
               {(form.pourStages || []).map((stage, i) => (
@@ -1486,9 +1506,16 @@ export default function RecipeModal({
             </div>
           )}
 
-          {/* 추출량 */}
+          {/* 추출량 — 핸드드립은 푸어 단계의 최종 누적량으로 자동계산(수동 수정 가능) */}
           <div className="field" data-field="espressoMl">
-            <label style={{ color: errors.espressoMl ? "#c0392b" : undefined }}>{t.espressoMl}</label>
+            <label style={{ color: errors.espressoMl ? "#c0392b" : undefined }}>
+              {t.espressoMl}
+              {selectedMenu === "hand_drip" && (form.pourStages || []).some(s => parseInt(s.amount) > 0) && (
+                <span style={{ fontWeight:400, color:"var(--muted)", fontSize:"0.7rem", marginLeft:"6px" }}>
+                  {lang === "en" ? "(auto from stages)" : "(구간 기록 기준 자동계산)"}
+                </span>
+              )}
+            </label>
             <input type="number" value={form.espressoMl}
               onChange={(e) => { set("espressoMl", String(Math.max(0, Number(e.target.value)))); setErrors((p) => ({ ...p, espressoMl:false })); }}
               placeholder="36" min="0"
