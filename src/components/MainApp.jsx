@@ -41,6 +41,7 @@ import CollectionModal    from "./modals/CollectionModal";
 import { CoffeeWiki }      from "./wiki/CoffeeWiki";
 import { BeanVault, EquipmentVault } from "./vault/BeanVault";
 import AdminApp           from "../admin/AdminApp";
+import OnboardingTutorial from "./onboarding/OnboardingTutorial";
 
 // ─────────────────────────────────────────────────────────────────
 export default function MainApp({
@@ -131,6 +132,25 @@ export default function MainApp({
     const unread = notifications.filter(n => !n.read);
     await Promise.all(unread.map(n => updateDoc(doc(db,"notifications",n.id), { read:true }).catch(()=>{})));
   };
+
+  // ── 온보딩 튜토리얼 (신규 가입자 1회 자동 노출) ────────────────────
+  const [showTutorial, setShowTutorial] = useState(false);
+  useEffect(() => {
+    if (!user?.uid) return;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists() && !snap.data().tutorialSeen) setShowTutorial(true);
+      } catch (e) { console.error("[tutorial check]", e); }
+    })();
+  }, [user?.uid]);
+
+  const finishTutorial = () => {
+    setShowTutorial(false);
+    if (user?.uid) updateDoc(doc(db, "users", user.uid), { tutorialSeen: true }).catch(() => {});
+  };
+  // MyModal 등에서 "튜토리얼 다시보기"로 재호출 가능 (완료 표시는 갱신 안 함 — 이미 true인 채로 유지)
+  const openTutorial = () => setShowTutorial(true);
 
   const deleteNotif = async (id) => {
     try { await deleteDoc(doc(db,"notifications",id)); } catch(e) { console.error("[알림 삭제]", e.message); }
@@ -1090,8 +1110,11 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
       )}
 
       {/* ── 모달들 ── */}
+      {showTutorial && (
+        <OnboardingTutorial lang={lang} onFinish={finishTutorial}/>
+      )}
       {showMyModal && (
-        <MyModal user={user} lang={lang} onClose={()=>window.history.go(-1)} onLogout={()=>{ window.history.go(-1); setShowMyModalWrapped(false); signOut(auth); }}/>
+        <MyModal user={user} lang={lang} onClose={()=>window.history.go(-1)} onLogout={()=>{ window.history.go(-1); setShowMyModalWrapped(false); signOut(auth); }} onShowTutorial={openTutorial}/>
       )}
       {compareTarget && (
         <CompareModal targetRecipe={compareTarget} myRecipes={recipes.filter(r=>r.id!==compareTarget.id)} onClose={()=>window.history.go(-1)} lang={lang}/>

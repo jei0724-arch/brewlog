@@ -144,7 +144,7 @@ function RecipeImporter({ lang, user }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-export default function MyModal({ onClose, user, lang = "ko", onLogout }) {
+export default function MyModal({ onClose, user, lang = "ko", onLogout, onShowTutorial }) {
   const t = I18N[lang];
 
   // ── 비밀번호 ─────────────────────────────────────────────────────
@@ -853,6 +853,15 @@ export default function MyModal({ onClose, user, lang = "ko", onLogout }) {
           </button>
           <RecipeImporter lang={lang} user={user}/>
         </div>
+
+        {/* 튜토리얼 다시보기 */}
+        {onShowTutorial && (
+          <button onClick={() => { onShowTutorial(); onClose(); }}
+            style={{ width:"100%", padding:"10px", border:"1px dashed var(--latte)", borderRadius:"8px", background:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--latte)", display:"flex", alignItems:"center", justifyContent:"center", gap:"8px", marginBottom:"20px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.4"/><path d="M8 5v3.5l2.5 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            {lang === "en" ? "Replay Tutorial" : "튜토리얼 다시보기"}
+          </button>
+        )}
 
         {/* 액션 */}
         <div className="modal-actions" style={{ justifyContent:"space-between" }}>
