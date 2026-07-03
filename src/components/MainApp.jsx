@@ -678,7 +678,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                     {t.myRecipes}
                   </button>
                   {/* 원두 */}
-                  <button className={`bookmark-tab-btn ${feedTab==="beans"&&!showRanking?"active":""}`}
+                  <button data-tutorial="beans-tab" className={`bookmark-tab-btn ${feedTab==="beans"&&!showRanking?"active":""}`}
                     onClick={()=>{ goToTab("beans"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                     <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
                       <ellipse cx="7" cy="10" rx="4.5" ry="2" stroke="currentColor" strokeWidth="1.3"/>
@@ -687,7 +687,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                     {t.myBeans}
                   </button>
                   {/* 장비 */}
-                  <button className={`bookmark-tab-btn ${feedTab==="equip"&&!showRanking?"active":""}`}
+                  <button data-tutorial="equip-tab" className={`bookmark-tab-btn ${feedTab==="equip"&&!showRanking?"active":""}`}
                     onClick={()=>{ goToTab("equip"); setMyRecipesOnly(false); setFilterAuthor(null); setShowRanking(false); }}>
                     <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
                       <rect x="2" y="4" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
@@ -780,7 +780,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                     </span>
                     <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t.searchPlaceholder}/>
                   </div>
-                  <button className="btn-new" style={{ flexShrink:0 }} onClick={()=>{ if(!user&&onRequireAuth){ onRequireAuth(); } else { openModal(); } }}>
+                  <button data-tutorial="record-btn" className="btn-new" style={{ flexShrink:0 }} onClick={()=>{ if(!user&&onRequireAuth){ onRequireAuth(); } else { openModal(); } }}>
                     <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M9.5 1.5l3 3-7 7H2.5v-3l7-7z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M7.5 3.5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
                     <span className="btn-new-text">{t.newRecipe}</span>
                   </button>
