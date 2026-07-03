@@ -2130,7 +2130,7 @@ export default function RecipeModal({
 
         {/* 프리셋으로 저장 버튼 */}
         <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"16px" }}>
-          <button type="button"
+          <button type="button" data-tutorial="preset-save-btn"
             onClick={() => presets.length < PRESET_LIMIT && setShowPresetSave(true)}
             disabled={presets.length >= PRESET_LIMIT}
             style={{
@@ -2153,7 +2153,7 @@ export default function RecipeModal({
 
         <div className="modal-actions">
           <button className="btn-cancel" onClick={onClose}>{t.cancel}</button>
-          <button className="btn-primary" style={{ width:"auto", marginTop:0, padding:"0.7rem 2rem" }}
+          <button className="btn-primary" data-tutorial="recipe-save-btn" style={{ width:"auto", marginTop:0, padding:"0.7rem 2rem" }}
             onClick={save} disabled={saving}>
             {saving ? t.saving : isEdit ? t.update : t.save}
           </button>
