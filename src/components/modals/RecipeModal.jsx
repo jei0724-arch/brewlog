@@ -1917,7 +1917,7 @@ export default function RecipeModal({
 
           {/* ── 날씨 기반 파라미터 팁 ── */}
           {!isEdit && (ruleTip || geminiTip || tipLoading) && (
-            <div className="field full">
+            <div className="field full" data-tutorial="ai-tip-card">
               <div style={{ background:"linear-gradient(135deg,#1A1A1A 0%,#2C1A0E 100%)", borderRadius:"12px", padding:"14px 16px", position:"relative", overflow:"hidden" }}>
                 {/* 배경 장식 */}
                 <div style={{ position:"absolute", right:-16, top:-16, width:72, height:72, borderRadius:"50%", background:"rgba(176,125,84,0.12)", pointerEvents:"none" }}/>

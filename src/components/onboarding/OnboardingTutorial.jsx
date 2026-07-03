@@ -53,6 +53,11 @@ const STEPS = [
     desc: { ko: "메뉴 선택 → 등록해둔 원두/장비 자동 불러오기 확인 → 원두량(g) → 추출시간(타이머 사용 가능) → 추출량(ml) 순서로 입력해보세요. 다 채웠으면 아래 \"다음\"을 눌러주세요.",
             en: "Fill in menu → check your saved bean/equipment auto-fill → dose(g) → time (use the built-in timer) → yield(ml). Tap \"Next\" below once done." } },
 
+  { key: "ai-tip", target: "ai-tip-card", auto: null,
+    title: { ko: "AI가 오늘 날씨·원두 기준으로 팁을 줘요", en: "AI gives tips based on today's weather & your beans" },
+    desc: { ko: "새 레시피를 작성할 때마다 오늘 날씨와 최근 기록을 바탕으로 AI가 추출 파라미터 팁을 자동으로 보여줘요. 등록해둔 원두 정보가 있으면 그 원두에 맞춘 조언도 함께 나와요. (하루 5회까지 새로고침 가능)",
+            en: "Every time you write a new recipe, AI shows extraction tips based on today's weather and your recent recipes — and it factors in your registered bean info too. (Refreshable up to 5 times a day.)" } },
+
   { key: "recipe-preset", target: "preset-save-btn", auto: null,
     title: { ko: "프리셋으로 저장해두면 편해요", en: "Save it as a preset" },
     desc: { ko: "자주 쓰는 설정이면 여기서 \"프리셋으로 저장\"을 눌러보세요. 다음에 레시피 쓸 때 한 번에 불러올 수 있어요. (선택사항 — 안 눌러도 다음으로 넘어가도 돼요)",
