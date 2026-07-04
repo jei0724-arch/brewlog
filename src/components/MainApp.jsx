@@ -559,7 +559,7 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
                       : <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>}
                   </button>
                   <button className="btn-lang" onClick={toggleLang}>{lang==="ko"?"EN":"KO"}</button>
-                  <button className="btn-my" onClick={() => openMyModal()}>MY</button>
+                  <button data-tutorial="my-btn" className="btn-my" onClick={() => openMyModal()}>MY</button>
                   {/* 알림 */}
                   <div style={{ position:"relative", flexShrink:0 }}>
                     <button className="notif-btn" onClick={() => setShowNotif(v => !v)}>

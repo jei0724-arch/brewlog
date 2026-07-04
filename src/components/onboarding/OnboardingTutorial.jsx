@@ -67,6 +67,11 @@ const STEPS = [
     title: { ko: "마지막! 기록을 저장하세요", en: "Last step! Save your recipe" },
     desc: { ko: "\"저장\" 버튼을 눌러 첫 레시피를 완성해보세요.", en: "Tap \"Save\" to complete your first recipe." } },
 
+  { key: "my-settings", target: "my-btn", auto: null,
+    title: { ko: "MY에서 더 많은 걸 할 수 있어요", en: "There's more in \"MY\"" },
+    desc: { ko: "여기서 내 장비 기본값 변경, 자주 쓰는 레시피 프리셋 관리, 통화 단위(KRW/USD), 레시피 엑셀 내보내기/가져오기, 비밀번호 변경, 그리고 이 튜토리얼 다시보기까지 할 수 있어요.",
+            en: "Here you can change your default equipment, manage recipe presets, switch currency (KRW/USD), export/import recipes to Excel, change your password, and replay this tutorial anytime." } },
+
   { key: "done", target: null, auto: null,
     title: { ko: "완성! 첫 레시피를 기록했어요 🎉", en: "Done! You logged your first recipe 🎉" },
     desc: { ko: "이제 브루로그의 핵심 기능을 다 알게 되셨어요. 궁금한 게 생기면 MY 설정 → \"튜토리얼 다시보기\"로 언제든 다시 볼 수 있어요.",
