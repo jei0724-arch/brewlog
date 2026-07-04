@@ -484,7 +484,8 @@ export default function RecipeDetailModal({
               @{recipe.author}
             </span>
             {recipe.author && recipe.uid!==currentUid && onFollow && (
-              <button className={`follow-btn ${isFollowing?"following":""}`} onClick={e=>{ e.stopPropagation(); onFollow(recipe.uid||recipe.author); }}>
+              <button onClick={e=>{ e.stopPropagation(); onFollow(recipe.uid||recipe.author); }}
+                style={{ padding:"3px 10px", borderRadius:"999px", border:`1px solid ${isFollowing?"var(--steam)":"var(--espresso)"}`, background:isFollowing?"none":"var(--espresso)", color:isFollowing?"var(--muted)":"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", fontWeight:500, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.15s" }}>
                 {isFollowing?t.following:t.follow}
               </button>
             )}
@@ -776,7 +777,7 @@ export default function RecipeDetailModal({
                         {currentUser && <button onClick={()=>setReplyTo(replyTo?.id===c.id?null:{id:c.id,author:c.author,uid:c.uid})} style={{ background:"none", border:"none", color:replyTo?.id===c.id?"var(--accent)":"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Reply":"답글"}</button>}
                         {c.uid===currentUid && editingId!==c.id && <button onClick={()=>startEdit(c)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Edit":"수정"}</button>}
                         {c.uid===currentUid && <button onClick={()=>deleteComment(c.id)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0 }}>{t.commentDelete}</button>}
-                        {c.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:c.id})} style={{ background:"none", border:"1px solid #e74c3c40", borderRadius:"2px", color:"#e74c3c", fontSize:"0.68rem", cursor:"pointer", padding:"0.05rem 0.35rem", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
+                        {c.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:c.id})} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.68rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
                       </div>
                     </div>
                     {editingId===c.id ? (
@@ -808,7 +809,7 @@ export default function RecipeDetailModal({
                           {currentUser && <button onClick={()=>setReplyTo(replyTo?.id===c.id&&replyTo?.author===r.author?null:{id:c.id,author:r.author,uid:r.uid})} style={{ background:"none", border:"none", color:(replyTo?.id===c.id&&replyTo?.author===r.author)?"var(--accent)":"var(--muted)", fontSize:"0.7rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Reply":"답글"}</button>}
                           {r.uid===currentUid && editingId!==r.id && <button onClick={()=>startEdit(r)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.7rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Edit":"수정"}</button>}
                           {r.uid===currentUid && <button onClick={()=>deleteComment(r.id)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.7rem", cursor:"pointer", padding:0 }}>{t.commentDelete}</button>}
-                          {r.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:r.id})} style={{ background:"none", border:"1px solid #e74c3c40", borderRadius:"2px", color:"#e74c3c", fontSize:"0.65rem", cursor:"pointer", padding:"0.05rem 0.3rem", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
+                          {r.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:r.id})} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.65rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
                         </div>
                       </div>
                       {editingId===r.id ? (
