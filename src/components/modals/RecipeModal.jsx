@@ -1228,7 +1228,7 @@ export default function RecipeModal({
 
           {/* 내 장비에서 선택 */}
           {myEquips.length > 0 && (
-            <div className="field full">
+            <div className="field full" style={{ background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"16px" }}>
               <label style={{ display:"flex", alignItems:"center", gap:"6px" }}>
                 <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="9" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 4V3a2 2 0 0 1 4 0v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M10.5 7h1.5a1.5 1.5 0 0 1 0 3h-1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
                 {lang === "en" ? "Select from My Gear" : "내 장비에서 선택"}
@@ -1484,6 +1484,7 @@ export default function RecipeModal({
             <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
           </div>
 
+          <div style={{ gridColumn:"1 / -1", display:"grid", gridTemplateColumns:"1fr 1fr", gap:"12px", background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"16px" }}>
           {/* 원두량 */}
           {isAutoMode ? (
             <div className="field full">
@@ -1789,6 +1790,7 @@ export default function RecipeModal({
                 placeholder="바닐라 시럽 1펌프, 카라멜 시럽 2펌프 …"/>
             </div>
           )}
+          </div>
 
 
           {/* ── 섹션 구분선 ── */}
@@ -2106,7 +2108,7 @@ export default function RecipeModal({
             <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Rating & Notes" : "평가"}</span>
             <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
           </div>
-          <div className="field full flavor-radar-wrap">
+          <div className="field full flavor-radar-wrap" style={{ background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"16px" }}>
             <label style={{ marginBottom:"16px", display:"block" }}>
               {lang === "en" ? "Flavor Profile" : "플레이버 프로파일"}
             </label>
@@ -2142,26 +2144,26 @@ export default function RecipeModal({
             </div>
           </div>
 
-          {/* 별점 */}
-          <div className="field full">
-            <label>{t.rating}</label>
-            <div className="star-rating">
-              {[1,2,3,4,5].map((star) => (
-                <button key={star} type="button"
-                  className={`star-btn ${star <= (form.rating || 0) ? "active" : ""}`}
-                  onClick={() => set("rating", form.rating === star ? 0 : star)}>
-                  {star <= (form.rating || 0) ? "★" : "☆"}
-                </button>
-              ))}
-              <span className="star-label">{t.ratingLabels[form.rating || 0]}</span>
+          {/* 평가 (별점 + 맛노트) — 하나의 카드로 묶음 */}
+          <div className="field full" style={{ background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"16px", display:"flex", flexDirection:"column", gap:"14px" }}>
+            <div>
+              <label style={{ marginBottom:"6px", display:"block" }}>{t.rating}</label>
+              <div className="star-rating">
+                {[1,2,3,4,5].map((star) => (
+                  <button key={star} type="button"
+                    className={`star-btn ${star <= (form.rating || 0) ? "active" : ""}`}
+                    onClick={() => set("rating", form.rating === star ? 0 : star)}>
+                    {star <= (form.rating || 0) ? "★" : "☆"}
+                  </button>
+                ))}
+                <span className="star-label">{t.ratingLabels[form.rating || 0]}</span>
+              </div>
             </div>
-          </div>
-
-          {/* 맛 노트 */}
-          <div className="field full">
-            <label>{t.note}</label>
-            <textarea value={form.note} onChange={(e) => set("note", e.target.value)}
-              placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"}/>
+            <div>
+              <label style={{ marginBottom:"6px", display:"block" }}>{t.note}</label>
+              <textarea value={form.note} onChange={(e) => set("note", e.target.value)}
+                placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"}/>
+            </div>
           </div>
 
           {/* ── 섹션 구분선 ── */}
