@@ -1236,15 +1236,15 @@ export default function RecipeModal({
               {[
                 { cat:"machine",  labelKo:"커피 머신",    labelEn:"Machine" },
                 { cat:"handdrip", labelKo:"핸드드립 기구", labelEn:"Hand Drip" },
-                { cat:"grinder",  labelKo:"그라인더",     labelEn:"Grinder" },
                 { cat:"other",    labelKo:"기타",         labelEn:"Other" },
+                { cat:"grinder",  labelKo:"그라인더",     labelEn:"Grinder" },
               ].map(({ cat, labelKo, labelEn }) => {
                 if (cat === "machine"  && selectedMenu === "hand_drip") return null;
                 if (cat === "handdrip" && selectedMenu && selectedMenu !== "hand_drip" && selectedMenu !== "other") return null;
                 const catEquips = myEquips.filter((e) => e.category === cat);
                 if (!catEquips.length) return null;
                 return (
-                  <div key={cat} style={{ marginBottom:"20px" }}>
+                  <div key={cat} style={{ marginBottom:"20px", marginTop: cat === "grinder" ? "12px" : 0, paddingTop: cat === "grinder" ? "12px" : 0, borderTop: cat === "grinder" ? "2px solid var(--divider)" : "none" }}>
                     <div style={{ fontSize:"0.64rem", fontWeight:700, color:"var(--latte)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"7px", paddingBottom:"4px", borderBottom:"1px solid var(--divider)" }}>
                       {lang === "en" ? labelEn : labelKo}
                     </div>
@@ -1282,7 +1282,7 @@ export default function RecipeModal({
 
               {/* 분쇄도 — 그라인더 선택과 한 카드 안에서 이어지게 표시 */}
               {!isAutoMode && (
-                <div style={{ marginTop:"20px" }}>
+                <div style={{ marginTop:"2px" }}>
                   <div style={{ fontSize:"0.64rem", fontWeight:700, color:"var(--latte)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"7px", paddingBottom:"4px", borderBottom:"1px solid var(--divider)" }}>
                     {lang === "en" ? "Grind Size" : "분쇄도"}
                   </div>
