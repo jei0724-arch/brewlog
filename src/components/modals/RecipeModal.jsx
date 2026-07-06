@@ -688,6 +688,20 @@ export default function RecipeModal({
   // ── 유효성 검사 + 저장 ─────────────────────────────────────────
   const modalRef = useRef(null);
 
+  // 스크롤 진행률 — 폼을 얼마나 내려봤는지 (상단 고정 진행바에 사용)
+  const [scrollPct, setScrollPct] = useState(0);
+  useEffect(() => {
+    const el = modalRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const max = el.scrollHeight - el.clientHeight;
+      setScrollPct(max > 0 ? Math.min(100, Math.round((el.scrollTop / max) * 100)) : 100);
+    };
+    onScroll();
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
   const scrollToError = (errorKeys) => {
     const priority = ["menu","company","bean","gram","seconds","espressoMl"];
     const first    = priority.find((k) => errorKeys.includes(k));
@@ -915,94 +929,94 @@ export default function RecipeModal({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="modal" ref={modalRef}>
-        <h2>
-          {isEdit
-            ? t.editTitle
-            : isCopy
-            ? "레시피 복사하기"
-            : t.recordTitle}
-        </h2>
+        <div style={{
+          position:"sticky", top:0, zIndex:5, background:"var(--foam)",
+          paddingBottom:"18px", marginBottom:"18px", borderBottom:"1px solid var(--divider)",
+        }}>
+          <h2 style={{ marginBottom:"10px" }}>
+            {isEdit
+              ? t.editTitle
+              : isCopy
+              ? "레시피 복사하기"
+              : t.recordTitle}
+          </h2>
 
-        {/* 진행 상태 바 — 필수 항목(메뉴/원두/원두량/추출시간/추출량) 입력 진행률 */}
-        {(() => {
-          const requiredChecks = [
-            !!selectedMenu,
-            !!linkedBeanId || !!(form.bean || "").trim(),
-            !!(form.gram || "").toString().trim(),
-            !!(form.seconds || "").toString().trim(),
-            !!(form.espressoMl || "").toString().trim(),
-          ];
-          const done = requiredChecks.filter(Boolean).length;
-          const total = requiredChecks.length;
-          const pct = Math.round((done / total) * 100);
-          return (
-            <div style={{
-              position:"sticky", top:0, zIndex:5, background:"var(--foam)",
-              paddingTop:"6px", paddingBottom:"12px", marginBottom:"6px",
-              borderBottom:"1px solid var(--divider)",
-            }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
-                <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.05em", textTransform:"uppercase" }}>
-                  {lang === "en" ? "Required fields" : "필수 항목"}
-                </span>
-                <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", fontWeight:600, color: pct === 100 ? "#27ae60" : "var(--latte)" }}>
-                  {done}/{total} {pct === 100 && "✓"}
-                </span>
+          {/* 진행 상태 바 — 스크롤한 만큼 채워짐 (지금 폼의 어디쯤 와있는지) */}
+          {(() => {
+            const requiredChecks = [
+              !!selectedMenu,
+              !!linkedBeanId || !!(form.bean || "").trim(),
+              !!(form.gram || "").toString().trim(),
+              !!(form.seconds || "").toString().trim(),
+              !!(form.espressoMl || "").toString().trim(),
+            ];
+            const done = requiredChecks.filter(Boolean).length;
+            const total = requiredChecks.length;
+            return (
+              <div style={{ marginBottom:"14px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.05em", textTransform:"uppercase" }}>
+                    {lang === "en" ? `Required ${done}/${total}` : `필수 항목 ${done}/${total}`}
+                  </span>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", fontWeight:600, color: scrollPct === 100 ? "#27ae60" : "var(--latte)" }}>
+                    {scrollPct}%
+                  </span>
+                </div>
+                <div style={{ height:"5px", borderRadius:"3px", background:"var(--steam)", overflow:"hidden" }}>
+                  <div style={{ width:`${scrollPct}%`, height:"100%", background: scrollPct === 100 ? "#27ae60" : "var(--latte)", transition:"width 0.15s linear, background 0.3s ease" }}/>
+                </div>
               </div>
-              <div style={{ height:"5px", borderRadius:"3px", background:"var(--steam)", overflow:"hidden" }}>
-                <div style={{ width:`${pct}%`, height:"100%", background: pct === 100 ? "#27ae60" : "var(--latte)", transition:"width 0.3s ease, background 0.3s ease" }}/>
-              </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
 
-        {/* 복사 모드 안내 */}
-        {isCopy && (
-          <div style={{ background:"#EBF5FB", border:"1px solid #AED6F1", borderRadius:"8px", padding:"10px 14px", marginBottom:"16px", fontSize:"0.8rem", color:"#2980b9", display:"flex", alignItems:"center", gap:"8px" }}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-            다른 레시피를 복사했어요. 내용을 수정하고 저장하면 내 새 레시피로 등록됩니다.
-          </div>
-        )}
-
-        {/* ── 프리셋 영역 ── */}
-        <div style={{ marginBottom:"20px", paddingBottom:"20px", borderBottom:"1px solid var(--divider)" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
-            <span style={{ fontSize:"0.72rem", color:"var(--muted)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.07em", fontFamily:"'DM Sans',sans-serif" }}>
-              {lang === "en" ? "Presets" : "프리셋"}
-            </span>
-            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color: presets.length >= PRESET_LIMIT ? "#e67e22" : "var(--muted)" }}>
-              {presets.length} / {PRESET_LIMIT}
-            </span>
-          </div>
-          {presets.length === 0 ? (
-            <p style={{ fontSize:"0.78rem", color:"var(--muted)", opacity:0.7 }}>
-              {lang === "en"
-                ? "No presets yet. Fill in settings below and save."
-                : "저장된 프리셋이 없어요. 아래 설정을 입력한 뒤 저장해보세요."}
-            </p>
-          ) : (
-            <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
-              {presets.map((p) => {
-                const isActive = activePresetId === p.id;
-                return (
-                  <button key={p.id} type="button"
-                    onClick={() => { applyPreset(p); setActivePresetId(p.id); }}
-                    style={{
-                      padding:"6px 14px", borderRadius:"8px",
-                      border:`1px solid ${isActive ? "var(--espresso)" : "var(--latte)"}`,
-                      background: isActive ? "var(--espresso)" : "#FDF6EF",
-                      color: isActive ? "var(--cream)" : "var(--latte)",
-                      fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem",
-                      cursor:"pointer", fontWeight: isActive ? 700 : 500,
-                      transition:"all 0.15s",
-                      boxShadow: isActive ? "0 0 0 2px var(--espresso)" : "none",
-                    }}>
-                    {p.name || (lang === "en" ? "(unnamed)" : "(이름 없음)")}
-                  </button>
-                );
-              })}
+          {/* 복사 모드 안내 */}
+          {isCopy && (
+            <div style={{ background:"#EBF5FB", border:"1px solid #AED6F1", borderRadius:"8px", padding:"10px 14px", marginBottom:"14px", fontSize:"0.8rem", color:"#2980b9", display:"flex", alignItems:"center", gap:"8px" }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              다른 레시피를 복사했어요. 내용을 수정하고 저장하면 내 새 레시피로 등록됩니다.
             </div>
           )}
+
+          {/* ── 프리셋 영역 ── */}
+          <div>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
+              <span style={{ fontSize:"0.72rem", color:"var(--muted)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.07em", fontFamily:"'DM Sans',sans-serif" }}>
+                {lang === "en" ? "Presets" : "프리셋"}
+              </span>
+              <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color: presets.length >= PRESET_LIMIT ? "#e67e22" : "var(--muted)" }}>
+                {presets.length} / {PRESET_LIMIT}
+              </span>
+            </div>
+            {presets.length === 0 ? (
+              <p style={{ fontSize:"0.78rem", color:"var(--muted)", opacity:0.7 }}>
+                {lang === "en"
+                  ? "No presets yet. Fill in settings below and save."
+                  : "저장된 프리셋이 없어요. 아래 설정을 입력한 뒤 저장해보세요."}
+              </p>
+            ) : (
+              <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+                {presets.map((p) => {
+                  const isActive = activePresetId === p.id;
+                  return (
+                    <button key={p.id} type="button"
+                      onClick={() => { applyPreset(p); setActivePresetId(p.id); }}
+                      style={{
+                        padding:"6px 14px", borderRadius:"8px",
+                        border:`1px solid ${isActive ? "var(--espresso)" : "var(--latte)"}`,
+                        background: isActive ? "var(--espresso)" : "#FDF6EF",
+                        color: isActive ? "var(--cream)" : "var(--latte)",
+                        fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem",
+                        cursor:"pointer", fontWeight: isActive ? 700 : 500,
+                        transition:"all 0.15s",
+                        boxShadow: isActive ? "0 0 0 2px var(--espresso)" : "none",
+                      }}>
+                      {p.name || (lang === "en" ? "(unnamed)" : "(이름 없음)")}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 프리셋 저장 오버레이 */}
