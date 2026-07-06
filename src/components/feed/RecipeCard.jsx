@@ -76,12 +76,30 @@ export default function RecipeCard({
       <div className="card-stats" style={{ gridTemplateColumns:"repeat(4,1fr)" }}>
         <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
         <div className="stat">
-          <span className="stat-val">{recipe.seconds}s</span>
-          <span className="stat-label">{t.statSeconds}</span>
-          {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && (
-            <span style={{ fontSize:"0.62rem", color:"var(--muted)", display:"block", lineHeight:1.4, marginTop:"2px" }}>
-              {lang==="en"?`Inf. ${recipe.infusionSeconds}s + Ext. ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}s`:`인퓨전 ${recipe.infusionSeconds}초 + 추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}초`}
-            </span>
+          {recipe.menuId==="hand_drip" && recipe.pourStages?.length>0 ? (() => {
+            const stages = recipe.pourStages.filter(s=>(parseInt(s.time)||0)>0);
+            const stageTotal = stages.reduce((sum,s)=>sum+(parseInt(s.time)||0), 0);
+            const total = Math.max(parseInt(recipe.seconds)||0, stageTotal);
+            const fmtT = (s) => { const m=Math.floor(s/60), sec=s%60; return m>0?`${m}:${String(sec).padStart(2,"0")}`:`${sec}s`; };
+            return (
+              <>
+                <span className="stat-val">{fmtT(total)}</span>
+                <span className="stat-label">{t.statSeconds}</span>
+                <span style={{ fontSize:"0.62rem", color:"var(--muted)", display:"block", lineHeight:1.4, marginTop:"2px" }}>
+                  {lang==="en"?`${stages.length} stages recorded`:`${stages.length}단계 기록됨`}
+                </span>
+              </>
+            );
+          })() : (
+            <>
+              <span className="stat-val">{recipe.seconds}s</span>
+              <span className="stat-label">{t.statSeconds}</span>
+              {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && (
+                <span style={{ fontSize:"0.62rem", color:"var(--muted)", display:"block", lineHeight:1.4, marginTop:"2px" }}>
+                  {lang==="en"?`Inf. ${recipe.infusionSeconds}s + Ext. ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}s`:`인퓨전 ${recipe.infusionSeconds}초 + 추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}초`}
+                </span>
+              )}
+            </>
           )}
         </div>
         <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>

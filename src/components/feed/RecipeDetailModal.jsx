@@ -238,8 +238,11 @@ export default function RecipeDetailModal({
               ...s, fromMl: i === 0 ? 0 : stages[i-1].amount, color: palette[i % palette.length],
             })) : [];
             const lastStageEnd = hasStages ? stages[stages.length-1].end : 0;
-            if (hasStages && total > lastStageEnd) {
-              segments.push({ start: lastStageEnd, end: total, amount: stages[stages.length-1].amount, label: lang==="en"?"Drawdown / Done":"낙수/완료", desc:"", dur: total - lastStageEnd, fromMl: stages[stages.length-1].amount, color: "var(--steam)" });
+            // 구간 기록이 있으면 그 누적 합계를 "총 시간"으로 신뢰함 —
+            // recipe.seconds(수동/타이머 저장값)가 어긋나 있어도 실제 기록된 구간 기준으로 정확하게 표시
+            const displayTotal = hasStages ? Math.max(total, lastStageEnd) : total;
+            if (hasStages && displayTotal > lastStageEnd) {
+              segments.push({ start: lastStageEnd, end: displayTotal, amount: stages[stages.length-1].amount, label: lang==="en"?"Drawdown / Done":"낙수/완료", desc:"", dur: displayTotal - lastStageEnd, fromMl: stages[stages.length-1].amount, color: "var(--steam)" });
             }
 
             return (
@@ -249,7 +252,7 @@ export default function RecipeDetailModal({
                     {lang==="en"?"Brew Timeline":"추출 타임라인"}
                   </span>
                   <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.5rem", fontWeight:700, color:"var(--espresso)" }}>
-                    {total>0?fmtT(total):"—"}
+                    {displayTotal>0?fmtT(displayTotal):"—"}
                   </span>
                 </div>
 
