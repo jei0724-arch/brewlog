@@ -7,7 +7,6 @@
    ─ 수동 입력 필드(인퓨전 / 추출 / 총시간)와 병행 사용 가능
    ============================================================ */
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useWakeLock } from "../../hooks/useWakeLock";
 
 // ── 포맷 헬퍼 ───────────────────────────────────────────────────
 function fmt(s) {
@@ -33,9 +32,6 @@ export default function Timer({ value, infusionValue, onChange, onInfusionChange
   const [elapsed,        setElapsed]        = useState(0); // 현재 페이즈 경과 초
 
   const intervalRef = useRef(null);
-
-  // 타이머가 실행 중인 동안 화면이 자동으로 꺼지지 않도록
-  useWakeLock(phase === "infusing" || phase === "extracting");
 
   // ── 타이머 헬퍼 ───────────────────────────────────────────────
   const clearTimer = useCallback(() => {
@@ -154,7 +150,7 @@ export default function Timer({ value, infusionValue, onChange, onInfusionChange
                 padding: "0.65rem 0.4rem",
                 border: `1px solid ${highlight ? "var(--latte)" : "var(--steam)"}`,
                 borderRadius: "8px",
-                background: highlight ? "#FDF6EF" : "var(--cream)",
+                background: highlight ? "var(--highlight-bg)" : "var(--cream)",
                 fontFamily: "'DM Sans', sans-serif",
                 fontSize: "0.9rem",
                 color: "var(--espresso)",

@@ -40,7 +40,7 @@ function EquipmentModal({ lang, user, editTarget, onClose, onSaved }) {
     { id:"handdrip", labelKo:"핸드드립",   labelEn:"Hand Drip",      color:"#2980b9" },
     { id:"other",    labelKo:"기타",       labelEn:"Other",           color:"#8C8480" },
   ];
-  const empty = { category:"machine", brand:"", model:"", purchaseDate:"", price:"", note:"", isPrimary:false, wikiEquipId:"" };
+  const empty = { category:"machine", brand:"", model:"", purchaseDate:"", price:"", note:"", isPrimary:false };
   const [form,   setForm]   = useState(editTarget ? { ...empty, ...editTarget } : empty);
   const [saving, setSaving] = useState(false);
   const set = (k,v) => setForm(f => ({ ...f, [k]:v }));
@@ -49,45 +49,6 @@ function EquipmentModal({ lang, user, editTarget, onClose, onSaved }) {
     if (form.category==="machine") return MACHINE_BRANDS;
     if (form.category==="grinder") return GRINDER_BRANDS;
     return [];
-  };
-
-  // ── 위키 검색 자동완성 (장비 — 브랜드 2글자 이상 입력 시, 같은 카테고리 내 검색) ──
-  const [wikiEquipMatches, setWikiEquipMatches] = useState([]);
-  const [wikiEquipLoading, setWikiEquipLoading] = useState(false);
-
-  useEffect(() => {
-    if (editTarget || form.brand.trim().length < 2) { setWikiEquipMatches([]); return; }
-    let cancelled = false;
-    setWikiEquipLoading(true);
-    const tid = setTimeout(async () => {
-      try {
-        const snap = await getDocs(query(collection(db, "wiki_equipments"), orderBy("createdAt","desc"), limit(300)));
-        if (cancelled) return;
-        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const query_ = `${form.brand} ${form.model}`.trim();
-        const matches = all.filter(w =>
-          w.category === form.category && (
-            similarBeanName(w.brand, form.brand) ||
-            (form.model && w.model && similarBeanName(`${w.brand} ${w.model}`, query_))
-          )
-        ).slice(0, 6);
-        setWikiEquipMatches(matches);
-      } catch (e) {
-        console.error("[wiki equip search]", e);
-      }
-      setWikiEquipLoading(false);
-    }, 350);
-    return () => { cancelled = true; clearTimeout(tid); };
-  }, [form.brand, form.model, form.category, editTarget]);
-
-  const applyWikiEquip = (w) => {
-    setForm(f => ({
-      ...f,
-      brand: w.brand || f.brand,
-      model: w.model || f.model,
-      wikiEquipId: w.id || "",
-    }));
-    setWikiEquipMatches([]);
   };
 
   const handleSave = async () => {
@@ -115,7 +76,7 @@ function EquipmentModal({ lang, user, editTarget, onClose, onSaved }) {
             <label>{lang==="en"?"Category":"장비 종류"}</label>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px" }}>
               {CATEGORIES.map(c=>(
-                <button key={c.id} type="button" onClick={()=>{ set("category",c.id); set("brand",""); set("model",""); set("wikiEquipId",""); }}
+                <button key={c.id} type="button" onClick={()=>{ set("category",c.id); set("brand",""); set("model",""); }}
                   style={{ height:"42px", border:"1px solid", borderRadius:"8px", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", transition:"all 0.2s",
                     borderColor: form.category===c.id?"var(--espresso)":"var(--steam)",
                     background:  form.category===c.id?"var(--espresso)":"var(--foam)",
@@ -140,34 +101,6 @@ function EquipmentModal({ lang, user, editTarget, onClose, onSaved }) {
             <input value={form.model} onChange={e=>set("model",e.target.value)}
               placeholder={form.category==="machine"?(lang==="en"?"e.g. Barista Express Pro":"예) Barista Express Pro"):form.category==="grinder"?(lang==="en"?"e.g. Encore, C40":"예) 엔코어, C40"):form.category==="handdrip"?(lang==="en"?"e.g. V60, Chemex":"예) V60 02, 케멕스"):(lang==="en"?"Model name":"모델명")}/>
           </div>
-
-          {/* 위키 검색 자동완성 카드 */}
-          {(wikiEquipMatches.length > 0 || wikiEquipLoading) && (
-            <div className="field full" style={{ marginTop:"-8px" }}>
-              {wikiEquipLoading ? (
-                <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.74rem", color:"var(--muted)" }}>
-                  {lang==="en"?"Searching wiki…":"위키 검색 중…"}
-                </p>
-              ) : (
-                <>
-                  <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--latte)", fontWeight:600, marginBottom:"8px", display:"flex", alignItems:"center", gap:"4px" }}>
-                    <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3"/><path d="M7 4.5v3l2 1.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-                    {lang==="en"?`Found in Coffee Wiki (${wikiEquipMatches.length})`:`커피 위키에서 찾았어요 (${wikiEquipMatches.length}개)`}
-                  </p>
-                  <div style={{ display:"flex", flexDirection:"column", gap:"6px", maxHeight:"200px", overflowY:"auto" }}>
-                    {wikiEquipMatches.map(w => (
-                      <button key={w.id} type="button" onClick={()=>applyWikiEquip(w)}
-                        style={{ textAlign:"left", padding:"10px 12px", borderRadius:"8px", border:"1px solid #B07D5430", background:"#B07D5408", cursor:"pointer", transition:"background 0.15s" }}
-                        onMouseEnter={e=>e.currentTarget.style.background="#B07D5415"}
-                        onMouseLeave={e=>e.currentTarget.style.background="#B07D5408"}>
-                        <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", fontWeight:600, color:"var(--espresso)" }}>{w.brand} {w.model}</div>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
           <div className="field">
             <label>{t.equipPurchaseDate}</label>
             <input type="date" value={form.purchaseDate} onChange={e=>set("purchaseDate",e.target.value)}/>
@@ -341,7 +274,6 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
     origin:"", region:"", blendComposition:"",
     variety:"", process:"", altitude:"",
     roastLevel:"medium", roastDate:"", buyDate:"", price:"", weight:"", quantity:"1", note:"", status:"open",
-    wikiBeanId:"",
   };
 
   // 기존 데이터(originType/originDetail) 마이그레이션 — 구버전 레시피 호환
@@ -399,7 +331,6 @@ function BeanModal({ lang, user, editTarget, onClose, onSaved }) {
       variety: w.variety || "",
       process: w.process || "",
       altitude: w.altitude || "",
-      wikiBeanId: w.id || "",
     }));
     setWikiMatches([]);
   };
@@ -1382,7 +1313,7 @@ export function BeanVault({ user, lang, filterStatus, setFilterStatus, showModal
                   <div className="bean-stat"><span className="bean-stat-val" style={{ color:totalG>0&&usedG>0?barColor:undefined }}>{totalG>0&&usedG>0?`${remainG%1===0?remainG:remainG.toFixed(1)}g`:(bean.weight?`${bean.weight}g`:"—")}</span><span className="bean-stat-lbl">{lang==="en"?(usedG>0?"Left":"Weight"):(usedG>0?"잔여":"용량")}</span></div>
                   <div className="bean-stat"><span className="bean-stat-val">{bean.quantity?`×${bean.quantity}`:"×1"}</span><span className="bean-stat-lbl">{lang==="en"?"Qty":"수량"}</span></div>
                   <div className="bean-stat"><span className="bean-stat-val" style={{ fontSize:"0.78rem" }}>{ppgBase?formatPricePerG(ppgBase,currency,usdRate):"—"}</span><span className="bean-stat-lbl">{currency==="USD"?"$/g":(lang==="en"?"₩/g":"원/g")}</span></div>
-                  {costPerCup && <div className="bean-stat" style={{ borderColor:"var(--latte)", background:"#FDF6EF" }}><span className="bean-stat-val" style={{ fontSize:"0.78rem", color:"var(--latte)", fontWeight:700 }}>{formatCostPerCup(costPerCup,currency,usdRate)}</span><span className="bean-stat-lbl" style={{ color:"var(--latte)" }}>{currency==="USD"?"$/cup":(lang==="en"?"₩/cup":"원/잔")}</span></div>}
+                  {costPerCup && <div className="bean-stat" style={{ borderColor:"var(--latte)", background:"var(--highlight-bg)" }}><span className="bean-stat-val" style={{ fontSize:"0.78rem", color:"var(--latte)", fontWeight:700 }}>{formatCostPerCup(costPerCup,currency,usdRate)}</span><span className="bean-stat-lbl" style={{ color:"var(--latte)" }}>{currency==="USD"?"$/cup":(lang==="en"?"₩/cup":"원/잔")}</span></div>}
                 </div>
                 {bean.note && <div style={{ fontSize:"0.78rem", color:"var(--muted)", lineHeight:1.55, marginBottom:"12px", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>{bean.note}</div>}
                 <div className="bean-card-footer">

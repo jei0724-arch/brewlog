@@ -560,7 +560,7 @@ export default function CompareModal({ targetRecipe, myRecipes, onClose, lang = 
           <div style={{ fontSize: "0.62rem", fontWeight: 700, color: "var(--latte)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>
             레시피 A (기준)
           </div>
-          <div style={{ background: "#FDF6EF", border: "1px solid var(--latte)40", borderLeft: "3px solid var(--latte)", borderRadius: "0 10px 10px 0", padding: "12px 14px" }}>
+          <div style={{ background: "var(--highlight-bg)", border: "1px solid var(--latte)40", borderLeft: "3px solid var(--latte)", borderRadius: "0 10px 10px 0", padding: "12px 14px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
                 <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "1rem", fontWeight: 700, color: "var(--espresso)" }}>

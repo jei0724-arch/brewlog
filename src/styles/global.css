@@ -40,6 +40,7 @@
   --shadow-card:  0 4px 16px rgba(26,22,20,0.06), 0 1px 4px rgba(26,22,20,0.04);
   --shadow-hover: 0 8px 28px rgba(26,22,20,0.10), 0 2px 8px rgba(26,22,20,0.06);
   --shadow-modal: 0 20px 60px rgba(26,22,20,0.16), 0 4px 16px rgba(26,22,20,0.08);
+  --highlight-bg: #FDF6EF;
 }
 
 /* ── Soft Dark Mode — prefers-color-scheme 또는 [data-theme="dark"] ── */
@@ -57,6 +58,7 @@
     --shadow-card:  0 4px 16px rgba(0,0,0,0.28), 0 1px 4px rgba(0,0,0,0.18);
     --shadow-hover: 0 8px 28px rgba(0,0,0,0.38), 0 2px 8px rgba(0,0,0,0.22);
     --shadow-modal: 0 20px 60px rgba(0,0,0,0.50), 0 4px 16px rgba(0,0,0,0.30);
+    --highlight-bg: #3A2E20;
   }
 }
 
@@ -73,6 +75,7 @@
   --shadow-card:  0 4px 16px rgba(0,0,0,0.28), 0 1px 4px rgba(0,0,0,0.18);
   --shadow-hover: 0 8px 28px rgba(0,0,0,0.38), 0 2px 8px rgba(0,0,0,0.22);
   --shadow-modal: 0 20px 60px rgba(0,0,0,0.50), 0 4px 16px rgba(0,0,0,0.30);
+  --highlight-bg: #3A2E20;
 }
 
 body {
@@ -499,10 +502,11 @@ html {
 /* label-xs: 0.68rem / label-sm: 0.75rem / body: 0.85rem / title: 1.05rem */
 .recipe-card {
   background: var(--foam);
-  border: 1px solid var(--divider);
+  border: 1px solid var(--steam);
   border-radius: var(--r-card);
   padding: 24px;
   position: relative;
+  box-shadow: var(--shadow-card);
   transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
   overflow: hidden;
   font-family: 'DM Sans', sans-serif;
