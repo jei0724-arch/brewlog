@@ -690,26 +690,16 @@ export default function RecipeModal({
 
   // 스크롤 진행률 — 폼을 얼마나 내려봤는지 (상단 고정 진행바에 사용)
   const [scrollPct, setScrollPct] = useState(0);
-  const [modalPad, setModalPad] = useState({ x: 28, top: 32 });
   useEffect(() => {
     const el = modalRef.current;
     if (!el) return;
-    const measurePad = () => {
-      const cs = window.getComputedStyle(el);
-      setModalPad({
-        x: parseFloat(cs.paddingLeft) || 28,
-        top: parseFloat(cs.paddingTop) || 32,
-      });
-    };
-    measurePad();
-    window.addEventListener("resize", measurePad);
     const onScroll = () => {
       const max = el.scrollHeight - el.clientHeight;
       setScrollPct(max > 0 ? Math.min(100, Math.round((el.scrollTop / max) * 100)) : 100);
     };
     onScroll();
     el.addEventListener("scroll", onScroll);
-    return () => { window.removeEventListener("resize", measurePad); el.removeEventListener("scroll", onScroll); };
+    return () => { el.removeEventListener("scroll", onScroll); };
   }, []);
 
   const scrollToError = (errorKeys) => {
@@ -940,9 +930,7 @@ export default function RecipeModal({
     >
       <div className="modal" ref={modalRef}>
         <div style={{
-          position:"sticky", top:`-${modalPad.top}px`, zIndex:5, background:"var(--foam)",
-          marginLeft:`-${modalPad.x}px`, marginRight:`-${modalPad.x}px`, marginTop:`-${modalPad.top}px`,
-          paddingLeft:`${modalPad.x}px`, paddingRight:`${modalPad.x}px`, paddingTop:`${modalPad.top}px`,
+          position:"sticky", top:0, zIndex:5, background:"var(--foam)",
           paddingBottom:"18px", marginBottom:"18px", borderBottom:"1px solid var(--divider)",
         }}>
           <h2 style={{ marginBottom:"10px" }}>
