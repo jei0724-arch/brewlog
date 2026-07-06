@@ -923,6 +923,35 @@ export default function RecipeModal({
             : t.recordTitle}
         </h2>
 
+        {/* 진행 상태 바 — 필수 항목(메뉴/원두/원두량/추출시간/추출량) 입력 진행률 */}
+        {(() => {
+          const requiredChecks = [
+            !!selectedMenu,
+            !!linkedBeanId || !!(form.bean || "").trim(),
+            !!(form.gram || "").toString().trim(),
+            !!(form.seconds || "").toString().trim(),
+            !!(form.espressoMl || "").toString().trim(),
+          ];
+          const done = requiredChecks.filter(Boolean).length;
+          const total = requiredChecks.length;
+          const pct = Math.round((done / total) * 100);
+          return (
+            <div style={{ marginBottom:"18px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
+                <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.05em", textTransform:"uppercase" }}>
+                  {lang === "en" ? "Required fields" : "필수 항목"}
+                </span>
+                <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", fontWeight:600, color: pct === 100 ? "#27ae60" : "var(--latte)" }}>
+                  {done}/{total} {pct === 100 && "✓"}
+                </span>
+              </div>
+              <div style={{ height:"5px", borderRadius:"3px", background:"var(--steam)", overflow:"hidden" }}>
+                <div style={{ width:`${pct}%`, height:"100%", background: pct === 100 ? "#27ae60" : "var(--latte)", transition:"width 0.3s ease, background 0.3s ease" }}/>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* 복사 모드 안내 */}
         {isCopy && (
           <div style={{ background:"#EBF5FB", border:"1px solid #AED6F1", borderRadius:"8px", padding:"10px 14px", marginBottom:"16px", fontSize:"0.8rem", color:"#2980b9", display:"flex", alignItems:"center", gap:"8px" }}>
@@ -1197,8 +1226,8 @@ export default function RecipeModal({
                 const catEquips = myEquips.filter((e) => e.category === cat);
                 if (!catEquips.length) return null;
                 return (
-                  <div key={cat} style={{ marginBottom:"8px" }}>
-                    <div style={{ fontSize:"0.62rem", color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"5px" }}>
+                  <div key={cat} style={{ marginBottom:"20px" }}>
+                    <div style={{ fontSize:"0.64rem", fontWeight:700, color:"var(--latte)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"7px", paddingBottom:"4px", borderBottom:"1px solid var(--divider)" }}>
                       {lang === "en" ? labelEn : labelKo}
                     </div>
                     <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
@@ -1348,63 +1377,87 @@ export default function RecipeModal({
             )
           )}
 
-          {/* 분쇄도 (전자동 아닐 때) */}
+          {/* 분쇄도 (전자동 아닐 때) — 별도 강조 박스로 그라인더 선택과 명확히 구분 */}
           {!isAutoMode && (
-            <div className="field full">
-              <label>{lang === "en" ? "Grind Size" : "분쇄도"}</label>
-              <input value={form.grindSize} onChange={(e) => set("grindSize", e.target.value)}
-                placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"}/>
+            <div className="field full" style={{ marginTop:"8px" }}>
+              <div style={{ background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"14px 16px" }}>
+                <label style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"8px" }}>
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="var(--latte)" strokeWidth="1.4"/><circle cx="8" cy="8" r="2" fill="var(--latte)"/></svg>
+                  {lang === "en" ? "Grind Size" : "분쇄도"}
+                </label>
+                <input value={form.grindSize} onChange={(e) => set("grindSize", e.target.value)}
+                  placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"}/>
+              </div>
             </div>
           )}
 
-          {/* 바스켓 (핸드드립 아닐 때만 — 에스프레소 추출 관련 변수) */}
+          {/* 바스켓 (핸드드립 아닐 때만) — 브랜드/사이즈/용량을 하나의 카드로 묶어서 "바스켓 설정"이라는 한 그룹임을 명확히 함 */}
           {machineType !== "handdrip" && (
-            <>
-              <div className="field full">
-                <label>{lang === "en" ? "Basket Brand" : "바스켓 브랜드"}</label>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", marginBottom:"8px" }}>
-                  {["기본 제공", "VST", "IMS", "Pullman", "직접입력"].map(b => (
-                    <button key={b} type="button"
-                      onClick={() => set("basketBrand", b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand) ? form.basketBrand : "") : b)}
-                      style={{
-                        padding:"6px 12px", borderRadius:"999px", border:"1px solid",
-                        borderColor: (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--espresso)" : "var(--steam)",
-                        background:  (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--espresso)" : "var(--foam)",
-                        color:       (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--cream)" : "var(--muted)",
-                        fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", cursor:"pointer", transition:"all 0.15s" }}>
-                      {b === "기본 제공" ? (lang === "en" ? "Stock" : "기본 제공") : b === "직접입력" ? (lang === "en" ? "Other" : "직접입력") : b}
-                    </button>
-                  ))}
+            <div className="field full" style={{ marginTop:"8px" }}>
+              <div style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"var(--r-card)", padding:"16px", display:"flex", flexDirection:"column", gap:"14px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 6h10l-1 7H4L3 6z" stroke="var(--latte)" strokeWidth="1.3" strokeLinejoin="round"/><path d="M3 6h10" stroke="var(--latte)" strokeWidth="1.3"/></svg>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.06em", textTransform:"uppercase" }}>
+                    {lang === "en" ? "Basket Settings" : "바스켓 설정"}
+                  </span>
                 </div>
-                {(form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) || form.basketBrand === "" ? (
-                  <input value={["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand) ? "" : form.basketBrand}
-                    onChange={(e) => set("basketBrand", e.target.value)}
-                    placeholder={lang === "en" ? "e.g. Decent, Synesso…" : "예) 디센트, 시네소 등 직접 입력"}/>
-                ) : null}
-              </div>
 
-              <div className="field full">
-                <label>{lang === "en" ? "Basket Size" : "바스켓 사이즈"}</label>
-                <div style={{ display:"flex", gap:"8px" }}>
-                  {[["single", lang === "en" ? "Single" : "싱글"], ["double", lang === "en" ? "Double" : "더블"], ["triple", lang === "en" ? "Triple" : "트리플"]].map(([v, lbl]) => (
-                    <button key={v} type="button" onClick={() => set("basketSize", v)}
-                      style={{ flex:1, padding:"9px", borderRadius:"8px", border:"1px solid",
-                        borderColor: form.basketSize === v ? "var(--espresso)" : "var(--steam)",
-                        background:  form.basketSize === v ? "var(--espresso)" : "var(--foam)",
-                        color:       form.basketSize === v ? "var(--cream)" : "var(--muted)",
-                        fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", cursor:"pointer", transition:"all 0.15s" }}>
-                      {lbl}
-                    </button>
-                  ))}
+                {/* 브랜드 */}
+                <div>
+                  <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
+                    {lang === "en" ? "Brand" : "브랜드"}
+                  </label>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", marginBottom:"8px" }}>
+                    {["기본 제공", "VST", "IMS", "Pullman", "직접입력"].map(b => (
+                      <button key={b} type="button"
+                        onClick={() => set("basketBrand", b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand) ? form.basketBrand : "") : b)}
+                        style={{
+                          padding:"6px 12px", borderRadius:"999px", border:"1px solid",
+                          borderColor: (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--espresso)" : "var(--steam)",
+                          background:  (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--espresso)" : "var(--foam)",
+                          color:       (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--cream)" : "var(--muted)",
+                          fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", cursor:"pointer", transition:"all 0.15s" }}>
+                        {b === "기본 제공" ? (lang === "en" ? "Stock" : "기본 제공") : b === "직접입력" ? (lang === "en" ? "Other" : "직접입력") : b}
+                      </button>
+                    ))}
+                  </div>
+                  {(form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) || form.basketBrand === "" ? (
+                    <input value={["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand) ? "" : form.basketBrand}
+                      onChange={(e) => set("basketBrand", e.target.value)}
+                      placeholder={lang === "en" ? "e.g. Decent, Synesso…" : "예) 디센트, 시네소 등 직접 입력"}/>
+                  ) : null}
+                </div>
+
+                {/* 사이즈 */}
+                <div>
+                  <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
+                    {lang === "en" ? "Size" : "사이즈"}
+                  </label>
+                  <div style={{ display:"flex", gap:"8px" }}>
+                    {[["single", lang === "en" ? "Single" : "싱글"], ["double", lang === "en" ? "Double" : "더블"], ["triple", lang === "en" ? "Triple" : "트리플"]].map(([v, lbl]) => (
+                      <button key={v} type="button" onClick={() => set("basketSize", v)}
+                        style={{ flex:1, padding:"9px", borderRadius:"8px", border:"1px solid",
+                          borderColor: form.basketSize === v ? "var(--espresso)" : "var(--steam)",
+                          background:  form.basketSize === v ? "var(--espresso)" : "var(--foam)",
+                          color:       form.basketSize === v ? "var(--cream)" : "var(--muted)",
+                          fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", cursor:"pointer", transition:"all 0.15s" }}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 용량 */}
+                <div>
+                  <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
+                    {lang === "en" ? "Capacity (g, optional)" : "용량(g, 선택)"}
+                  </label>
+                  <input type="number" step="0.5" value={form.basketCapacity} onChange={(e) => set("basketCapacity", e.target.value)}
+                    placeholder={lang === "en" ? "e.g. 18, 20, 22 (VST/IMS spec)" : "예) 18, 20, 22 (VST/IMS 표기 용량)"}
+                    style={{ width:"100%", padding:"0.7rem 1rem", border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.9rem", color:"var(--espresso)", outline:"none", boxSizing:"border-box" }}/>
                 </div>
               </div>
-
-              <div className="field full">
-                <label>{lang === "en" ? "Basket Capacity (g, optional)" : "바스켓 용량(g, 선택)"}</label>
-                <input type="number" step="0.5" value={form.basketCapacity} onChange={(e) => set("basketCapacity", e.target.value)}
-                  placeholder={lang === "en" ? "e.g. 18, 20, 22 (VST/IMS spec)" : "예) 18, 20, 22 (VST/IMS 표기 용량)"}/>
-              </div>
-            </>
+            </div>
           )}
 
           {/* ── 섹션: 추출 파라미터 ── */}
