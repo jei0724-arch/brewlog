@@ -380,6 +380,35 @@ export default function RecipeDetailModal({
         {recipe.note && <div className="card-note">"{recipe.note}"</div>}
         {recipe.igUrl && <InstagramEmbed url={recipe.igUrl}/>}
 
+        {/* 제조 순서 */}
+        {recipe.recipeSteps?.length > 0 && (
+          <div style={{ marginBottom:"1rem", padding:"14px 16px", background:"var(--cream)", borderRadius:"var(--r-card)", border:"1px solid var(--divider)" }}>
+            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:"10px" }}>
+              {lang==="en"?"Preparation Steps":"제조 순서"}
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
+              {recipe.recipeSteps.map((step, i) => (
+                <div key={i} style={{ display:"flex", gap:"10px" }}>
+                  <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center" }}>
+                    <span style={{ width:"22px", height:"22px", borderRadius:"50%", background:"var(--espresso)", color:"var(--cream)", fontSize:"0.7rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>{i+1}</span>
+                    {i < recipe.recipeSteps.length-1 && <span style={{ width:"1px", flex:1, background:"var(--divider)", marginTop:"3px" }}/>}
+                  </div>
+                  <div style={{ flex:1, minWidth:0, paddingBottom: i < recipe.recipeSteps.length-1 ? "4px" : 0 }}>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:700, color:"var(--espresso)" }}>
+                      {step.title || (lang==="en"?`Step ${i+1}`:`${i+1}단계`)}
+                    </div>
+                    {step.desc && (
+                      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--espresso)", opacity:0.8, lineHeight:1.55, marginTop:"2px" }}>
+                        {step.desc}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 태그 */}
         {(recipe.tags||[]).length>0 && (
           <div style={{ display:"flex", flexWrap:"wrap", gap:"5px", marginBottom:"8px" }}>
