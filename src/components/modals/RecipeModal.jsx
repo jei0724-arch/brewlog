@@ -1279,6 +1279,32 @@ export default function RecipeModal({
                   </div>
                 );
               })}
+
+              {/* 분쇄도 — 그라인더 선택과 한 카드 안에서 이어지게 표시 */}
+              {!isAutoMode && (
+                <div style={{ marginTop:"20px" }}>
+                  <div style={{ fontSize:"0.64rem", fontWeight:700, color:"var(--latte)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"7px", paddingBottom:"4px", borderBottom:"1px solid var(--divider)" }}>
+                    {lang === "en" ? "Grind Size" : "분쇄도"}
+                  </div>
+                  <input value={form.grindSize} onChange={(e) => set("grindSize", e.target.value)}
+                    placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"}
+                    style={{ width:"100%", padding:"0.7rem 1rem", border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.9rem", color:"var(--espresso)", outline:"none", boxSizing:"border-box" }}/>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 분쇄도 (내 장비 카드가 없을 때의 대체 — 독립 박스로 표시) */}
+          {myEquips.length === 0 && !isAutoMode && (
+            <div className="field full" style={{ marginTop:"8px" }}>
+              <div style={{ background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"14px 16px" }}>
+                <label style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"8px" }}>
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="var(--latte)" strokeWidth="1.4"/><circle cx="8" cy="8" r="2" fill="var(--latte)"/></svg>
+                  {lang === "en" ? "Grind Size" : "분쇄도"}
+                </label>
+                <input value={form.grindSize} onChange={(e) => set("grindSize", e.target.value)}
+                  placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"}/>
+              </div>
             </div>
           )}
 
@@ -1393,20 +1419,6 @@ export default function RecipeModal({
                 )}
               </>
             )
-          )}
-
-          {/* 분쇄도 (전자동 아닐 때) — 별도 강조 박스로 그라인더 선택과 명확히 구분 */}
-          {!isAutoMode && (
-            <div className="field full" style={{ marginTop:"8px" }}>
-              <div style={{ background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"14px 16px" }}>
-                <label style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"8px" }}>
-                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="var(--latte)" strokeWidth="1.4"/><circle cx="8" cy="8" r="2" fill="var(--latte)"/></svg>
-                  {lang === "en" ? "Grind Size" : "분쇄도"}
-                </label>
-                <input value={form.grindSize} onChange={(e) => set("grindSize", e.target.value)}
-                  placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"}/>
-              </div>
-            </div>
           )}
 
           {/* 바스켓 (핸드드립 아닐 때만) — 브랜드/사이즈/용량을 하나의 카드로 묶어서 "바스켓 설정"이라는 한 그룹임을 명확히 함 */}
