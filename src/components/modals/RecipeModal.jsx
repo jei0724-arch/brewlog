@@ -374,6 +374,7 @@ export default function RecipeModal({
           basketSize:      editTarget.basketSize      || "double",
           basketCapacity:  editTarget.basketCapacity  || "",
           tags:            editTarget.tags            || [],
+          igUrl:           editTarget.igUrl           || "",
           recordDate: isCopy
             ? new Date().toISOString().split("T")[0]
             : (editTarget.recordDate || new Date().toISOString().split("T")[0]),
@@ -409,6 +410,7 @@ export default function RecipeModal({
           tds:             "",
           tags: [],
           pourStages: [],
+          igUrl: "",
         }
   );
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -757,6 +759,7 @@ export default function RecipeModal({
         pourStages:      selectedMenu === "hand_drip"
           ? (form.pourStages || []).filter(s => (parseInt(s.time) || 0) > 0 || (parseInt(s.amount) || 0) > 0)
           : [],
+        igUrl:           (form.igUrl || "").trim(),
       };
       delete payload._isCopy; // 저장 시 절대 Firestore에 남지 않도록 제거 (복사모드 영구고착 버그 방지)
 
@@ -2080,6 +2083,21 @@ export default function RecipeModal({
             <label>{t.note}</label>
             <textarea value={form.note} onChange={(e) => set("note", e.target.value)}
               placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"}/>
+          </div>
+
+          {/* 인스타그램 게시물 링크 (선택) — 사진 대신 실제 인스타 카드가 그대로 임베드됨 */}
+          <div className="field full">
+            <label style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.6"/><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.6"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
+              {lang === "en" ? "Instagram Post (optional)" : "인스타그램 게시물 (선택)"}
+            </label>
+            <input value={form.igUrl} onChange={(e) => set("igUrl", e.target.value.trim())}
+              placeholder="https://www.instagram.com/p/..." />
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)", marginTop:"5px", lineHeight:1.5 }}>
+              {lang === "en"
+                ? "Paste a public Instagram post link and it'll show up as a real embedded card on your recipe."
+                : "공개 인스타그램 게시물 링크를 붙여넣으면 레시피에 실제 카드로 그대로 보여져요."}
+            </p>
           </div>
 
           {/* 태그 */}

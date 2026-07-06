@@ -9,6 +9,7 @@
    ============================================================ */
 import { I18N }       from "../../constants/localization";
 import { COFFEE_MENUS } from "../../constants/coffeeMenus";
+import InstagramEmbed from "../ui/InstagramEmbed";
 
 export default function RecipeCard({
   recipe, currentUid, onDelete, onEdit, onLike, onBookmark,
@@ -135,6 +136,7 @@ export default function RecipeCard({
       )}
 
       {recipe.note && <div className="card-note">"{recipe.note}"</div>}
+      {recipe.igUrl && <InstagramEmbed url={recipe.igUrl}/>}
 
       {/* 푸터 */}
       <div className="card-footer" style={{ flexDirection:"column", alignItems:"flex-start", gap:"0.5rem" }}>

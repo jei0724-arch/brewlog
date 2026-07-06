@@ -18,6 +18,7 @@ import { db } from "../../config/firebase";
 import { I18N }       from "../../constants/localization";
 import { COFFEE_MENUS, FLAVOR_AXES } from "../../constants/coffeeMenus";
 import { FlavorRadar } from "../ui";
+import InstagramEmbed  from "../ui/InstagramEmbed";
 import ReportModal      from "../modals/ReportModal";
 
 // ─────────────────────────────────────────────────────────────────
@@ -377,6 +378,7 @@ export default function RecipeDetailModal({
         )}
 
         {recipe.note && <div className="card-note">"{recipe.note}"</div>}
+        {recipe.igUrl && <InstagramEmbed url={recipe.igUrl}/>}
 
         {/* 태그 */}
         {(recipe.tags||[]).length>0 && (
