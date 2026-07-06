@@ -763,7 +763,12 @@ export default function RecipeModal({
           ? (form.pourStages || []).filter(s => (parseInt(s.time) || 0) > 0 || (parseInt(s.amount) || 0) > 0)
           : [],
         igUrl:           (form.igUrl || "").trim(),
-        recipeSteps:     (form.recipeSteps || []).filter(s => (s.title || "").trim() || (s.desc || "").trim()),
+        recipeSteps:     (form.recipeSteps || [])
+          .map(sec => ({
+            section: (sec.section || "").trim(),
+            steps: (sec.steps || []).filter(s => (s.title || "").trim() || (s.desc || "").trim()),
+          }))
+          .filter(sec => sec.section || sec.steps.length > 0),
       };
       delete payload._isCopy; // 저장 시 절대 Firestore에 남지 않도록 제거 (복사모드 영구고착 버그 방지)
 
@@ -2089,43 +2094,66 @@ export default function RecipeModal({
               placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"}/>
           </div>
 
-          {/* 제조 순서 (선택) — 모든 메뉴 공통. 흑임자라떼처럼 재료를 순서대로 섞는 음료 등에 유용 */}
+          {/* 제조 순서 (선택) — 구획(섹션) 단위로 묶어서 기록. 흑임자라떼처럼 "크림 만들기" 같은 하위 작업이 있는 음료에 유용 */}
           <div className="field full">
             <label style={{ display:"flex", alignItems:"center", gap:"6px" }}>
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="3.5" r="1.3" fill="currentColor"/><circle cx="3" cy="8" r="1.3" fill="currentColor"/><circle cx="3" cy="12.5" r="1.3" fill="currentColor"/><path d="M6.5 3.5h7M6.5 8h7M6.5 12.5h7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
               {lang === "en" ? "Preparation Steps (optional)" : "제조 순서 (선택)"}
             </label>
-            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginBottom:"8px", lineHeight:1.5 }}>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginBottom:"10px", lineHeight:1.5 }}>
               {lang === "en"
-                ? "Write the steps in order (e.g. pull espresso → add black sesame paste → pour milk → top with foam) so others can follow along."
-                : "만드는 순서대로 적어두면 다른 사람이 그대로 따라 할 수 있어요 (예: 에스프레소 추출 → 흑임자 페이스트 넣기 → 우유 붓기 → 거품 올리기)."}
+                ? "Group steps into sections (e.g. \"Pull espresso\" / \"Make the cream\" / \"Assemble\") so the flow reads clearly, like a recipe card."
+                : "\"에스프레소 추출\" / \"흑임자 크림 만들기\" / \"조립하기\"처럼 구획으로 묶으면 흐름이 훨씬 잘 읽혀요."}
             </p>
 
-            {(form.recipeSteps || []).map((step, i) => (
-              <div key={i} style={{ display:"flex", gap:"8px", alignItems:"flex-start", marginBottom:"8px" }}>
-                <span style={{ width:"22px", height:"22px", borderRadius:"50%", background:"var(--espresso)", color:"var(--cream)", fontSize:"0.7rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:"7px" }}>{i+1}</span>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <input value={step.title || ""}
-                    onChange={e => { const next=[...(form.recipeSteps||[])]; next[i]={...next[i],title:e.target.value}; setRecipeSteps(next); }}
-                    placeholder={lang === "en" ? "e.g. Pull espresso shot" : "예) 에스프레소 추출"}
-                    style={{ width:"100%", padding:"0.55rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:600, boxSizing:"border-box", marginBottom:"5px" }}/>
-                  <textarea value={step.desc || ""}
-                    onChange={e => { const next=[...(form.recipeSteps||[])]; next[i]={...next[i],desc:e.target.value}; setRecipeSteps(next); }}
-                    rows={1}
-                    placeholder={lang === "en" ? "Details (optional)" : "세부 설명 (선택)"}
-                    style={{ width:"100%", padding:"0.5rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", resize:"vertical", boxSizing:"border-box" }}/>
+            {(form.recipeSteps || []).map((section, si) => (
+              <div key={si} style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"12px", marginBottom:"10px" }}>
+                {/* 구획 헤더 */}
+                <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"10px" }}>
+                  <span style={{ width:"20px", height:"20px", borderRadius:"50%", background:"var(--espresso)", color:"var(--cream)", fontSize:"0.68rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{si+1}</span>
+                  <input value={section.section || ""}
+                    onChange={e => { const next=[...(form.recipeSteps||[])]; next[si]={...next[si], section:e.target.value}; setRecipeSteps(next); }}
+                    placeholder={lang === "en" ? "Section title, e.g. Make the cream" : "구획 제목, 예) 흑임자 크림 만들기"}
+                    style={{ flex:1, padding:"0.55rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", fontWeight:700, boxSizing:"border-box" }}/>
+                  <button type="button"
+                    onClick={() => setRecipeSteps((form.recipeSteps || []).filter((_, idx) => idx !== si))}
+                    style={{ background:"none", border:"none", color:"var(--muted)", cursor:"pointer", fontSize:"1rem", padding:"4px", flexShrink:0 }}>✕</button>
                 </div>
+
+                {/* 구획 안 세부 단계들 */}
+                {(section.steps || []).map((step, ti) => (
+                  <div key={ti} style={{ display:"flex", gap:"8px", alignItems:"flex-start", marginBottom:"8px", paddingLeft:"28px" }}>
+                    <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", flexShrink:0, marginTop:"9px" }}>{ti+1}.</span>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <input value={step.title || ""}
+                        onChange={e => { const next=[...(form.recipeSteps||[])]; const steps=[...(next[si].steps||[])]; steps[ti]={...steps[ti],title:e.target.value}; next[si]={...next[si],steps}; setRecipeSteps(next); }}
+                        placeholder={lang === "en" ? "e.g. Whisk cream to yogurt-like thickness" : "예) 요거트 농도로 휘핑하기"}
+                        style={{ width:"100%", padding:"0.5rem 0.65rem", border:"1px solid var(--steam)", borderRadius:"7px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", fontWeight:600, boxSizing:"border-box", marginBottom:"5px" }}/>
+                      <textarea value={step.desc || ""}
+                        onChange={e => { const next=[...(form.recipeSteps||[])]; const steps=[...(next[si].steps||[])]; steps[ti]={...steps[ti],desc:e.target.value}; next[si]={...next[si],steps}; setRecipeSteps(next); }}
+                        rows={1}
+                        placeholder={lang === "en" ? "Details / ingredients (optional)" : "재료·요령 등 세부 설명 (선택)"}
+                        style={{ width:"100%", padding:"0.45rem 0.65rem", border:"1px solid var(--steam)", borderRadius:"7px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", resize:"vertical", boxSizing:"border-box" }}/>
+                    </div>
+                    <button type="button"
+                      onClick={() => { const next=[...(form.recipeSteps||[])]; next[si]={...next[si], steps:(next[si].steps||[]).filter((_,idx)=>idx!==ti)}; setRecipeSteps(next); }}
+                      style={{ background:"none", border:"none", color:"var(--muted)", cursor:"pointer", fontSize:"0.9rem", padding:"4px", flexShrink:0, marginTop:"3px" }}>✕</button>
+                  </div>
+                ))}
+
                 <button type="button"
-                  onClick={() => setRecipeSteps((form.recipeSteps || []).filter((_, idx) => idx !== i))}
-                  style={{ background:"none", border:"none", color:"var(--muted)", cursor:"pointer", fontSize:"1rem", padding:"4px", flexShrink:0, marginTop:"4px" }}>✕</button>
+                  onClick={() => { const next=[...(form.recipeSteps||[])]; next[si]={...next[si], steps:[...(next[si].steps||[]), {title:"",desc:""}]}; setRecipeSteps(next); }}
+                  style={{ marginLeft:"28px", width:"calc(100% - 28px)", padding:"7px", border:"1px dashed var(--steam)", borderRadius:"7px", background:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.76rem", color:"var(--muted)" }}>
+                  {lang === "en" ? "+ Add step in this section" : "+ 이 구획에 단계 추가"}
+                </button>
               </div>
             ))}
 
             <button type="button"
-              onClick={() => setRecipeSteps([...(form.recipeSteps || []), { title:"", desc:"" }])}
+              onClick={() => setRecipeSteps([...(form.recipeSteps || []), { section:"", steps:[] }])}
               style={{ width:"100%", padding:"10px", border:"1px dashed var(--latte)", borderRadius:"8px", background:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--latte)", fontWeight:500, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px" }}>
               <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-              {lang === "en" ? "Add Step" : "단계 추가"}
+              {lang === "en" ? "Add Section" : "구획 추가"}
             </button>
           </div>
 

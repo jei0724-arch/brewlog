@@ -383,26 +383,36 @@ export default function RecipeDetailModal({
         {/* 제조 순서 */}
         {recipe.recipeSteps?.length > 0 && (
           <div style={{ marginBottom:"1rem", padding:"14px 16px", background:"var(--cream)", borderRadius:"var(--r-card)", border:"1px solid var(--divider)" }}>
-            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:"10px" }}>
+            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:"12px" }}>
               {lang==="en"?"Preparation Steps":"제조 순서"}
             </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
-              {recipe.recipeSteps.map((step, i) => (
-                <div key={i} style={{ display:"flex", gap:"10px" }}>
-                  <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center" }}>
-                    <span style={{ width:"22px", height:"22px", borderRadius:"50%", background:"var(--espresso)", color:"var(--cream)", fontSize:"0.7rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>{i+1}</span>
-                    {i < recipe.recipeSteps.length-1 && <span style={{ width:"1px", flex:1, background:"var(--divider)", marginTop:"3px" }}/>}
-                  </div>
-                  <div style={{ flex:1, minWidth:0, paddingBottom: i < recipe.recipeSteps.length-1 ? "4px" : 0 }}>
-                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:700, color:"var(--espresso)" }}>
-                      {step.title || (lang==="en"?`Step ${i+1}`:`${i+1}단계`)}
+            <div style={{ display:"flex", flexDirection:"column", gap:"16px" }}>
+              {recipe.recipeSteps.map((section, si) => (
+                <div key={si}>
+                  {/* 구획 헤더 */}
+                  <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom: section.steps?.length>0 ? "8px" : 0 }}>
+                    <span style={{ width:"22px", height:"22px", borderRadius:"50%", background:"var(--espresso)", color:"var(--cream)", fontSize:"0.7rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{si+1}</span>
+                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"0.95rem", fontWeight:700, color:"var(--espresso)" }}>
+                      {section.section || (lang==="en"?`Section ${si+1}`:`${si+1}구획`)}
                     </div>
-                    {step.desc && (
-                      <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--espresso)", opacity:0.8, lineHeight:1.55, marginTop:"2px" }}>
-                        {step.desc}
-                      </div>
-                    )}
                   </div>
+                  {/* 구획 내 세부 단계 */}
+                  {section.steps?.length > 0 && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:"8px", paddingLeft:"30px", borderLeft:"1px solid var(--divider)", marginLeft:"10px" }}>
+                      {section.steps.map((step, ti) => (
+                        <div key={ti}>
+                          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", fontWeight:600, color:"var(--espresso)" }}>
+                            {ti+1}. {step.title || (lang==="en"?`Step ${ti+1}`:`${ti+1}단계`)}
+                          </div>
+                          {step.desc && (
+                            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.76rem", color:"var(--espresso)", opacity:0.8, lineHeight:1.55, marginTop:"1px" }}>
+                              {step.desc}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
