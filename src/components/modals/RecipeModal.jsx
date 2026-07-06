@@ -936,7 +936,11 @@ export default function RecipeModal({
           const total = requiredChecks.length;
           const pct = Math.round((done / total) * 100);
           return (
-            <div style={{ marginBottom:"18px" }}>
+            <div style={{
+              position:"sticky", top:0, zIndex:5, background:"var(--foam)",
+              paddingTop:"6px", paddingBottom:"12px", marginBottom:"6px",
+              borderBottom:"1px solid var(--divider)",
+            }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
                 <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.05em", textTransform:"uppercase" }}>
                   {lang === "en" ? "Required fields" : "필수 항목"}
