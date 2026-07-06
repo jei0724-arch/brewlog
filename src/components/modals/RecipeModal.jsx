@@ -1165,6 +1165,14 @@ export default function RecipeModal({
             </div>
           )}
 
+          {/* 기록 날짜 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Brew Date" : "기록 날짜"}</label>
+            <input type="date" value={form.recordDate || ""}
+              onChange={(e) => set("recordDate", e.target.value)}
+              max={new Date().toISOString().split("T")[0]}/>
+          </div>
+
           {/* ── 섹션: 장비 설정 ── */}
           <div style={{ gridColumn:"1 / -1", margin:"36px 0 16px" }}>
             <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>장비 설정</span>
@@ -1725,6 +1733,24 @@ export default function RecipeModal({
                   {lang === "en" ? "Advanced Brew Log" : "추출 세부 기록"}
                 </span>
               </div>
+              {/* 예상 압력 (입력값 기반 자동계산) */}
+              {machineType !== "handdrip" && pressureData && (
+                <div className={`pressure-box ${pressureData.status}`} style={{ marginBottom:0 }}>
+                  <div className="pressure-title">{t.pressureTitle}</div>
+                  <div className="pressure-row">
+                    <span style={{ color:"var(--muted)" }}>{t.brewPressure}</span>
+                    <span className={`pressure-val pressure-${pressureData.status}`}>
+                      {pressureData.status === "high"
+                        ? `9 bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${pressureData.pumpBar} bar)`
+                        : `${pressureData.showerBar} bar`}
+                    </span>
+                  </div>
+                  <div style={{ marginTop:"0.3rem", fontSize:"0.78rem", color:"var(--muted)" }}>
+                    {pressureData.status === "good" ? t.pressureGood : pressureData.status === "high" ? t.pressureHigh : t.pressureLow}
+                    {" "}({t.pressureRange})
+                  </div>
+                </div>
+              )}
               {/* 압력 직접 입력 */}
               <div>
                 <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
@@ -2009,14 +2035,6 @@ export default function RecipeModal({
             <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Rating & Notes" : "평가"}</span>
             <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
           </div>
-          {/* 기록 날짜 */}
-          <div className="field full">
-            <label>{lang === "en" ? "Brew Date" : "기록 날짜"}</label>
-            <input type="date" value={form.recordDate || ""}
-              onChange={(e) => set("recordDate", e.target.value)}
-              max={new Date().toISOString().split("T")[0]}/>
-          </div>
-
           <div className="field full flavor-radar-wrap">
             <label style={{ marginBottom:"16px", display:"block" }}>
               {lang === "en" ? "Flavor Profile" : "플레이버 프로파일"}
@@ -2068,30 +2086,17 @@ export default function RecipeModal({
             </div>
           </div>
 
-          {/* 예상 압력 */}
-          {machineType !== "handdrip" && pressureData && (
-            <div className={`pressure-box ${pressureData.status} field full`} style={{ marginBottom:0 }}>
-              <div className="pressure-title">{t.pressureTitle}</div>
-              <div className="pressure-row">
-                <span style={{ color:"var(--muted)" }}>{t.brewPressure}</span>
-                <span className={`pressure-val pressure-${pressureData.status}`}>
-                  {pressureData.status === "high"
-                    ? `9 bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${pressureData.pumpBar} bar)`
-                    : `${pressureData.showerBar} bar`}
-                </span>
-              </div>
-              <div style={{ marginTop:"0.3rem", fontSize:"0.78rem", color:"var(--muted)" }}>
-                {pressureData.status === "good" ? t.pressureGood : pressureData.status === "high" ? t.pressureHigh : t.pressureLow}
-                {" "}({t.pressureRange})
-              </div>
-            </div>
-          )}
-
           {/* 맛 노트 */}
           <div className="field full">
             <label>{t.note}</label>
             <textarea value={form.note} onChange={(e) => set("note", e.target.value)}
               placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"}/>
+          </div>
+
+          {/* ── 섹션 구분선 ── */}
+          <div style={{ gridColumn:"1 / -1", margin:"28px 0 14px" }}>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "More Details (optional)" : "더 알려주기 (선택)"}</span>
+            <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
           </div>
 
           {/* 제조 순서 (선택) — 구획(섹션) 단위로 묶어서 기록. 흑임자라떼처럼 "크림 만들기" 같은 하위 작업이 있는 음료에 유용 */}
