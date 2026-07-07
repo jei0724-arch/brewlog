@@ -7,9 +7,10 @@
    ─ 태그 클릭 필터
    ─ 추출 압력 표시 (showerBar)
    ============================================================ */
+import { useState, useEffect } from "react";
 import { I18N }       from "../../constants/localization";
 import { COFFEE_MENUS } from "../../constants/coffeeMenus";
-import InstagramEmbed from "../ui/InstagramEmbed";
+import { translateFields, hasKorean } from "../../utils/translate";
 
 export default function RecipeCard({
   recipe, currentUid, onDelete, onEdit, onLike, onBookmark,
@@ -25,20 +26,39 @@ export default function RecipeCard({
     ? (COFFEE_MENUS.find(m=>m.id===recipe.menuId)?.labelEn||recipe.menuLabel)
     : recipe.menuLabel;
 
+  // ── 영문 모드 자동 번역 (원두명/머신/그라인더/분쇄도/원두회사/물브랜드/메모/시럽) ──
+  const [translated, setTranslated] = useState(null);
+
+  useEffect(() => {
+    setTranslated(null);
+    if (lang !== "en") return;
+    const fields = {
+      bean: recipe.bean || "", machine: recipe.machine || "", grinder: recipe.grinder || "",
+      grindSize: recipe.grindSize || "", company: recipe.company || "", waterBrand: recipe.waterBrand || "",
+      note: recipe.note || "", syrup: recipe.syrup || "",
+    };
+    if (!Object.values(fields).some(v => hasKorean(v))) return;
+    let cancelled = false;
+    translateFields(fields).then(result => { if (!cancelled) setTranslated(result); });
+    return () => { cancelled = true; };
+  }, [lang, recipe.bean, recipe.machine, recipe.grinder, recipe.grindSize, recipe.company, recipe.waterBrand, recipe.note, recipe.syrup]);
+
+  const tr = (key, fallback) => translated?.[key] || fallback;
+
   const waterLabel = (() => {
     if (!recipe.waterType && !recipe.waterBrand) return null;
     const types   = { tap:"수돗물", filter:"정수기", bottle:"생수", other:"기타" };
     const typesEn = { tap:"Tap",   filter:"Filtered", bottle:"Bottled", other:"Other" };
-    return [lang==="en"?typesEn[recipe.waterType]:types[recipe.waterType], recipe.waterBrand].filter(Boolean).join(" · ");
+    return [lang==="en"?typesEn[recipe.waterType]:types[recipe.waterType], tr("waterBrand", recipe.waterBrand)].filter(Boolean).join(" · ");
   })();
 
   // 장비 라벨 행 (label/값 pair)
   const labelRows = [
     recipe.machine   && { lbl: lang==="en"?(recipe.machineType==="handdrip"?"Equipment":"Machine"):(recipe.machineType==="handdrip"?"핸드드립 기구":"커피머신"),
-      val: <span>{recipe.machine}{recipe.machineType&&recipe.machineType!=="handdrip"&&<span style={{ marginLeft:"0.3rem", fontSize:"0.65rem", background:recipe.machineType==="auto"?"var(--latte)":"var(--steam)", color:"var(--espresso)", padding:"0.05rem 0.3rem", borderRadius:"999px" }}>{recipe.machineType==="auto"?(lang==="en"?"Auto":"전자동"):(lang==="en"?"Semi":"반자동")}</span>}</span> },
-    recipe.grinder   && { lbl:lang==="en"?"Grinder":"그라인더", val:recipe.grinder },
-    recipe.grindSize && { lbl:lang==="en"?"Grind":"분쇄도",    val:recipe.grindSize },
-    recipe.company   && { lbl:lang==="en"?"Brand":"원두 회사",  val:recipe.company },
+      val: <span>{tr("machine", recipe.machine)}{recipe.machineType&&recipe.machineType!=="handdrip"&&<span style={{ marginLeft:"0.3rem", fontSize:"0.65rem", background:recipe.machineType==="auto"?"var(--latte)":"var(--steam)", color:"var(--espresso)", padding:"0.05rem 0.3rem", borderRadius:"999px" }}>{recipe.machineType==="auto"?(lang==="en"?"Auto":"전자동"):(lang==="en"?"Semi":"반자동")}</span>}</span> },
+    recipe.grinder   && { lbl:lang==="en"?"Grinder":"그라인더", val:tr("grinder", recipe.grinder) },
+    recipe.grindSize && { lbl:lang==="en"?"Grind":"분쇄도",    val:tr("grindSize", recipe.grindSize) },
+    recipe.company   && { lbl:lang==="en"?"Brand":"원두 회사",  val:tr("company", recipe.company) },
     recipe.roastDate && { lbl:lang==="en"?"Roasted":"로스팅",  val:new Date(recipe.roastDate).toLocaleDateString(lang==="en"?"en-US":"ko-KR") },
     recipe.menuLabel && { lbl:lang==="en"?"Menu":"메뉴", val:
       <span style={{ display:"flex", alignItems:"center", gap:"5px" }}>
@@ -50,7 +70,7 @@ export default function RecipeCard({
       </span> },
     recipe.isPublic===false && { lbl:lang==="en"?"Visibility":"공개", val:lang==="en"?"Private":"비공개" },
     waterLabel && { lbl:lang==="en"?"Water":"물 종류", val:waterLabel },
-    recipe.weather && { lbl:lang==="en"?"Weather":"날씨", val:`${recipe.weather.icon} ${recipe.weather.descKo||recipe.weather.condition} ${recipe.weather.temp}°C · ${lang==="en"?"Humidity":"습도"} ${recipe.weather.humidity}%` },
+    recipe.weather && { lbl:lang==="en"?"Weather":"날씨", val:`${recipe.weather.icon} ${lang==="en"?(recipe.weather.condition||recipe.weather.descKo):(recipe.weather.descKo||recipe.weather.condition)} ${recipe.weather.temp}°C · ${lang==="en"?"Humidity":"습도"} ${recipe.weather.humidity}%` },
   ].filter(Boolean);
 
   return (
@@ -70,37 +90,19 @@ export default function RecipeCard({
       {/* 원두명 */}
       <div style={{ borderTop:"1px solid var(--steam)", paddingTop:"0.65rem", marginBottom:"1rem", textAlign:"left" }}>
         <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", fontWeight:600, color:"var(--roast)", opacity:0.6, marginBottom:"0.15rem" }}>{lang==="en"?"Product":"제품명"}</div>
-        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.25rem", fontWeight:700, color:"var(--espresso)", lineHeight:1.25, letterSpacing:"-0.01em" }}>{recipe.bean}</div>
+        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.25rem", fontWeight:700, color:"var(--espresso)", lineHeight:1.25, letterSpacing:"-0.01em" }}>{tr("bean", recipe.bean)}</div>
       </div>
 
       {/* Stat 박스 */}
       <div className="card-stats" style={{ gridTemplateColumns:"repeat(4,1fr)" }}>
         <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
         <div className="stat">
-          {recipe.menuId==="hand_drip" && recipe.pourStages?.length>0 ? (() => {
-            const stages = recipe.pourStages.filter(s=>(parseInt(s.time)||0)>0);
-            const stageTotal = stages.reduce((sum,s)=>sum+(parseInt(s.time)||0), 0);
-            const total = Math.max(parseInt(recipe.seconds)||0, stageTotal);
-            const fmtT = (s) => { const m=Math.floor(s/60), sec=s%60; return m>0?`${m}:${String(sec).padStart(2,"0")}`:`${sec}s`; };
-            return (
-              <>
-                <span className="stat-val">{fmtT(total)}</span>
-                <span className="stat-label">{t.statSeconds}</span>
-                <span style={{ fontSize:"0.62rem", color:"var(--muted)", display:"block", lineHeight:1.4, marginTop:"2px" }}>
-                  {lang==="en"?`${stages.length} stages recorded`:`${stages.length}단계 기록됨`}
-                </span>
-              </>
-            );
-          })() : (
-            <>
-              <span className="stat-val">{recipe.seconds}s</span>
-              <span className="stat-label">{t.statSeconds}</span>
-              {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && (
-                <span style={{ fontSize:"0.62rem", color:"var(--muted)", display:"block", lineHeight:1.4, marginTop:"2px" }}>
-                  {lang==="en"?`Inf. ${recipe.infusionSeconds}s + Ext. ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}s`:`인퓨전 ${recipe.infusionSeconds}초 + 추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}초`}
-                </span>
-              )}
-            </>
+          <span className="stat-val">{recipe.seconds}s</span>
+          <span className="stat-label">{t.statSeconds}</span>
+          {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && (
+            <span style={{ fontSize:"0.62rem", color:"var(--muted)", display:"block", lineHeight:1.4, marginTop:"2px" }}>
+              {lang==="en"?`Inf. ${recipe.infusionSeconds}s + Ext. ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}s`:`인퓨전 ${recipe.infusionSeconds}초 + 추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}초`}
+            </span>
           )}
         </div>
         <div className="stat"><span className="stat-val">{recipe.espressoMl}ml</span><span className="stat-label">{t.statMl}</span></div>
@@ -112,7 +114,7 @@ export default function RecipeCard({
           {lang==="en"?(recipe.diluteType==="물"?"Water":recipe.diluteType==="우유"?"Milk":recipe.diluteType):recipe.diluteType} {recipe.diluteMl}ml {t.dilution}
         </div>
       )}
-      {recipe.syrup && <div className="card-dilution">{recipe.syrup}</div>}
+      {recipe.syrup && <div className="card-dilution">{tr("syrup", recipe.syrup)}</div>}
 
       {/* 압력 표시 */}
       {recipe.showerBar && recipe.machineType!=="handdrip" && (
@@ -135,8 +137,7 @@ export default function RecipeCard({
         </div>
       )}
 
-      {recipe.note && <div className="card-note">"{recipe.note}"</div>}
-      {recipe.igUrl && <InstagramEmbed url={recipe.igUrl}/>}
+      {recipe.note && <div className="card-note">"{tr("note", recipe.note)}"</div>}
 
       {/* 푸터 */}
       <div className="card-footer" style={{ flexDirection:"column", alignItems:"flex-start", gap:"0.5rem" }}>

@@ -18,8 +18,8 @@ import { db } from "../../config/firebase";
 import { I18N }       from "../../constants/localization";
 import { COFFEE_MENUS, FLAVOR_AXES } from "../../constants/coffeeMenus";
 import { FlavorRadar } from "../ui";
-import InstagramEmbed  from "../ui/InstagramEmbed";
 import ReportModal      from "../modals/ReportModal";
+import { translateFields, hasKorean } from "../../utils/translate";
 
 // ─────────────────────────────────────────────────────────────────
 export default function RecipeDetailModal({
@@ -41,8 +41,6 @@ export default function RecipeDetailModal({
   const [commentText,   setCommentText]   = useState("");
   const [commentLoading,setCommentLoading]= useState(false);
   const [replyTo,       setReplyTo]       = useState(null);
-  const [editingId,     setEditingId]     = useState(null);
-  const [editText,      setEditText]      = useState("");
   const [showMore,      setShowMore]      = useState(false);
   const [isBlocked,     setIsBlocked]     = useState(false);
   const [blockLoading,  setBlockLoading]  = useState(false);
@@ -99,10 +97,7 @@ export default function RecipeDetailModal({
         text, parentId: replyTo?.id||null, parentAuthor: replyTo?.author||null,
         createdAt: serverTimestamp(),
       });
-      const parentUid = replyTo?.uid || null;
       setReplyTo(null);
-
-      // 레시피 주인 알림 (본인 레시피면 스킵)
       if (recipe.uid && recipe.uid !== currentUser.uid) {
         addDoc(collection(db,"notifications"), {
           toUid: recipe.uid, type:"comment", fromUser:currentUser.displayName,
@@ -110,16 +105,6 @@ export default function RecipeDetailModal({
           text: text.slice(0,50), read:false, createdAt: serverTimestamp(),
         }).catch(e => console.error("[알림]",e.message));
       }
-
-      // 답글 알림 — 원댓글 작성자에게 (본인이거나 레시피 주인과 동일하면 중복 발송 방지)
-      if (parentUid && parentUid !== currentUser.uid && parentUid !== recipe.uid) {
-        addDoc(collection(db,"notifications"), {
-          toUid: parentUid, type:"reply", fromUser:currentUser.displayName,
-          recipeId: recipe.id, beanName: recipe.bean||"",
-          text: text.slice(0,50), read:false, createdAt: serverTimestamp(),
-        }).catch(e => console.error("[답글 알림]",e.message));
-      }
-
       setCommentText("");
     } catch(e) { console.error(e); }
     setCommentLoading(false);
@@ -130,17 +115,24 @@ export default function RecipeDetailModal({
     await deleteDoc(doc(db,"comments",id));
   };
 
-  // 댓글 수정
-  const startEdit = (c) => { setEditingId(c.id); setEditText(c.text); };
-  const cancelEdit = () => { setEditingId(null); setEditText(""); };
-  const saveEdit = async (id) => {
-    const trimmed = editText.trim();
-    if (!trimmed) return;
-    try {
-      await updateDoc(doc(db,"comments",id), { text: trimmed, editedAt: serverTimestamp() });
-      setEditingId(null); setEditText("");
-    } catch(e) { console.error("[댓글 수정]", e.message); }
-  };
+  // ── 영문 모드 자동 번역 (원두명/머신/그라인더/분쇄도/원두회사/물브랜드/메모) ──
+  const [translated, setTranslated] = useState(null);
+
+  useEffect(() => {
+    setTranslated(null);
+    if (lang !== "en") return;
+    const fields = {
+      bean: recipe.bean || "", machine: recipe.machine || "", grinder: recipe.grinder || "",
+      grindSize: recipe.grindSize || "", company: recipe.company || "", waterBrand: recipe.waterBrand || "",
+      note: recipe.note || "", continuousMemo: recipe.continuousMemo || "",
+    };
+    if (!Object.values(fields).some(v => hasKorean(v))) return;
+    let cancelled = false;
+    translateFields(fields).then(result => { if (!cancelled) setTranslated(result); });
+    return () => { cancelled = true; };
+  }, [lang, recipe.bean, recipe.machine, recipe.grinder, recipe.grindSize, recipe.company, recipe.waterBrand, recipe.note, recipe.continuousMemo]);
+
+  const tr = (key, fallback) => translated?.[key] || fallback;
 
   // 물 종류 표시 헬퍼
   const waterLabel = (() => {
@@ -148,7 +140,7 @@ export default function RecipeDetailModal({
     const types   = { tap:"수돗물", filter:"정수기", bottle:"생수", other:"기타" };
     const typesEn = { tap:"Tap",   filter:"Filtered", bottle:"Bottled", other:"Other" };
     const lbl     = lang==="en" ? typesEn[recipe.waterType] : types[recipe.waterType];
-    return [lbl, recipe.waterBrand].filter(Boolean).join(" · ");
+    return [lbl, tr("waterBrand", recipe.waterBrand)].filter(Boolean).join(" · ");
   })();
 
   // 추출 비율
@@ -164,10 +156,10 @@ export default function RecipeDetailModal({
   // 라벨 행 데이터
   const labelRows = [
     recipe.machine    && { lbl: lang==="en"?(recipe.machineType==="handdrip"?"Equipment":"Machine"):(recipe.machineType==="handdrip"?"핸드드립 기구":"커피머신"),
-      val: <span>{recipe.machine}{recipe.machineType && recipe.machineType!=="handdrip" && <span style={{ marginLeft:"0.3rem", fontSize:"0.65rem", background:recipe.machineType==="auto"?"var(--latte)":"var(--steam)", color:"var(--espresso)", padding:"0.05rem 0.3rem", borderRadius:"999px" }}>{recipe.machineType==="auto"?(lang==="en"?"Auto":"전자동"):(lang==="en"?"Semi":"반자동")}</span>}</span> },
-    recipe.grinder    && { lbl: lang==="en"?"Grinder":"그라인더", val: recipe.grinder },
-    recipe.grindSize  && { lbl: lang==="en"?"Grind":"분쇄도",    val: recipe.grindSize },
-    recipe.company    && { lbl: lang==="en"?"Brand":"원두 회사",  val: recipe.company },
+      val: <span>{tr("machine", recipe.machine)}{recipe.machineType && recipe.machineType!=="handdrip" && <span style={{ marginLeft:"0.3rem", fontSize:"0.65rem", background:recipe.machineType==="auto"?"var(--latte)":"var(--steam)", color:"var(--espresso)", padding:"0.05rem 0.3rem", borderRadius:"999px" }}>{recipe.machineType==="auto"?(lang==="en"?"Auto":"전자동"):(lang==="en"?"Semi":"반자동")}</span>}</span> },
+    recipe.grinder    && { lbl: lang==="en"?"Grinder":"그라인더", val: tr("grinder", recipe.grinder) },
+    recipe.grindSize  && { lbl: lang==="en"?"Grind":"분쇄도",    val: tr("grindSize", recipe.grindSize) },
+    recipe.company    && { lbl: lang==="en"?"Brand":"원두 회사",  val: tr("company", recipe.company) },
     recipe.roastDate  && { lbl: lang==="en"?"Roasted":"로스팅",  val: new Date(recipe.roastDate).toLocaleDateString(lang==="ko"?"ko-KR":"en-US") },
     recipe.menuLabel  && { lbl: lang==="en"?"Menu":"메뉴", val: <span style={{ display:"flex", alignItems:"center", gap:"5px" }}>
       {lang==="en"?(COFFEE_MENUS.find(m=>m.id===recipe.menuId)?.labelEn||recipe.menuLabel):recipe.menuLabel}
@@ -177,7 +169,7 @@ export default function RecipeDetailModal({
         ? <span style={{ fontSize:"0.62rem", fontWeight:700, color:"#e67e22", background:"#FEF3E8", border:"1px solid #FAD7A0", borderRadius:"4px", padding:"1px 6px" }}>HOT</span> : null}
     </span> },
     waterLabel        && { lbl: lang==="en"?"Water":"물 종류", val: waterLabel },
-    recipe.weather    && { lbl: lang==="en"?"Weather":"날씨", val: <span style={{ display:"flex", alignItems:"center", gap:"4px" }}><span>{recipe.weather.icon}</span><span>{recipe.weather.descKo||recipe.weather.condition}</span><span style={{ color:"var(--muted)", fontSize:"0.7rem" }}>{recipe.weather.temp}°C · {lang==="en"?"Humidity":"습도"} {recipe.weather.humidity}%</span></span> },
+    recipe.weather    && { lbl: lang==="en"?"Weather":"날씨", val: <span style={{ display:"flex", alignItems:"center", gap:"4px" }}><span>{recipe.weather.icon}</span><span>{lang==="en"?(recipe.weather.condition||recipe.weather.descKo):(recipe.weather.descKo||recipe.weather.condition)}</span><span style={{ color:"var(--muted)", fontSize:"0.7rem" }}>{recipe.weather.temp}°C · {lang==="en"?"Humidity":"습도"} {recipe.weather.humidity}%</span></span> },
   ].filter(Boolean);
 
   return (
@@ -185,13 +177,8 @@ export default function RecipeDetailModal({
     <div className="modal-backdrop" onClick={e => e.target===e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth:"460px" }}>
         {/* 닫기 */}
-        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:"0.4rem" }}>
-          <button onClick={onClose}
-            style={{
-              background:"none", border:"none", fontSize:"1.2rem", cursor:"pointer", color:"var(--muted)",
-              width:"44px", height:"44px", display:"flex", alignItems:"center", justifyContent:"center",
-              touchAction:"manipulation", WebkitTapHighlightColor:"transparent",
-            }}>✕</button>
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:"0.8rem" }}>
+          <button onClick={onClose} style={{ background:"none", border:"none", fontSize:"1.2rem", cursor:"pointer", color:"var(--muted)" }}>✕</button>
         </div>
 
         {/* 라벨 그리드 */}
@@ -208,142 +195,10 @@ export default function RecipeDetailModal({
         {/* 원두명 */}
         <div style={{ borderTop:"1px solid var(--steam)", paddingTop:"0.7rem", marginBottom:"1rem" }}>
           <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", fontWeight:600, color:"var(--roast)", opacity:0.6, marginBottom:"0.15rem" }}>{lang==="en"?"Product":"제품명"}</div>
-          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.25rem", fontWeight:700, color:"var(--espresso)", lineHeight:1.25 }}>{recipe.bean}</div>
+          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.25rem", fontWeight:700, color:"var(--espresso)", lineHeight:1.25 }}>{tr("bean", recipe.bean)}</div>
         </div>
 
-        {/* stat 박스 — 핸드드립은 타임라인 카드, 나머지는 기존 4박스 그리드 */}
-        {recipe.menuId === "hand_drip" ? (
-          (() => {
-            const total = parseInt(recipe.seconds) || 0;
-            const inf   = parseInt(recipe.infusionSeconds) || 0;
-            const ext   = Math.max(0, total - inf);
-            const infPct = total > 0 ? (inf / total) * 100 : 0;
-            const extPct = total > 0 ? (ext / total) * 100 : 100;
-            const fmtT = (s) => { const m = Math.floor(s/60), sec = s%60; return m>0 ? `${m}:${String(sec).padStart(2,"0")}` : `${sec}s`; };
-
-            // pourStages의 time = 각 구간 자체 길이(duration). 배열 순서가 곧 브루잉 순서이므로
-            // 정렬하지 않고 순서대로 누적해서 시작/종료 시점을 계산함
-            let cumT = 0;
-            const stages = (recipe.pourStages || [])
-              .map(s => {
-                const dur = parseInt(s.time)||0;
-                const startT = cumT;
-                cumT += dur;
-                return { dur, start: startT, end: cumT, amount: parseInt(s.amount)||0, label: s.label||"", desc: s.desc||s.note||"" };
-              })
-              .filter(s => s.dur > 0 || s.amount > 0);
-            const hasStages = stages.length > 0;
-            const palette = ["#e67e22","#27ae60","#2980b9","#8e44ad","#c0625a","#16a085","#d35400"];
-
-            const segments = hasStages ? stages.map((s, i) => ({
-              ...s, fromMl: i === 0 ? 0 : stages[i-1].amount, color: palette[i % palette.length],
-            })) : [];
-            const lastStageEnd = hasStages ? stages[stages.length-1].end : 0;
-            // 구간 기록이 있으면 그 누적 합계를 "총 시간"으로 신뢰함 —
-            // recipe.seconds(수동/타이머 저장값)가 어긋나 있어도 실제 기록된 구간 기준으로 정확하게 표시
-            const displayTotal = hasStages ? Math.max(total, lastStageEnd) : total;
-            if (hasStages && displayTotal > lastStageEnd) {
-              segments.push({ start: lastStageEnd, end: displayTotal, amount: stages[stages.length-1].amount, label: lang==="en"?"Drawdown / Done":"낙수/완료", desc:"", dur: displayTotal - lastStageEnd, fromMl: stages[stages.length-1].amount, color: "var(--steam)" });
-            }
-
-            return (
-              <div style={{ marginBottom:"1rem", padding:"14px 16px", background:"var(--cream)", borderRadius:"var(--r-card)", border:"1px solid var(--divider)" }}>
-                <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:"10px" }}>
-                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.06em", textTransform:"uppercase" }}>
-                    {lang==="en"?"Brew Timeline":"추출 타임라인"}
-                  </span>
-                  <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.5rem", fontWeight:700, color:"var(--espresso)" }}>
-                    {displayTotal>0?fmtT(displayTotal):"—"}
-                  </span>
-                </div>
-
-                {hasStages ? (
-                  <>
-                    {/* 세분화 타임라인 바 */}
-                    <div style={{ display:"flex", height:"22px", borderRadius:"6px", overflow:"hidden", marginBottom:"10px" }}>
-                      {segments.map((seg, i) => (
-                        <div key={i} style={{ width:`${total>0?(seg.dur/total)*100:0}%`, background:seg.color, display:"flex", alignItems:"center", justifyContent:"center", minWidth:"20px" }}>
-                          <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.58rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(seg.dur)}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* 단계별 카드 */}
-                    <div style={{ display:"flex", flexDirection:"column", gap:"10px", marginBottom:"12px" }}>
-                      {segments.map((seg, i) => (
-                        <div key={i} style={{ display:"flex", gap:"10px" }}>
-                          <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center" }}>
-                            <span style={{ width:"22px", height:"22px", borderRadius:"50%", background:seg.color, color:"#fff", fontSize:"0.7rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>{i+1}</span>
-                            {i < segments.length-1 && <span style={{ width:"1px", flex:1, background:"var(--divider)", marginTop:"3px" }}/>}
-                          </div>
-                          <div style={{ flex:1, minWidth:0, paddingBottom: i < segments.length-1 ? "4px" : 0 }}>
-                            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:700, color:"var(--espresso)", marginBottom:"1px" }}>
-                              {seg.label || (lang==="en"?`Stage ${i+1}`:`${i+1}단계`)}
-                            </div>
-                            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)", marginBottom: seg.desc ? "4px" : 0 }}>
-                              {fmtT(seg.start)} ~ {fmtT(seg.end)}
-                              {seg.amount>0 && ` · ${seg.fromMl}→${seg.amount}ml`}
-                            </div>
-                            {seg.desc && (
-                              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--espresso)", lineHeight:1.55, opacity:0.85 }}>
-                                {seg.desc}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {/* 타임라인 바 (2단계 — 상세 푸어 기록이 없는 레시피) */}
-                    {total>0 && (
-                      <div style={{ display:"flex", height:"22px", borderRadius:"6px", overflow:"hidden", marginBottom:"6px" }}>
-                        {inf>0 && (
-                          <div style={{ width:`${infPct}%`, background:"#e67e22", display:"flex", alignItems:"center", justifyContent:"center", minWidth:inf>0?"28px":0 }}>
-                            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(inf)}</span>
-                          </div>
-                        )}
-                        <div style={{ width:`${extPct}%`, background:"#27ae60", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(ext)}</span>
-                        </div>
-                      </div>
-                    )}
-                    {/* 범례 */}
-                    {inf>0 && (
-                      <div style={{ display:"flex", gap:"14px", marginBottom:"12px" }}>
-                        <span style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)" }}>
-                          <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:"#e67e22", display:"inline-block" }}/>
-                          {lang==="en"?"Bloom / Infusion":"인퓨전(블루밍)"}
-                        </span>
-                        <span style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)" }}>
-                          <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:"#27ae60", display:"inline-block" }}/>
-                          {lang==="en"?"Extraction":"추출"}
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* 원두/물/온도 서브 스탯 */}
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px", paddingTop:"10px", borderTop:"1px solid var(--divider)" }}>
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>{recipe.gram?`${recipe.gram}g`:"—"}</div>
-                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)", marginTop:"2px" }}>{t.statGram}</div>
-                  </div>
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>{recipe.espressoMl?`${recipe.espressoMl}ml`:"—"}</div>
-                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)", marginTop:"2px" }}>{t.statMl}</div>
-                  </div>
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>{recipe.waterTemp?`${recipe.waterTemp}°C`:"—"}</div>
-                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)", marginTop:"2px" }}>{lang==="en"?"Temp":"물온도"}</div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()
-        ) : (
+        {/* stat 박스 */}
         <div className="card-stats" style={{ marginBottom:"1rem", gridTemplateColumns:"repeat(4,1fr)" }}>
           <div className="stat"><span className="stat-val">{recipe.gram?`${recipe.gram}g`:"—"}</span><span className="stat-label">{t.statGram}</span></div>
           <div className="stat">
@@ -358,7 +213,6 @@ export default function RecipeDetailModal({
           <div className="stat"><span className="stat-val">{recipe.espressoMl?`${recipe.espressoMl}ml`:"—"}</span><span className="stat-label">{t.statMl}</span></div>
           {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang==="en"?"Temp":"물온도"}</span></div>}
         </div>
-        )}
 
         {/* 추출 비율 */}
         {ratio && (
@@ -368,7 +222,7 @@ export default function RecipeDetailModal({
           </div>
         )}
 
-        {recipe.diluteMl && <div className="card-dilution">{recipe.diluteType} {recipe.diluteMl}ml 희석</div>}
+        {recipe.diluteMl && <div className="card-dilution">{lang==="en"?(recipe.diluteType==="물"?"Water":recipe.diluteType==="우유"?"Milk":recipe.diluteType):recipe.diluteType} {recipe.diluteMl}ml {t.dilution}</div>}
 
         {/* 별점 */}
         {recipe.rating>0 && (
@@ -377,47 +231,7 @@ export default function RecipeDetailModal({
           </div>
         )}
 
-        {recipe.note && <div className="card-note">"{recipe.note}"</div>}
-        {recipe.igUrl && <InstagramEmbed url={recipe.igUrl}/>}
-
-        {/* 제조 순서 */}
-        {recipe.recipeSteps?.length > 0 && (
-          <div style={{ marginBottom:"1rem", padding:"14px 16px", background:"var(--cream)", borderRadius:"var(--r-card)", border:"1px solid var(--divider)" }}>
-            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:"12px" }}>
-              {lang==="en"?"Preparation Steps":"제조 순서"}
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:"16px" }}>
-              {recipe.recipeSteps.map((section, si) => (
-                <div key={si}>
-                  {/* 구획 헤더 */}
-                  <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom: section.steps?.length>0 ? "8px" : 0 }}>
-                    <span style={{ width:"22px", height:"22px", borderRadius:"50%", background:"var(--espresso)", color:"var(--cream)", fontSize:"0.7rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{si+1}</span>
-                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"0.95rem", fontWeight:700, color:"var(--espresso)" }}>
-                      {section.section || (lang==="en"?`Section ${si+1}`:`${si+1}구획`)}
-                    </div>
-                  </div>
-                  {/* 구획 내 세부 단계 */}
-                  {section.steps?.length > 0 && (
-                    <div style={{ display:"flex", flexDirection:"column", gap:"8px", paddingLeft:"30px", borderLeft:"1px solid var(--divider)", marginLeft:"10px" }}>
-                      {section.steps.map((step, ti) => (
-                        <div key={ti}>
-                          <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", fontWeight:600, color:"var(--espresso)" }}>
-                            {ti+1}. {step.title || (lang==="en"?`Step ${ti+1}`:`${ti+1}단계`)}
-                          </div>
-                          {step.desc && (
-                            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.76rem", color:"var(--espresso)", opacity:0.8, lineHeight:1.55, marginTop:"1px" }}>
-                              {step.desc}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {recipe.note && <div className="card-note">"{tr("note", recipe.note)}"</div>}
 
         {/* 태그 */}
         {(recipe.tags||[]).length>0 && (
@@ -488,7 +302,7 @@ export default function RecipeDetailModal({
             <span style={{ fontSize:"0.62rem", fontWeight:700, color:"var(--latte)", textTransform:"uppercase", letterSpacing:"0.07em", display:"block", marginBottom:"3px" }}>
               {lang==="en"?"Extraction Note":"연속 추출 메모"}
             </span>
-            {recipe.continuousMemo}
+            {tr("continuousMemo", recipe.continuousMemo)}
           </div>
         )}
 
@@ -528,8 +342,7 @@ export default function RecipeDetailModal({
               @{recipe.author}
             </span>
             {recipe.author && recipe.uid!==currentUid && onFollow && (
-              <button onClick={e=>{ e.stopPropagation(); onFollow(recipe.uid||recipe.author); }}
-                style={{ padding:"3px 10px", borderRadius:"999px", border:`1px solid ${isFollowing?"var(--steam)":"var(--espresso)"}`, background:isFollowing?"none":"var(--espresso)", color:isFollowing?"var(--muted)":"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", fontWeight:500, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.15s" }}>
+              <button className={`follow-btn ${isFollowing?"following":""}`} onClick={e=>{ e.stopPropagation(); onFollow(recipe.uid||recipe.author); }}>
                 {isFollowing?t.following:t.follow}
               </button>
             )}
@@ -762,7 +575,7 @@ export default function RecipeDetailModal({
             {/* 수정/삭제 (본인) */}
             {isOwner && (
               <>
-                <button className="card-action-btn edit" onClick={()=>onEdit(recipe)} title={lang==="en"?"Edit":"수정"}>
+                <button className="card-action-btn edit" onClick={()=>{ onClose(); onEdit(recipe); }} title={lang==="en"?"Edit":"수정"}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4-11 11H5.5v-4l11-11z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M14 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
                 </button>
                 <button className="card-action-btn delete" onClick={()=>{ onClose(); onDelete(recipe.id); }} title={lang==="en"?"Delete":"삭제"}>
@@ -818,28 +631,12 @@ export default function RecipeDetailModal({
                         <span style={{ color:"var(--muted)", fontSize:"0.72rem" }}>{c.createdAt?.toDate?.()?.toLocaleDateString(lang==="ko"?"ko-KR":"en-US")||""}</span>
                       </div>
                       <div style={{ display:"flex", gap:"0.4rem", alignItems:"center", flexShrink:0 }}>
-                        {currentUser && <button onClick={()=>setReplyTo(replyTo?.id===c.id?null:{id:c.id,author:c.author,uid:c.uid})} style={{ background:"none", border:"none", color:replyTo?.id===c.id?"var(--accent)":"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Reply":"답글"}</button>}
-                        {c.uid===currentUid && editingId!==c.id && <button onClick={()=>startEdit(c)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Edit":"수정"}</button>}
+                        {currentUser && <button onClick={()=>setReplyTo(replyTo?.id===c.id?null:{id:c.id,author:c.author})} style={{ background:"none", border:"none", color:replyTo?.id===c.id?"var(--accent)":"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Reply":"답글"}</button>}
                         {c.uid===currentUid && <button onClick={()=>deleteComment(c.id)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.72rem", cursor:"pointer", padding:0 }}>{t.commentDelete}</button>}
-                        {c.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:c.id})} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.68rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
+                        {c.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:c.id})} style={{ background:"none", border:"1px solid #e74c3c40", borderRadius:"2px", color:"#e74c3c", fontSize:"0.68rem", cursor:"pointer", padding:"0.05rem 0.35rem", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
                       </div>
                     </div>
-                    {editingId===c.id ? (
-                      <div style={{ marginTop:"0.4rem", display:"flex", flexDirection:"column", gap:"0.4rem" }}>
-                        <input value={editText} onChange={e=>setEditText(e.target.value)}
-                          onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();saveEdit(c.id);} if(e.key==="Escape")cancelEdit(); }}
-                          autoFocus
-                          style={{ width:"100%", padding:"0.5rem 0.7rem", border:"1px solid var(--latte)", borderRadius:"6px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", background:"var(--cream)", color:"var(--espresso)", outline:"none", boxSizing:"border-box" }}/>
-                        <div style={{ display:"flex", gap:"0.4rem", justifyContent:"flex-end" }}>
-                          <button onClick={cancelEdit} style={{ padding:"0.3rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"6px", background:"none", color:"var(--muted)", fontSize:"0.72rem", cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Cancel":"취소"}</button>
-                          <button onClick={()=>saveEdit(c.id)} disabled={!editText.trim()} style={{ padding:"0.3rem 0.9rem", border:"none", borderRadius:"6px", background:"var(--latte)", color:"white", fontSize:"0.72rem", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontWeight:600, opacity:editText.trim()?1:0.5 }}>{lang==="en"?"Save":"저장"}</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ color:"var(--espresso)", marginTop:"0.25rem", lineHeight:1.5 }}>
-                        {c.text}{c.editedAt && <span style={{ color:"var(--muted)", fontSize:"0.65rem", marginLeft:"0.4rem" }}>{lang==="en"?"(edited)":"(수정됨)"}</span>}
-                      </div>
-                    )}
+                    <div style={{ color:"var(--espresso)", marginTop:"0.25rem", lineHeight:1.5 }}>{c.text}</div>
                   </div>
                   {comments.filter(r=>r.parentId===c.id).map(r => (
                     <div key={r.id} style={{ marginLeft:"1.2rem", marginTop:"0.3rem", background:"var(--cream)", borderLeft:"2px solid var(--latte)", borderRadius:"0 6px 6px 0", padding:"0.5rem 0.8rem", fontSize:"0.82rem" }}>
@@ -849,29 +646,12 @@ export default function RecipeDetailModal({
                           <span style={{ color:"var(--latte)", fontSize:"0.7rem", marginRight:"0.3rem" }}>→ @{r.parentAuthor}</span>
                           <span style={{ color:"var(--muted)", fontSize:"0.7rem" }}>{r.createdAt?.toDate?.()?.toLocaleDateString(lang==="ko"?"ko-KR":"en-US")||""}</span>
                         </div>
-                        <div style={{ display:"flex", gap:"0.4rem", alignItems:"center", flexShrink:0 }}>
-                          {currentUser && <button onClick={()=>setReplyTo(replyTo?.id===c.id&&replyTo?.author===r.author?null:{id:c.id,author:r.author,uid:r.uid})} style={{ background:"none", border:"none", color:(replyTo?.id===c.id&&replyTo?.author===r.author)?"var(--accent)":"var(--muted)", fontSize:"0.7rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Reply":"답글"}</button>}
-                          {r.uid===currentUid && editingId!==r.id && <button onClick={()=>startEdit(r)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.7rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Edit":"수정"}</button>}
+                        <div style={{ display:"flex", gap:"0.3rem", flexShrink:0 }}>
                           {r.uid===currentUid && <button onClick={()=>deleteComment(r.id)} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.7rem", cursor:"pointer", padding:0 }}>{t.commentDelete}</button>}
-                          {r.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:r.id})} style={{ background:"none", border:"none", color:"var(--muted)", fontSize:"0.65rem", cursor:"pointer", padding:0, fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
+                          {r.uid!==currentUid && currentUser && <button onClick={()=>setShowReport({type:"comment",targetId:r.id})} style={{ background:"none", border:"1px solid #e74c3c40", borderRadius:"2px", color:"#e74c3c", fontSize:"0.65rem", cursor:"pointer", padding:"0.05rem 0.3rem", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Report":"신고"}</button>}
                         </div>
                       </div>
-                      {editingId===r.id ? (
-                        <div style={{ marginTop:"0.3rem", display:"flex", flexDirection:"column", gap:"0.35rem" }}>
-                          <input value={editText} onChange={e=>setEditText(e.target.value)}
-                            onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();saveEdit(r.id);} if(e.key==="Escape")cancelEdit(); }}
-                            autoFocus
-                            style={{ width:"100%", padding:"0.45rem 0.65rem", border:"1px solid var(--latte)", borderRadius:"6px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", background:"var(--foam)", color:"var(--espresso)", outline:"none", boxSizing:"border-box" }}/>
-                          <div style={{ display:"flex", gap:"0.35rem", justifyContent:"flex-end" }}>
-                            <button onClick={cancelEdit} style={{ padding:"0.25rem 0.6rem", border:"1px solid var(--steam)", borderRadius:"6px", background:"none", color:"var(--muted)", fontSize:"0.68rem", cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>{lang==="en"?"Cancel":"취소"}</button>
-                            <button onClick={()=>saveEdit(r.id)} disabled={!editText.trim()} style={{ padding:"0.25rem 0.8rem", border:"none", borderRadius:"6px", background:"var(--latte)", color:"white", fontSize:"0.68rem", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontWeight:600, opacity:editText.trim()?1:0.5 }}>{lang==="en"?"Save":"저장"}</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ color:"var(--espresso)", marginTop:"0.2rem", lineHeight:1.5 }}>
-                          {r.text}{r.editedAt && <span style={{ color:"var(--muted)", fontSize:"0.62rem", marginLeft:"0.4rem" }}>{lang==="en"?"(edited)":"(수정됨)"}</span>}
-                        </div>
-                      )}
+                      <div style={{ color:"var(--espresso)", marginTop:"0.2rem", lineHeight:1.5 }}>{r.text}</div>
                     </div>
                   ))}
                 </div>
