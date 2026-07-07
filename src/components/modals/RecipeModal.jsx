@@ -929,10 +929,7 @@ export default function RecipeModal({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="modal" ref={modalRef}>
-        <div style={{
-          position:"sticky", top:0, zIndex:5, background:"var(--foam)",
-          paddingBottom:"18px", marginBottom:"18px", borderBottom:"1px solid var(--divider)",
-        }}>
+        <div className="modal-sticky-header">
           <h2 style={{ marginBottom:"10px" }}>
             {isEdit
               ? t.editTitle
