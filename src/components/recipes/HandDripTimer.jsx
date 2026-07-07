@@ -167,10 +167,10 @@ export default function HandDripTimer({ value, pourStages, onChange, onStagesCha
       </div>
 
       {isGuideMode && phase !== "idle" && totalPlanned > 0 && (
-        <div style={{ marginBottom: "12px" }}>
+        <div style={{ marginBottom: "12px", width: "100%" }}>
           {/* 진행 바 + 현재 위치 마커 */}
           <div style={{ position: "relative", marginBottom: "6px" }}>
-            <div style={{ display: "flex", height: "28px", borderRadius: "6px", overflow: "hidden", background: "var(--steam)" }}>
+            <div style={{ display: "flex", width: "100%", height: "34px", borderRadius: "6px", overflow: "hidden", background: "var(--steam)" }}>
               {plan.map((s, i) => {
                 const isPast = elapsed >= s.end;
                 const isCurrent = currentStageIdx === i;
@@ -184,7 +184,7 @@ export default function HandDripTimer({ value, pourStages, onChange, onStagesCha
                     animation: isCurrent ? "handdripPulse 1.2s ease-in-out infinite" : "none",
                     position: "relative",
                   }}>
-                    <span style={{ fontSize: "0.68rem", fontWeight: 700, color: (isPast || isCurrent) ? "#fff" : "var(--muted)" }}>
+                    <span style={{ fontSize: "0.8rem", fontWeight: 700, color: (isPast || isCurrent) ? "#fff" : "var(--muted)" }}>
                       {i + 1}
                     </span>
                   </div>
@@ -206,7 +206,7 @@ export default function HandDripTimer({ value, pourStages, onChange, onStagesCha
           </div>
 
           {/* 단계별 이름 라벨 (바 아래, 각 구간 폭에 맞춰 정렬) */}
-          <div style={{ display: "flex" }}>
+          <div style={{ display: "flex", width: "100%" }}>
             {plan.map((s, i) => {
               const isCurrent = currentStageIdx === i;
               const isPast = elapsed >= s.end;
