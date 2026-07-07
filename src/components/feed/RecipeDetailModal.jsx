@@ -588,7 +588,7 @@ export default function RecipeDetailModal({
             {/* 수정/삭제 (본인) */}
             {isOwner && (
               <>
-                <button className="card-action-btn edit" onClick={()=>{ onClose(); onEdit(recipe); }} title={lang==="en"?"Edit":"수정"}>
+                <button className="card-action-btn edit" onClick={()=>onEdit(recipe)} title={lang==="en"?"Edit":"수정"}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4-11 11H5.5v-4l11-11z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M14 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
                 </button>
                 <button className="card-action-btn delete" onClick={()=>{ onClose(); onDelete(recipe.id); }} title={lang==="en"?"Delete":"삭제"}>
