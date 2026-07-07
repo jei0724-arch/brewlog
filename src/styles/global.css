@@ -1198,6 +1198,9 @@ html {
   padding-top: 32px;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--divider);
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 @media (max-width: 600px) {
   .modal-sticky-header {
