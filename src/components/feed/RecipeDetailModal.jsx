@@ -198,13 +198,145 @@ export default function RecipeDetailModal({
           <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.25rem", fontWeight:700, color:"var(--espresso)", lineHeight:1.25 }}>{tr("bean", recipe.bean)}</div>
         </div>
 
-        {/* stat 박스 */}
+        {/* stat 박스 — 핸드드립은 타임라인 카드, 나머지는 기존 4박스 그리드 */}
+        {recipe.menuId === "hand_drip" ? (
+          (() => {
+            const total = parseInt(recipe.seconds) || 0;
+            const inf   = parseInt(recipe.infusionSeconds) || 0;
+            const ext   = Math.max(0, total - inf);
+            const infPct = total > 0 ? (inf / total) * 100 : 0;
+            const extPct = total > 0 ? (ext / total) * 100 : 100;
+            const fmtT = (s) => { const m = Math.floor(s/60), sec = s%60; return m>0 ? `${m}:${String(sec).padStart(2,"0")}` : `${sec}s`; };
+
+            // pourStages의 time = 각 구간 자체 길이(duration). 배열 순서가 곧 브루잉 순서이므로
+            // 정렬하지 않고 순서대로 누적해서 시작/종료 시점을 계산함
+            let cumT = 0;
+            const stages = (recipe.pourStages || [])
+              .map(s => {
+                const dur = parseInt(s.time)||0;
+                const startT = cumT;
+                cumT += dur;
+                return { dur, start: startT, end: cumT, amount: parseInt(s.amount)||0, label: s.label||"", desc: s.desc||s.note||"" };
+              })
+              .filter(s => s.dur > 0 || s.amount > 0);
+            const hasStages = stages.length > 0;
+            const palette = ["#e67e22","#27ae60","#2980b9","#8e44ad","#c0625a","#16a085","#d35400"];
+
+            const segments = hasStages ? stages.map((s, i) => ({
+              ...s, fromMl: i === 0 ? 0 : stages[i-1].amount, color: palette[i % palette.length],
+            })) : [];
+            const lastStageEnd = hasStages ? stages[stages.length-1].end : 0;
+            // 구간 기록이 있으면 그 누적 합계를 "총 시간"으로 신뢰함 —
+            // recipe.seconds(수동/타이머 저장값)가 어긋나 있어도 실제 기록된 구간 기준으로 정확하게 표시
+            const displayTotal = hasStages ? Math.max(total, lastStageEnd) : total;
+            if (hasStages && displayTotal > lastStageEnd) {
+              segments.push({ start: lastStageEnd, end: displayTotal, amount: stages[stages.length-1].amount, label: lang==="en"?"Drawdown / Done":"낙수/완료", desc:"", dur: displayTotal - lastStageEnd, fromMl: stages[stages.length-1].amount, color: "var(--steam)" });
+            }
+
+            return (
+              <div style={{ marginBottom:"1rem", padding:"14px 16px", background:"var(--cream)", borderRadius:"var(--r-card)", border:"1px solid var(--divider)" }}>
+                <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:"10px" }}>
+                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.06em", textTransform:"uppercase" }}>
+                    {lang==="en"?"Brew Timeline":"추출 타임라인"}
+                  </span>
+                  <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.5rem", fontWeight:700, color:"var(--espresso)" }}>
+                    {displayTotal>0?fmtT(displayTotal):"—"}
+                  </span>
+                </div>
+
+                {hasStages ? (
+                  <>
+                    {/* 세분화 타임라인 바 */}
+                    <div style={{ display:"flex", height:"22px", borderRadius:"6px", overflow:"hidden", marginBottom:"10px" }}>
+                      {segments.map((seg, i) => (
+                        <div key={i} style={{ width:`${total>0?(seg.dur/total)*100:0}%`, background:seg.color, display:"flex", alignItems:"center", justifyContent:"center", minWidth:"20px" }}>
+                          <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.58rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(seg.dur)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 단계별 카드 */}
+                    <div style={{ display:"flex", flexDirection:"column", gap:"10px", marginBottom:"12px" }}>
+                      {segments.map((seg, i) => (
+                        <div key={i} style={{ display:"flex", gap:"10px" }}>
+                          <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center" }}>
+                            <span style={{ width:"22px", height:"22px", borderRadius:"50%", background:seg.color, color:"#fff", fontSize:"0.7rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center" }}>{i+1}</span>
+                            {i < segments.length-1 && <span style={{ width:"1px", flex:1, background:"var(--divider)", marginTop:"3px" }}/>}
+                          </div>
+                          <div style={{ flex:1, minWidth:0, paddingBottom: i < segments.length-1 ? "4px" : 0 }}>
+                            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:700, color:"var(--espresso)", marginBottom:"1px" }}>
+                              {seg.label || (lang==="en"?`Stage ${i+1}`:`${i+1}단계`)}
+                            </div>
+                            <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)", marginBottom: seg.desc ? "4px" : 0 }}>
+                              {fmtT(seg.start)} ~ {fmtT(seg.end)}
+                              {seg.amount>0 && ` · ${seg.fromMl}→${seg.amount}ml`}
+                            </div>
+                            {seg.desc && (
+                              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--espresso)", lineHeight:1.55, opacity:0.85 }}>
+                                {seg.desc}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* 타임라인 바 (2단계 — 상세 푸어 기록이 없는 레시피) */}
+                    {total>0 && (
+                      <div style={{ display:"flex", height:"22px", borderRadius:"6px", overflow:"hidden", marginBottom:"6px" }}>
+                        {inf>0 && (
+                          <div style={{ width:`${infPct}%`, background:"#e67e22", display:"flex", alignItems:"center", justifyContent:"center", minWidth:inf>0?"28px":0 }}>
+                            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(inf)}</span>
+                          </div>
+                        )}
+                        <div style={{ width:`${extPct}%`, background:"#27ae60", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                          <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.62rem", fontWeight:700, color:"#fff", whiteSpace:"nowrap" }}>{fmtT(ext)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* 범례 */}
+                    {inf>0 && (
+                      <div style={{ display:"flex", gap:"14px", marginBottom:"12px" }}>
+                        <span style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)" }}>
+                          <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:"#e67e22", display:"inline-block" }}/>
+                          {lang==="en"?"Bloom / Infusion":"인퓨전(블루밍)"}
+                        </span>
+                        <span style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)" }}>
+                          <span style={{ width:"8px", height:"8px", borderRadius:"2px", background:"#27ae60", display:"inline-block" }}/>
+                          {lang==="en"?"Extraction":"추출"}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* 원두/물/온도 서브 스탯 */}
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:"8px", paddingTop:"10px", borderTop:"1px solid var(--divider)" }}>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>{recipe.gram?`${recipe.gram}g`:"—"}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)", marginTop:"2px" }}>{t.statGram}</div>
+                  </div>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>{recipe.espressoMl?`${recipe.espressoMl}ml`:"—"}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)", marginTop:"2px" }}>{t.statMl}</div>
+                  </div>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:"1rem", fontWeight:700, color:"var(--espresso)" }}>{recipe.waterTemp?`${recipe.waterTemp}°C`:"—"}</div>
+                    <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.65rem", color:"var(--muted)", marginTop:"2px" }}>{lang==="en"?"Temp":"물온도"}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()
+        ) : (
         <div className="card-stats" style={{ marginBottom:"1rem", gridTemplateColumns:"repeat(4,1fr)" }}>
           <div className="stat"><span className="stat-val">{recipe.gram?`${recipe.gram}g`:"—"}</span><span className="stat-label">{t.statGram}</span></div>
           <div className="stat">
             <span className="stat-val">{recipe.seconds?`${recipe.seconds}s`:"—"}</span>
             <span className="stat-label">{t.statSeconds}</span>
-            {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && recipe.menuId!=="hand_drip" && (
+            {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && (
               <span style={{ fontSize:"0.55rem", color:"var(--muted)", display:"block", lineHeight:1.2, marginTop:"1px", whiteSpace:"nowrap" }}>
                 {lang==="en"?`${recipe.infusionSeconds}+${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`:`인퓨전 ${recipe.infusionSeconds}+추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`}
               </span>
@@ -213,6 +345,7 @@ export default function RecipeDetailModal({
           <div className="stat"><span className="stat-val">{recipe.espressoMl?`${recipe.espressoMl}ml`:"—"}</span><span className="stat-label">{t.statMl}</span></div>
           {recipe.waterTemp && <div className="stat"><span className="stat-val">{recipe.waterTemp}°C</span><span className="stat-label">{lang==="en"?"Temp":"물온도"}</span></div>}
         </div>
+        )}
 
         {/* 추출 비율 */}
         {ratio && (
