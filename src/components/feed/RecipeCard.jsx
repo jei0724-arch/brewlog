@@ -99,7 +99,7 @@ export default function RecipeCard({
         <div className="stat">
           <span className="stat-val">{recipe.seconds}s</span>
           <span className="stat-label">{t.statSeconds}</span>
-          {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && (
+          {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && recipe.menuId!=="hand_drip" && (
             <span style={{ fontSize:"0.62rem", color:"var(--muted)", display:"block", lineHeight:1.4, marginTop:"2px" }}>
               {lang==="en"?`Inf. ${recipe.infusionSeconds}s + Ext. ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}s`:`인퓨전 ${recipe.infusionSeconds}초 + 추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}초`}
             </span>

@@ -204,7 +204,7 @@ export default function RecipeDetailModal({
           <div className="stat">
             <span className="stat-val">{recipe.seconds?`${recipe.seconds}s`:"—"}</span>
             <span className="stat-label">{t.statSeconds}</span>
-            {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && (
+            {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && recipe.menuId!=="hand_drip" && (
               <span style={{ fontSize:"0.55rem", color:"var(--muted)", display:"block", lineHeight:1.2, marginTop:"1px", whiteSpace:"nowrap" }}>
                 {lang==="en"?`${recipe.infusionSeconds}+${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`:`인퓨전 ${recipe.infusionSeconds}+추출 ${parseInt(recipe.seconds)-parseInt(recipe.infusionSeconds)}`}
               </span>
@@ -475,7 +475,7 @@ export default function RecipeDetailModal({
                   const tempLabel = recipe.isIced ? "ICE" : "HOT";
                   const roastLabel = recipe.roastLevel ? (ROAST_NAMES[recipe.roastLevel]||recipe.roastLevel) : "";
                   const weatherLabel = recipe.weather ? `${recipe.weather.icon||""} ${recipe.weather.descKo||recipe.weather.condition||""} ${recipe.weather.temp||""}°C · 습도 ${recipe.weather.humidity||""}%` : "";
-                  const infusionLabel = recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0
+                  const infusionLabel = recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && recipe.menuId!=="hand_drip"
                     ? `인퓨전 ${recipe.infusionSeconds}s + 추출 ${parseInt(recipe.seconds||0)-parseInt(recipe.infusionSeconds)}s` : "";
 
                   // ── DOM 조립 ──────────────────────────────────────
@@ -588,7 +588,7 @@ export default function RecipeDetailModal({
             {/* 수정/삭제 (본인) */}
             {isOwner && (
               <>
-                <button className="card-action-btn edit" onClick={()=>onEdit(recipe)} title={lang==="en"?"Edit":"수정"}>
+                <button className="card-action-btn edit" onClick={()=>{ onClose(); onEdit(recipe); }} title={lang==="en"?"Edit":"수정"}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5l4 4-11 11H5.5v-4l11-11z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/><path d="M14 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
                 </button>
                 <button className="card-action-btn delete" onClick={()=>{ onClose(); onDelete(recipe.id); }} title={lang==="en"?"Delete":"삭제"}>
