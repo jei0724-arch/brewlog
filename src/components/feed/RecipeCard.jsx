@@ -97,7 +97,17 @@ export default function RecipeCard({
       <div className="card-stats" style={{ gridTemplateColumns:"repeat(4,1fr)" }}>
         <div className="stat"><span className="stat-val">{recipe.gram}g</span><span className="stat-label">{t.statGram}</span></div>
         <div className="stat">
-          <span className="stat-val">{recipe.seconds}s</span>
+          {recipe.menuId==="hand_drip" ? (() => {
+            // pourStages 합산 시간을 신뢰(recipe.seconds가 어긋나 있어도 상세모달 타임라인과 동일하게 표시)
+            let cum = 0;
+            (recipe.pourStages || []).forEach(s => { cum += parseInt(s.time) || 0; });
+            const total = Math.max(parseInt(recipe.seconds) || 0, cum);
+            const m = Math.floor(total / 60), sec = total % 60;
+            const label = total > 0 ? (m > 0 ? `${m}:${String(sec).padStart(2,"0")}` : `${sec}s`) : "—";
+            return <span className="stat-val">{label}</span>;
+          })() : (
+            <span className="stat-val">{recipe.seconds}s</span>
+          )}
           <span className="stat-label">{t.statSeconds}</span>
           {recipe.infusionSeconds && parseInt(recipe.infusionSeconds)>0 && recipe.menuId!=="hand_drip" && (
             <span style={{ fontSize:"0.62rem", color:"var(--muted)", display:"block", lineHeight:1.4, marginTop:"2px" }}>
