@@ -616,6 +616,29 @@ export default function RecipeModal({
     setTimeout(() => { applyingPresetRef.current = false; }, 300);
   };
 
+  // 활성 프리셋을 다시 눌렀을 때 — 프리셋이 채웠던 필드만 원래대로(빈 값) 되돌림
+  const clearPreset = () => {
+    applyingPresetRef.current = true;
+    setLinkedBeanId(null);
+    set("company", ""); set("bean", ""); set("roastDate", "");
+
+    setMachineType("auto");
+    setMachineBrand(""); setMachineModel(""); setHandDripName("");
+    setMachineLocked(false);
+    setGrinderBrand(""); setGrinderModel(""); setGrinderLocked(false);
+    setSelectedEquipIds({});
+
+    setForm((f) => ({
+      ...f,
+      isIced: false, gram: "", seconds: "", infusionSeconds: "0",
+      espressoMl: "", waterTemp: "", waterType: "", waterBrand: "",
+      grindSize: "", basketBrand: "", basketSize: "double", basketCapacity: "",
+      diluteMl: "", diluteType: "물", syrup: "", brewPressureBar: "",
+      continuousMemo: "", pourStages: [],
+    }));
+    setTimeout(() => { applyingPresetRef.current = false; }, 300);
+  };
+
   const savePreset = () => {
     const trimmed = presetName.trim();
     if (!trimmed) return;
@@ -687,15 +710,17 @@ export default function RecipeModal({
 
   // ── 유효성 검사 + 저장 ─────────────────────────────────────────
   const modalRef = useRef(null);
+  const scrollBodyRef = useRef(null);
 
   // 스크롤 진행률 — 폼을 얼마나 내려봤는지 (상단 고정 진행바에 사용)
+  // 헤더/본문 분리 구조라 실제 스크롤은 modal-scroll-body(scrollBodyRef)에서 일어남
   const [scrollPct, setScrollPct] = useState(0);
   useEffect(() => {
-    const el = modalRef.current;
+    const el = scrollBodyRef.current;
     if (!el) return;
     const onScroll = () => {
       const max = el.scrollHeight - el.clientHeight;
-      setScrollPct(max > 0 ? Math.min(100, Math.round((el.scrollTop / max) * 100)) : 100);
+      setScrollPct(max > 0 ? Math.min(100, Math.round((el.scrollTop / max) * 100)) : 0);
     };
     onScroll();
     el.addEventListener("scroll", onScroll);
@@ -996,7 +1021,10 @@ export default function RecipeModal({
                   const isActive = activePresetId === p.id;
                   return (
                     <button key={p.id} type="button"
-                      onClick={() => { applyPreset(p); setActivePresetId(p.id); }}
+                      onClick={() => {
+                        if (isActive) { clearPreset(); setActivePresetId(null); }
+                        else { applyPreset(p); setActivePresetId(p.id); }
+                      }}
                       style={{
                         padding:"6px 14px", borderRadius:"8px",
                         border:`1px solid ${isActive ? "var(--espresso)" : "var(--latte)"}`,
@@ -1016,7 +1044,7 @@ export default function RecipeModal({
           </div>
         </div>
 
-        <div className="modal-scroll-body">
+        <div className="modal-scroll-body" ref={scrollBodyRef}>
         {/* 프리셋 저장 오버레이 */}
         {showPresetSave && (
           <div style={{ position:"fixed", inset:0, background:"#0005", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}
