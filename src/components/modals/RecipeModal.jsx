@@ -34,7 +34,6 @@ import {
 import { calcPressure } from "../../utils/pressure";
 import { CoffeeBeanIcon, BrandInput, TagInput, FlavorRadar } from "../ui";
 import Timer from "../recipes/Timer";
-import HandDripTimer from "../recipes/HandDripTimer";
 
 // ── OpenWeatherMap API ───────────────────────────────────────────
 const OWM_KEY    = import.meta.env.VITE_OWM_KEY;
@@ -374,8 +373,6 @@ export default function RecipeModal({
           basketSize:      editTarget.basketSize      || "double",
           basketCapacity:  editTarget.basketCapacity  || "",
           tags:            editTarget.tags            || [],
-          igUrl:           editTarget.igUrl           || "",
-          recipeSteps:     editTarget.recipeSteps     || [],
           recordDate: isCopy
             ? new Date().toISOString().split("T")[0]
             : (editTarget.recordDate || new Date().toISOString().split("T")[0]),
@@ -410,14 +407,9 @@ export default function RecipeModal({
           continuousMemo:  "",
           tds:             "",
           tags: [],
-          pourStages: [],
-          igUrl: "",
-          recipeSteps: [],
         }
   );
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const setPourStages = (stages) => setForm((f) => ({ ...f, pourStages: stages }));
-  const setRecipeSteps = (steps) => setForm((f) => ({ ...f, recipeSteps: steps }));
 
   const [saving,  setSaving]  = useState(false);
   const [errors,  setErrors]  = useState({});
@@ -462,7 +454,7 @@ export default function RecipeModal({
 
   // ── 메뉴 선택 ───────────────────────────────────────────────────
   const [selectedMenu, setSelectedMenu] = useState(
-    (isEdit || isCopy) ? (editTarget.menuId || "") : ""
+    (isEdit || isCopy) ? (editTarget.menuId || "") : (isHandDrip ? "hand_drip" : "")
   );
 
   const MENU_DEFAULTS = {
@@ -490,12 +482,8 @@ export default function RecipeModal({
 
   // 핸드드립 메뉴 ↔ machineType 동기화
   const applyingPresetRef = useRef(false);
-  const menuSyncMountedRef = useRef(false);
   useEffect(() => {
     if (applyingPresetRef.current) return;
-    // 최초 마운트 시엔 스킵 — 저장된 내 머신이 핸드드립이어도
-    // 메뉴가 아직 선택 안 된 상태(빈 값)일 뿐이지, machineType까지 되돌리면 안 됨
-    if (!menuSyncMountedRef.current) { menuSyncMountedRef.current = true; return; }
     if (selectedMenu === "hand_drip") {
       setMachineType("handdrip");
       setSelectedEquipIds((prev) => {
@@ -507,15 +495,6 @@ export default function RecipeModal({
       setMachineType("auto");
     }
   }, [selectedMenu]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 핸드드립 — 푸어 단계의 최종 누적 물량을 추출량에 자동 반영
-  useEffect(() => {
-    if (selectedMenu !== "hand_drip") return;
-    const amounts = (form.pourStages || []).map(s => parseInt(s.amount) || 0).filter(n => n > 0);
-    if (amounts.length === 0) return;
-    const maxAmt = Math.max(...amounts);
-    if (String(maxAmt) !== form.espressoMl) set("espressoMl", String(maxAmt));
-  }, [form.pourStages, selectedMenu]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 머신 브랜드/모델 → 내장 그라인더 자동 감지
   useEffect(() => {
@@ -611,7 +590,6 @@ export default function RecipeModal({
       syrup:           preset.syrup           ?? "",
       brewPressureBar: preset.brewPressureBar ?? "",
       continuousMemo:  preset.continuousMemo  ?? "",
-      pourStages:      preset.pourStages      ?? [],
     }));
     setTimeout(() => { applyingPresetRef.current = false; }, 300);
   };
@@ -667,7 +645,6 @@ export default function RecipeModal({
       syrup:           form.syrup           || "",
       brewPressureBar: form.brewPressureBar || "",
       continuousMemo:  form.continuousMemo  || "",
-      pourStages:      hdMode ? (form.pourStages || []) : [],
       createdAt: new Date().toISOString(),
     };
     const updated = existing
@@ -687,20 +664,6 @@ export default function RecipeModal({
 
   // ── 유효성 검사 + 저장 ─────────────────────────────────────────
   const modalRef = useRef(null);
-
-  // 스크롤 진행률 — 폼을 얼마나 내려봤는지 (상단 고정 진행바에 사용)
-  const [scrollPct, setScrollPct] = useState(0);
-  useEffect(() => {
-    const el = modalRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      const max = el.scrollHeight - el.clientHeight;
-      setScrollPct(max > 0 ? Math.min(100, Math.round((el.scrollTop / max) * 100)) : 100);
-    };
-    onScroll();
-    el.addEventListener("scroll", onScroll);
-    return () => { el.removeEventListener("scroll", onScroll); };
-  }, []);
 
   const scrollToError = (errorKeys) => {
     const priority = ["menu","company","bean","gram","seconds","espressoMl"];
@@ -773,16 +736,6 @@ export default function RecipeModal({
         continuousMemo:  form.continuousMemo  || "",
         tds:             form.tds             || null,
         tags:            (form.tags || []).filter(Boolean),
-        pourStages:      selectedMenu === "hand_drip"
-          ? (form.pourStages || []).filter(s => (parseInt(s.time) || 0) > 0 || (parseInt(s.amount) || 0) > 0)
-          : [],
-        igUrl:           (form.igUrl || "").trim(),
-        recipeSteps:     (form.recipeSteps || [])
-          .map(sec => ({
-            section: (sec.section || "").trim(),
-            steps: (sec.steps || []).filter(s => (s.title || "").trim() || (s.desc || "").trim()),
-          }))
-          .filter(sec => sec.section || sec.steps.length > 0),
       };
       delete payload._isCopy; // 저장 시 절대 Firestore에 남지 않도록 제거 (복사모드 영구고착 버그 방지)
 
@@ -929,94 +882,61 @@ export default function RecipeModal({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="modal" ref={modalRef}>
-        <div style={{
-          position:"sticky", top:0, zIndex:5, background:"var(--foam)",
-          paddingBottom:"18px", marginBottom:"18px", borderBottom:"1px solid var(--divider)",
-        }}>
-          <h2 style={{ marginBottom:"10px" }}>
-            {isEdit
-              ? t.editTitle
-              : isCopy
-              ? "레시피 복사하기"
-              : t.recordTitle}
-          </h2>
+        <h2>
+          {isEdit
+            ? t.editTitle
+            : isCopy
+            ? "레시피 복사하기"
+            : t.recordTitle}
+        </h2>
 
-          {/* 진행 상태 바 — 스크롤한 만큼 채워짐 (지금 폼의 어디쯤 와있는지) */}
-          {(() => {
-            const requiredChecks = [
-              !!selectedMenu,
-              !!linkedBeanId || !!(form.bean || "").trim(),
-              !!(form.gram || "").toString().trim(),
-              !!(form.seconds || "").toString().trim(),
-              !!(form.espressoMl || "").toString().trim(),
-            ];
-            const done = requiredChecks.filter(Boolean).length;
-            const total = requiredChecks.length;
-            return (
-              <div style={{ marginBottom:"14px" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
-                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", fontWeight:700, color:"var(--muted)", letterSpacing:"0.05em", textTransform:"uppercase" }}>
-                    {lang === "en" ? `Required ${done}/${total}` : `필수 항목 ${done}/${total}`}
-                  </span>
-                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", fontWeight:600, color: scrollPct === 100 ? "#27ae60" : "var(--latte)" }}>
-                    {scrollPct}%
-                  </span>
-                </div>
-                <div style={{ height:"5px", borderRadius:"3px", background:"var(--steam)", overflow:"hidden" }}>
-                  <div style={{ width:`${scrollPct}%`, height:"100%", background: scrollPct === 100 ? "#27ae60" : "var(--latte)", transition:"width 0.15s linear, background 0.3s ease" }}/>
-                </div>
-              </div>
-            );
-          })()}
+        {/* 복사 모드 안내 */}
+        {isCopy && (
+          <div style={{ background:"#EBF5FB", border:"1px solid #AED6F1", borderRadius:"8px", padding:"10px 14px", marginBottom:"16px", fontSize:"0.8rem", color:"#2980b9", display:"flex", alignItems:"center", gap:"8px" }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+            다른 레시피를 복사했어요. 내용을 수정하고 저장하면 내 새 레시피로 등록됩니다.
+          </div>
+        )}
 
-          {/* 복사 모드 안내 */}
-          {isCopy && (
-            <div style={{ background:"#EBF5FB", border:"1px solid #AED6F1", borderRadius:"8px", padding:"10px 14px", marginBottom:"14px", fontSize:"0.8rem", color:"#2980b9", display:"flex", alignItems:"center", gap:"8px" }}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-              다른 레시피를 복사했어요. 내용을 수정하고 저장하면 내 새 레시피로 등록됩니다.
+        {/* ── 프리셋 영역 ── */}
+        <div style={{ marginBottom:"20px", paddingBottom:"20px", borderBottom:"1px solid var(--divider)" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
+            <span style={{ fontSize:"0.72rem", color:"var(--muted)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.07em", fontFamily:"'DM Sans',sans-serif" }}>
+              {lang === "en" ? "Presets" : "프리셋"}
+            </span>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color: presets.length >= PRESET_LIMIT ? "#e67e22" : "var(--muted)" }}>
+              {presets.length} / {PRESET_LIMIT}
+            </span>
+          </div>
+          {presets.length === 0 ? (
+            <p style={{ fontSize:"0.78rem", color:"var(--muted)", opacity:0.7 }}>
+              {lang === "en"
+                ? "No presets yet. Fill in settings below and save."
+                : "저장된 프리셋이 없어요. 아래 설정을 입력한 뒤 저장해보세요."}
+            </p>
+          ) : (
+            <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+              {presets.map((p) => {
+                const isActive = activePresetId === p.id;
+                return (
+                  <button key={p.id} type="button"
+                    onClick={() => { applyPreset(p); setActivePresetId(p.id); }}
+                    style={{
+                      padding:"6px 14px", borderRadius:"8px",
+                      border:`1px solid ${isActive ? "var(--espresso)" : "var(--latte)"}`,
+                      background: isActive ? "var(--espresso)" : "#FDF6EF",
+                      color: isActive ? "var(--cream)" : "var(--latte)",
+                      fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem",
+                      cursor:"pointer", fontWeight: isActive ? 700 : 500,
+                      transition:"all 0.15s",
+                      boxShadow: isActive ? "0 0 0 2px var(--espresso)" : "none",
+                    }}>
+                    {p.name || (lang === "en" ? "(unnamed)" : "(이름 없음)")}
+                  </button>
+                );
+              })}
             </div>
           )}
-
-          {/* ── 프리셋 영역 ── */}
-          <div>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"10px" }}>
-              <span style={{ fontSize:"0.72rem", color:"var(--muted)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.07em", fontFamily:"'DM Sans',sans-serif" }}>
-                {lang === "en" ? "Presets" : "프리셋"}
-              </span>
-              <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color: presets.length >= PRESET_LIMIT ? "#e67e22" : "var(--muted)" }}>
-                {presets.length} / {PRESET_LIMIT}
-              </span>
-            </div>
-            {presets.length === 0 ? (
-              <p style={{ fontSize:"0.78rem", color:"var(--muted)", opacity:0.7 }}>
-                {lang === "en"
-                  ? "No presets yet. Fill in settings below and save."
-                  : "저장된 프리셋이 없어요. 아래 설정을 입력한 뒤 저장해보세요."}
-              </p>
-            ) : (
-              <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
-                {presets.map((p) => {
-                  const isActive = activePresetId === p.id;
-                  return (
-                    <button key={p.id} type="button"
-                      onClick={() => { applyPreset(p); setActivePresetId(p.id); }}
-                      style={{
-                        padding:"6px 14px", borderRadius:"8px",
-                        border:`1px solid ${isActive ? "var(--espresso)" : "var(--latte)"}`,
-                        background: isActive ? "var(--espresso)" : "var(--highlight-bg)",
-                        color: isActive ? "var(--cream)" : "var(--latte)",
-                        fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem",
-                        cursor:"pointer", fontWeight: isActive ? 700 : 500,
-                        transition:"all 0.15s",
-                        boxShadow: isActive ? "0 0 0 2px var(--espresso)" : "none",
-                      }}>
-                      {p.name || (lang === "en" ? "(unnamed)" : "(이름 없음)")}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* 프리셋 저장 오버레이 */}
@@ -1106,7 +1026,7 @@ export default function RecipeModal({
         <div className="modal-grid">
           {/* ── 섹션: 기본 정보 ── */}
           <div style={{ gridColumn:"1 / -1", margin:"4px 0 16px" }}>
-            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>기본 정보</span>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Basic Info" : "기본 정보"}</span>
             <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
           </div>
 
@@ -1212,23 +1132,15 @@ export default function RecipeModal({
             </div>
           )}
 
-          {/* 기록 날짜 */}
-          <div className="field full">
-            <label>{lang === "en" ? "Brew Date" : "기록 날짜"}</label>
-            <input type="date" value={form.recordDate || ""}
-              onChange={(e) => set("recordDate", e.target.value)}
-              max={new Date().toISOString().split("T")[0]}/>
-          </div>
-
           {/* ── 섹션: 장비 설정 ── */}
           <div style={{ gridColumn:"1 / -1", margin:"36px 0 16px" }}>
-            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>장비 설정</span>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Equipment" : "장비 설정"}</span>
             <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
           </div>
 
           {/* 내 장비에서 선택 */}
           {myEquips.length > 0 && (
-            <div className="field full" style={{ background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"16px" }}>
+            <div className="field full">
               <label style={{ display:"flex", alignItems:"center", gap:"6px" }}>
                 <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1.5" y="4" width="9" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4 4V3a2 2 0 0 1 4 0v1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M10.5 7h1.5a1.5 1.5 0 0 1 0 3h-1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
                 {lang === "en" ? "Select from My Gear" : "내 장비에서 선택"}
@@ -1236,16 +1148,16 @@ export default function RecipeModal({
               {[
                 { cat:"machine",  labelKo:"커피 머신",    labelEn:"Machine" },
                 { cat:"handdrip", labelKo:"핸드드립 기구", labelEn:"Hand Drip" },
-                { cat:"other",    labelKo:"기타",         labelEn:"Other" },
                 { cat:"grinder",  labelKo:"그라인더",     labelEn:"Grinder" },
+                { cat:"other",    labelKo:"기타",         labelEn:"Other" },
               ].map(({ cat, labelKo, labelEn }) => {
                 if (cat === "machine"  && selectedMenu === "hand_drip") return null;
                 if (cat === "handdrip" && selectedMenu && selectedMenu !== "hand_drip" && selectedMenu !== "other") return null;
                 const catEquips = myEquips.filter((e) => e.category === cat);
                 if (!catEquips.length) return null;
                 return (
-                  <div key={cat} style={{ marginBottom:"20px", marginTop: cat === "grinder" ? "12px" : 0, paddingTop: cat === "grinder" ? "12px" : 0, borderTop: cat === "grinder" ? "2px solid var(--divider)" : "none" }}>
-                    <div style={{ fontSize:"0.64rem", fontWeight:700, color:"var(--latte)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"7px", paddingBottom:"4px", borderBottom:"1px solid var(--divider)" }}>
+                  <div key={cat} style={{ marginBottom:"8px" }}>
+                    <div style={{ fontSize:"0.62rem", color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:"5px" }}>
                       {lang === "en" ? labelEn : labelKo}
                     </div>
                     <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
@@ -1279,32 +1191,6 @@ export default function RecipeModal({
                   </div>
                 );
               })}
-
-              {/* 분쇄도 — 그라인더 선택과 한 카드 안에서 이어지게 표시 */}
-              {!isAutoMode && (
-                <div style={{ marginTop:"2px" }}>
-                  <div style={{ fontSize:"0.64rem", fontWeight:700, color:"var(--latte)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:"7px", paddingBottom:"4px", borderBottom:"1px solid var(--divider)" }}>
-                    {lang === "en" ? "Grind Size" : "분쇄도"}
-                  </div>
-                  <input value={form.grindSize} onChange={(e) => set("grindSize", e.target.value)}
-                    placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"}
-                    style={{ width:"100%", padding:"0.7rem 1rem", border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.9rem", color:"var(--espresso)", outline:"none", boxSizing:"border-box" }}/>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 분쇄도 (내 장비 카드가 없을 때의 대체 — 독립 박스로 표시) */}
-          {myEquips.length === 0 && !isAutoMode && (
-            <div className="field full" style={{ marginTop:"8px" }}>
-              <div style={{ background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"14px 16px" }}>
-                <label style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"8px" }}>
-                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="var(--latte)" strokeWidth="1.4"/><circle cx="8" cy="8" r="2" fill="var(--latte)"/></svg>
-                  {lang === "en" ? "Grind Size" : "분쇄도"}
-                </label>
-                <input value={form.grindSize} onChange={(e) => set("grindSize", e.target.value)}
-                  placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"}/>
-              </div>
             </div>
           )}
 
@@ -1421,82 +1307,71 @@ export default function RecipeModal({
             )
           )}
 
-          {/* 바스켓 (핸드드립 아닐 때만) — 브랜드/사이즈/용량을 하나의 카드로 묶어서 "바스켓 설정"이라는 한 그룹임을 명확히 함 */}
+          {/* 분쇄도 (전자동 아닐 때) */}
+          {!isAutoMode && (
+            <div className="field full">
+              <label>{lang === "en" ? "Grind Size" : "분쇄도"}</label>
+              <input value={form.grindSize} onChange={(e) => set("grindSize", e.target.value)}
+                placeholder={lang === "en" ? "e.g. 15, Medium-Fine …" : "예) 15, 중세 …"}/>
+            </div>
+          )}
+
+          {/* 바스켓 (핸드드립 아닐 때만 — 에스프레소 추출 관련 변수) */}
           {machineType !== "handdrip" && (
-            <div className="field full" style={{ marginTop:"8px" }}>
-              <div style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"var(--r-card)", padding:"16px", display:"flex", flexDirection:"column", gap:"14px" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 6h10l-1 7H4L3 6z" stroke="var(--latte)" strokeWidth="1.3" strokeLinejoin="round"/><path d="M3 6h10" stroke="var(--latte)" strokeWidth="1.3"/></svg>
-                  <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.06em", textTransform:"uppercase" }}>
-                    {lang === "en" ? "Basket Settings" : "바스켓 설정"}
-                  </span>
+            <>
+              <div className="field full">
+                <label>{lang === "en" ? "Basket Brand" : "바스켓 브랜드"}</label>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", marginBottom:"8px" }}>
+                  {["기본 제공", "VST", "IMS", "Pullman", "직접입력"].map(b => (
+                    <button key={b} type="button"
+                      onClick={() => set("basketBrand", b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand) ? form.basketBrand : "") : b)}
+                      style={{
+                        padding:"6px 12px", borderRadius:"999px", border:"1px solid",
+                        borderColor: (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--espresso)" : "var(--steam)",
+                        background:  (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--espresso)" : "var(--foam)",
+                        color:       (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--cream)" : "var(--muted)",
+                        fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", cursor:"pointer", transition:"all 0.15s" }}>
+                      {b === "기본 제공" ? (lang === "en" ? "Stock" : "기본 제공") : b === "직접입력" ? (lang === "en" ? "Other" : "직접입력") : b}
+                    </button>
+                  ))}
                 </div>
+                {(form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) || form.basketBrand === "" ? (
+                  <input value={["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand) ? "" : form.basketBrand}
+                    onChange={(e) => set("basketBrand", e.target.value)}
+                    placeholder={lang === "en" ? "e.g. Decent, Synesso…" : "예) 디센트, 시네소 등 직접 입력"}/>
+                ) : null}
+              </div>
 
-                {/* 브랜드 */}
-                <div>
-                  <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
-                    {lang === "en" ? "Brand" : "브랜드"}
-                  </label>
-                  <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", marginBottom:"8px" }}>
-                    {["기본 제공", "VST", "IMS", "Pullman", "직접입력"].map(b => (
-                      <button key={b} type="button"
-                        onClick={() => set("basketBrand", b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand) ? form.basketBrand : "") : b)}
-                        style={{
-                          padding:"6px 12px", borderRadius:"999px", border:"1px solid",
-                          borderColor: (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--espresso)" : "var(--steam)",
-                          background:  (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--espresso)" : "var(--foam)",
-                          color:       (b === "직접입력" ? (form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) : form.basketBrand === b) ? "var(--cream)" : "var(--muted)",
-                          fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", cursor:"pointer", transition:"all 0.15s" }}>
-                        {b === "기본 제공" ? (lang === "en" ? "Stock" : "기본 제공") : b === "직접입력" ? (lang === "en" ? "Other" : "직접입력") : b}
-                      </button>
-                    ))}
-                  </div>
-                  {(form.basketBrand && !["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand)) || form.basketBrand === "" ? (
-                    <input value={["기본 제공","VST","IMS","Pullman"].includes(form.basketBrand) ? "" : form.basketBrand}
-                      onChange={(e) => set("basketBrand", e.target.value)}
-                      placeholder={lang === "en" ? "e.g. Decent, Synesso…" : "예) 디센트, 시네소 등 직접 입력"}/>
-                  ) : null}
-                </div>
-
-                {/* 사이즈 */}
-                <div>
-                  <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
-                    {lang === "en" ? "Size" : "사이즈"}
-                  </label>
-                  <div style={{ display:"flex", gap:"8px" }}>
-                    {[["single", lang === "en" ? "Single" : "싱글"], ["double", lang === "en" ? "Double" : "더블"], ["triple", lang === "en" ? "Triple" : "트리플"]].map(([v, lbl]) => (
-                      <button key={v} type="button" onClick={() => set("basketSize", v)}
-                        style={{ flex:1, padding:"9px", borderRadius:"8px", border:"1px solid",
-                          borderColor: form.basketSize === v ? "var(--espresso)" : "var(--steam)",
-                          background:  form.basketSize === v ? "var(--espresso)" : "var(--foam)",
-                          color:       form.basketSize === v ? "var(--cream)" : "var(--muted)",
-                          fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", cursor:"pointer", transition:"all 0.15s" }}>
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 용량 */}
-                <div>
-                  <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
-                    {lang === "en" ? "Capacity (g, optional)" : "용량(g, 선택)"}
-                  </label>
-                  <input type="number" step="0.5" value={form.basketCapacity} onChange={(e) => set("basketCapacity", e.target.value)}
-                    placeholder={lang === "en" ? "e.g. 18, 20, 22 (VST/IMS spec)" : "예) 18, 20, 22 (VST/IMS 표기 용량)"}
-                    style={{ width:"100%", padding:"0.7rem 1rem", border:"1px solid var(--steam)", borderRadius:"var(--r-btn)", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.9rem", color:"var(--espresso)", outline:"none", boxSizing:"border-box" }}/>
+              <div className="field full">
+                <label>{lang === "en" ? "Basket Size" : "바스켓 사이즈"}</label>
+                <div style={{ display:"flex", gap:"8px" }}>
+                  {[["single", lang === "en" ? "Single" : "싱글"], ["double", lang === "en" ? "Double" : "더블"], ["triple", lang === "en" ? "Triple" : "트리플"]].map(([v, lbl]) => (
+                    <button key={v} type="button" onClick={() => set("basketSize", v)}
+                      style={{ flex:1, padding:"9px", borderRadius:"8px", border:"1px solid",
+                        borderColor: form.basketSize === v ? "var(--espresso)" : "var(--steam)",
+                        background:  form.basketSize === v ? "var(--espresso)" : "var(--foam)",
+                        color:       form.basketSize === v ? "var(--cream)" : "var(--muted)",
+                        fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", cursor:"pointer", transition:"all 0.15s" }}>
+                      {lbl}
+                    </button>
+                  ))}
                 </div>
               </div>
-            </div>
+
+              <div className="field full">
+                <label>{lang === "en" ? "Basket Capacity (g, optional)" : "바스켓 용량(g, 선택)"}</label>
+                <input type="number" step="0.5" value={form.basketCapacity} onChange={(e) => set("basketCapacity", e.target.value)}
+                  placeholder={lang === "en" ? "e.g. 18, 20, 22 (VST/IMS spec)" : "예) 18, 20, 22 (VST/IMS 표기 용량)"}/>
+              </div>
+            </>
           )}
 
           {/* ── 섹션: 추출 파라미터 ── */}
           <div style={{ gridColumn:"1 / -1", margin:"36px 0 16px" }}>
-            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>추출 파라미터</span>
+            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Extraction Parameters" : "추출 파라미터"}</span>
             <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
           </div>
 
-          <div style={{ gridColumn:"1 / -1", display:"grid", gridTemplateColumns:"1fr 1fr", gap:"12px", background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"16px" }}>
           {/* 원두량 */}
           {isAutoMode ? (
             <div className="field full">
@@ -1540,151 +1415,22 @@ export default function RecipeModal({
             </div>
           )}
 
-          {/* 추출 시간 — 메뉴에 따라 다른 타이머 */}
+          {/* 추출 시간 — Timer 컴포넌트 */}
           <div className="field" data-field="seconds">
             <label style={{ color: errors.seconds ? "#c0392b" : undefined }}>{t.seconds}</label>
-            {selectedMenu === "hand_drip" ? (
-              <HandDripTimer
-                value={form.seconds}
-                pourStages={form.pourStages}
-                onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
-                onStagesChange={setPourStages}
-                lang={lang}
-              />
-            ) : (
-              <Timer
-                value={form.seconds}
-                infusionValue={form.infusionSeconds || "0"}
-                onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
-                onInfusionChange={(v) => set("infusionSeconds", v)}
-                lang={lang} t={t}
-              />
-            )}
+            <Timer
+              value={form.seconds}
+              infusionValue={form.infusionSeconds || "0"}
+              onChange={(v) => { set("seconds", v); setErrors((p) => ({ ...p, seconds:false })); }}
+              onInfusionChange={(v) => set("infusionSeconds", v)}
+              lang={lang} t={t}
+            />
             {errors.seconds && <p style={{ color:"#c0392b", fontSize:"0.78rem", marginTop:"0.3rem" }}>{lang === "en" ? "⚠️ Required" : "⚠️ 필수 항목이에요"}</p>}
           </div>
 
-          {/* 푸어 단계별 기록 — 핸드드립 전용. 위 타이머에서 "구간 기록"을 누르면 시간이 자동으로 여기 채워짐 */}
-          {selectedMenu === "hand_drip" && (
-            <div className="field full" data-field="pourStages">
-              <label>{lang === "en" ? "Pour Stages (optional)" : "푸어 단계 기록 (선택)"}</label>
-              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginBottom:"10px", lineHeight:1.5 }}>
-                {lang === "en"
-                  ? "Tap \"Record Stage\" on the timer above to auto-fill the time, then fill in the title/amount/description so others can follow your recipe step by step."
-                  : "위 타이머에서 \"구간 기록\"을 누르면 시간이 자동으로 채워져요. 제목·물량·설명을 채우면 다른 사람도 그대로 따라 할 수 있어요."}
-              </p>
-
-              {(() => {
-                const raw = form.pourStages || [];
-                // time = 각 구간 자체의 길이(duration). 배열 순서가 곧 브루잉 순서이므로
-                // 정렬하지 않고 순서대로 누적해서 시작~종료 구간을 계산함
-                let cum = 0;
-                const withCum = raw.map((stage) => {
-                  const dur = parseInt(stage.time) || 0;
-                  const start = cum;
-                  cum += dur;
-                  return { stage, start, end: cum };
-                });
-                const total = cum;
-
-                const updateStage = (origIdx, patch) => {
-                  const next = [...raw];
-                  next[origIdx] = { ...next[origIdx], ...patch };
-                  setPourStages(next);
-                };
-                const removeStage = (origIdx) => setPourStages(raw.filter((_, idx) => idx !== origIdx));
-
-                return (
-                  <>
-                    {withCum.map(({ stage, start, end }, origIdx) => (
-                  <div key={origIdx} style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"12px", marginBottom:"10px" }}>
-                    {/* 헤더 행: 번호 + 누적 시간범위 + 삭제 */}
-                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"8px" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                        <span style={{ width:"20px", height:"20px", borderRadius:"50%", background:"var(--espresso)", color:"var(--cream)", fontSize:"0.68rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{origIdx+1}</span>
-                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)" }}>
-                          {start}{lang==="en"?"s":"초"} → {end}{lang==="en"?"s":"초"} {lang==="en"?"(cumulative)":"(누적)"}
-                        </span>
-                      </div>
-                      <button type="button"
-                        onClick={() => removeStage(origIdx)}
-                        style={{ background:"none", border:"none", color:"var(--muted)", cursor:"pointer", fontSize:"1rem", padding:"2px" }}>✕</button>
-                    </div>
-
-                    {/* 구간 길이(초) / 물량 */}
-                    <div style={{ display:"flex", gap:"8px", alignItems:"center", marginBottom:"8px" }}>
-                      <input type="number" min="0" value={stage.time}
-                        onChange={e => updateStage(origIdx, { time: e.target.value })}
-                        placeholder={lang === "en" ? "sec" : "초"}
-                        style={{ width:"64px", padding:"0.55rem 0.4rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", textAlign:"center", boxSizing:"border-box" }}/>
-                      <span style={{ fontSize:"0.72rem", color:"var(--muted)", flexShrink:0 }}>{lang==="en"?"s (this stage) →":"초 (이 구간 길이) →"}</span>
-                      <input type="number" min="0" value={stage.amount}
-                        onChange={e => updateStage(origIdx, { amount: e.target.value })}
-                        placeholder={lang === "en" ? "total ml" : "누적 ml"}
-                        style={{ width:"76px", padding:"0.55rem 0.4rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", textAlign:"center", boxSizing:"border-box" }}/>
-                      <span style={{ fontSize:"0.72rem", color:"var(--muted)", flexShrink:0 }}>ml</span>
-                    </div>
-
-                    {/* 제목 (프리셋 칩) */}
-                    <input value={stage.label || ""}
-                      onChange={e => updateStage(origIdx, { label: e.target.value })}
-                      placeholder={lang === "en" ? "Stage title, e.g. Pre-infusion" : "단계 제목, 예) 뜸 들이기 (Pre-infusion)"}
-                      style={{ width:"100%", padding:"0.6rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:600, boxSizing:"border-box", marginBottom:"6px" }}/>
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:"5px", marginBottom:"8px" }}>
-                      {(lang==="en"
-                        ? ["Pre-infusion","Main Extraction","2nd Pour","3rd Pour","Drawdown","Remove Dripper"]
-                        : ["뜸 들이기","1차 추출","2차 추출","3차 추출","낙수","드리퍼 제거"]
-                      ).map(preset => (
-                        <button key={preset} type="button"
-                          onClick={() => updateStage(origIdx, { label: preset })}
-                          style={{ padding:"3px 9px", borderRadius:"999px", border:"1px solid var(--steam)", background:"var(--foam)", color:"var(--muted)", fontSize:"0.66rem", fontFamily:"'DM Sans',sans-serif", cursor:"pointer" }}>
-                          {preset}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* 상세 설명 */}
-                    <textarea value={stage.desc || ""}
-                      onChange={e => updateStage(origIdx, { desc: e.target.value })}
-                      rows={2}
-                      placeholder={lang === "en" ? "How to pour, technique tips..." : "붓는 방법, 요령 등을 자유롭게 적어주세요"}
-                      style={{ width:"100%", padding:"0.6rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", resize:"vertical", boxSizing:"border-box" }}/>
-                  </div>
-                    ))}
-
-                    {/* 총 시간 표시 — 개별 구간이 아니라 여기 한 번만 */}
-                    {total > 0 && (
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", background:"var(--foam)", border:"1px solid var(--divider)", borderRadius:"8px", marginBottom:"10px" }}>
-                        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", color:"var(--muted)" }}>
-                          {lang === "en" ? "Total planned time" : "계획된 총 시간"}
-                        </span>
-                        <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.1rem", fontWeight:700, color:"var(--espresso)" }}>
-                          {Math.floor(total/60)}:{String(total%60).padStart(2,"0")}
-                        </span>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-
-              <button type="button"
-                onClick={() => setPourStages([...(form.pourStages || []), { time:"", amount:"", label:"", desc:"" }])}
-                style={{ width:"100%", padding:"10px", border:"1px dashed var(--latte)", borderRadius:"8px", background:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--latte)", fontWeight:500, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px" }}>
-                <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                {lang === "en" ? "Add Stage" : "단계 추가"}
-              </button>
-            </div>
-          )}
-
-          {/* 추출량 — 핸드드립은 푸어 단계의 최종 누적량으로 자동계산(수동 수정 가능) */}
+          {/* 추출량 */}
           <div className="field" data-field="espressoMl">
-            <label style={{ color: errors.espressoMl ? "#c0392b" : undefined }}>
-              {t.espressoMl}
-              {selectedMenu === "hand_drip" && (form.pourStages || []).some(s => parseInt(s.amount) > 0) && (
-                <span style={{ fontWeight:400, color:"var(--muted)", fontSize:"0.7rem", marginLeft:"6px" }}>
-                  {lang === "en" ? "(auto from stages)" : "(구간 기록 기준 자동계산)"}
-                </span>
-              )}
-            </label>
+            <label style={{ color: errors.espressoMl ? "#c0392b" : undefined }}>{t.espressoMl}</label>
             <input type="number" value={form.espressoMl}
               onChange={(e) => { set("espressoMl", String(Math.max(0, Number(e.target.value)))); setErrors((p) => ({ ...p, espressoMl:false })); }}
               placeholder="36" min="0"
@@ -1802,7 +1548,6 @@ export default function RecipeModal({
                 placeholder="바닐라 시럽 1펌프, 카라멜 시럽 2펌프 …"/>
             </div>
           )}
-          </div>
 
 
           {/* ── 섹션 구분선 ── */}
@@ -1818,24 +1563,6 @@ export default function RecipeModal({
                   {lang === "en" ? "Advanced Brew Log" : "추출 세부 기록"}
                 </span>
               </div>
-              {/* 예상 압력 (입력값 기반 자동계산) */}
-              {machineType !== "handdrip" && pressureData && (
-                <div className={`pressure-box ${pressureData.status}`} style={{ marginBottom:0 }}>
-                  <div className="pressure-title">{t.pressureTitle}</div>
-                  <div className="pressure-row">
-                    <span style={{ color:"var(--muted)" }}>{t.brewPressure}</span>
-                    <span className={`pressure-val pressure-${pressureData.status}`}>
-                      {pressureData.status === "high"
-                        ? `9 bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${pressureData.pumpBar} bar)`
-                        : `${pressureData.showerBar} bar`}
-                    </span>
-                  </div>
-                  <div style={{ marginTop:"0.3rem", fontSize:"0.78rem", color:"var(--muted)" }}>
-                    {pressureData.status === "good" ? t.pressureGood : pressureData.status === "high" ? t.pressureHigh : t.pressureLow}
-                    {" "}({t.pressureRange})
-                  </div>
-                </div>
-              )}
               {/* 압력 직접 입력 */}
               <div>
                 <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
@@ -2040,7 +1767,7 @@ export default function RecipeModal({
 
           {/* ── 날씨 기반 파라미터 팁 ── */}
           {!isEdit && (ruleTip || geminiTip || tipLoading) && (
-            <div className="field full" data-tutorial="ai-tip-card">
+            <div className="field full">
               <div style={{ background:"linear-gradient(135deg,#1A1A1A 0%,#2C1A0E 100%)", borderRadius:"12px", padding:"14px 16px", position:"relative", overflow:"hidden" }}>
                 {/* 배경 장식 */}
                 <div style={{ position:"absolute", right:-16, top:-16, width:72, height:72, borderRadius:"50%", background:"rgba(176,125,84,0.12)", pointerEvents:"none" }}/>
@@ -2120,7 +1847,15 @@ export default function RecipeModal({
             <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Rating & Notes" : "평가"}</span>
             <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
           </div>
-          <div className="field full flavor-radar-wrap" style={{ background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"16px" }}>
+          {/* 기록 날짜 */}
+          <div className="field full">
+            <label>{lang === "en" ? "Brew Date" : "기록 날짜"}</label>
+            <input type="date" value={form.recordDate || ""}
+              onChange={(e) => set("recordDate", e.target.value)}
+              max={new Date().toISOString().split("T")[0]}/>
+          </div>
+
+          <div className="field full flavor-radar-wrap">
             <label style={{ marginBottom:"16px", display:"block" }}>
               {lang === "en" ? "Flavor Profile" : "플레이버 프로파일"}
             </label>
@@ -2156,110 +1891,45 @@ export default function RecipeModal({
             </div>
           </div>
 
-          {/* 평가 (별점 + 맛노트) — 하나의 카드로 묶음 */}
-          <div className="field full" style={{ background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"16px", display:"flex", flexDirection:"column", gap:"14px" }}>
-            <div>
-              <label style={{ marginBottom:"6px", display:"block" }}>{t.rating}</label>
-              <div className="star-rating">
-                {[1,2,3,4,5].map((star) => (
-                  <button key={star} type="button"
-                    className={`star-btn ${star <= (form.rating || 0) ? "active" : ""}`}
-                    onClick={() => set("rating", form.rating === star ? 0 : star)}>
-                    {star <= (form.rating || 0) ? "★" : "☆"}
-                  </button>
-                ))}
-                <span className="star-label">{t.ratingLabels[form.rating || 0]}</span>
-              </div>
-            </div>
-            <div>
-              <label style={{ marginBottom:"6px", display:"block" }}>{t.note}</label>
-              <textarea value={form.note} onChange={(e) => set("note", e.target.value)}
-                placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"}/>
-            </div>
-          </div>
-
-          {/* ── 섹션 구분선 ── */}
-          <div style={{ gridColumn:"1 / -1", margin:"28px 0 14px" }}>
-            <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "More Details (optional)" : "더 알려주기 (선택)"}</span>
-            <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
-          </div>
-
-          {/* 제조 순서 (선택) — 구획(섹션) 단위로 묶어서 기록. 흑임자라떼처럼 "크림 만들기" 같은 하위 작업이 있는 음료에 유용 */}
+          {/* 별점 */}
           <div className="field full">
-            <label style={{ display:"flex", alignItems:"center", gap:"6px" }}>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="3.5" r="1.3" fill="currentColor"/><circle cx="3" cy="8" r="1.3" fill="currentColor"/><circle cx="3" cy="12.5" r="1.3" fill="currentColor"/><path d="M6.5 3.5h7M6.5 8h7M6.5 12.5h7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-              {lang === "en" ? "Preparation Steps (optional)" : "제조 순서 (선택)"}
-            </label>
-            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginBottom:"10px", lineHeight:1.5 }}>
-              {lang === "en"
-                ? "Group steps into sections (e.g. \"Pull espresso\" / \"Make the cream\" / \"Assemble\") so the flow reads clearly, like a recipe card."
-                : "\"에스프레소 추출\" / \"흑임자 크림 만들기\" / \"조립하기\"처럼 구획으로 묶으면 흐름이 훨씬 잘 읽혀요."}
-            </p>
-
-            {(form.recipeSteps || []).map((section, si) => (
-              <div key={si} style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"10px", padding:"12px", marginBottom:"10px" }}>
-                {/* 구획 헤더 */}
-                <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"10px" }}>
-                  <span style={{ width:"20px", height:"20px", borderRadius:"50%", background:"var(--espresso)", color:"var(--cream)", fontSize:"0.68rem", fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{si+1}</span>
-                  <input value={section.section || ""}
-                    onChange={e => { const next=[...(form.recipeSteps||[])]; next[si]={...next[si], section:e.target.value}; setRecipeSteps(next); }}
-                    placeholder={lang === "en" ? "Section title, e.g. Make the cream" : "구획 제목, 예) 흑임자 크림 만들기"}
-                    style={{ flex:1, padding:"0.55rem 0.7rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", fontWeight:700, boxSizing:"border-box" }}/>
-                  <button type="button"
-                    onClick={() => setRecipeSteps((form.recipeSteps || []).filter((_, idx) => idx !== si))}
-                    style={{ background:"none", border:"none", color:"var(--muted)", cursor:"pointer", fontSize:"1rem", padding:"4px", flexShrink:0 }}>✕</button>
-                </div>
-
-                {/* 구획 안 세부 단계들 */}
-                {(section.steps || []).map((step, ti) => (
-                  <div key={ti} style={{ display:"flex", gap:"8px", alignItems:"flex-start", marginBottom:"8px", paddingLeft:"28px" }}>
-                    <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", flexShrink:0, marginTop:"9px" }}>{ti+1}.</span>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <input value={step.title || ""}
-                        onChange={e => { const next=[...(form.recipeSteps||[])]; const steps=[...(next[si].steps||[])]; steps[ti]={...steps[ti],title:e.target.value}; next[si]={...next[si],steps}; setRecipeSteps(next); }}
-                        placeholder={lang === "en" ? "e.g. Whisk cream to yogurt-like thickness" : "예) 요거트 농도로 휘핑하기"}
-                        style={{ width:"100%", padding:"0.5rem 0.65rem", border:"1px solid var(--steam)", borderRadius:"7px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", fontWeight:600, boxSizing:"border-box", marginBottom:"5px" }}/>
-                      <textarea value={step.desc || ""}
-                        onChange={e => { const next=[...(form.recipeSteps||[])]; const steps=[...(next[si].steps||[])]; steps[ti]={...steps[ti],desc:e.target.value}; next[si]={...next[si],steps}; setRecipeSteps(next); }}
-                        rows={1}
-                        placeholder={lang === "en" ? "Details / ingredients (optional)" : "재료·요령 등 세부 설명 (선택)"}
-                        style={{ width:"100%", padding:"0.45rem 0.65rem", border:"1px solid var(--steam)", borderRadius:"7px", background:"var(--foam)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", resize:"vertical", boxSizing:"border-box" }}/>
-                    </div>
-                    <button type="button"
-                      onClick={() => { const next=[...(form.recipeSteps||[])]; next[si]={...next[si], steps:(next[si].steps||[]).filter((_,idx)=>idx!==ti)}; setRecipeSteps(next); }}
-                      style={{ background:"none", border:"none", color:"var(--muted)", cursor:"pointer", fontSize:"0.9rem", padding:"4px", flexShrink:0, marginTop:"3px" }}>✕</button>
-                  </div>
-                ))}
-
-                <button type="button"
-                  onClick={() => { const next=[...(form.recipeSteps||[])]; next[si]={...next[si], steps:[...(next[si].steps||[]), {title:"",desc:""}]}; setRecipeSteps(next); }}
-                  style={{ marginLeft:"28px", width:"calc(100% - 28px)", padding:"7px", border:"1px dashed var(--steam)", borderRadius:"7px", background:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.76rem", color:"var(--muted)" }}>
-                  {lang === "en" ? "+ Add step in this section" : "+ 이 구획에 단계 추가"}
+            <label>{t.rating}</label>
+            <div className="star-rating">
+              {[1,2,3,4,5].map((star) => (
+                <button key={star} type="button"
+                  className={`star-btn ${star <= (form.rating || 0) ? "active" : ""}`}
+                  onClick={() => set("rating", form.rating === star ? 0 : star)}>
+                  {star <= (form.rating || 0) ? "★" : "☆"}
                 </button>
-              </div>
-            ))}
-
-            <button type="button"
-              onClick={() => setRecipeSteps([...(form.recipeSteps || []), { section:"", steps:[] }])}
-              style={{ width:"100%", padding:"10px", border:"1px dashed var(--latte)", borderRadius:"8px", background:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:"0.82rem", color:"var(--latte)", fontWeight:500, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px" }}>
-              <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-              {lang === "en" ? "Add Section" : "구획 추가"}
-            </button>
+              ))}
+              <span className="star-label">{t.ratingLabels[form.rating || 0]}</span>
+            </div>
           </div>
 
-          {/* 인스타그램 게시물 링크 (선택) — 사진 대신 실제 인스타 카드가 그대로 임베드됨 */}
+          {/* 예상 압력 */}
+          {machineType !== "handdrip" && pressureData && (
+            <div className={`pressure-box ${pressureData.status} field full`} style={{ marginBottom:0 }}>
+              <div className="pressure-title">{t.pressureTitle}</div>
+              <div className="pressure-row">
+                <span style={{ color:"var(--muted)" }}>{t.brewPressure}</span>
+                <span className={`pressure-val pressure-${pressureData.status}`}>
+                  {pressureData.status === "high"
+                    ? `9 bar - (${lang === "en" ? "Pump" : "펌프 압력"} ${pressureData.pumpBar} bar)`
+                    : `${pressureData.showerBar} bar`}
+                </span>
+              </div>
+              <div style={{ marginTop:"0.3rem", fontSize:"0.78rem", color:"var(--muted)" }}>
+                {pressureData.status === "good" ? t.pressureGood : pressureData.status === "high" ? t.pressureHigh : t.pressureLow}
+                {" "}({t.pressureRange})
+              </div>
+            </div>
+          )}
+
+          {/* 맛 노트 */}
           <div className="field full">
-            <label style={{ display:"flex", alignItems:"center", gap:"6px" }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.6"/><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.6"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
-              {lang === "en" ? "Instagram Post (optional)" : "인스타그램 게시물 (선택)"}
-            </label>
-            <input value={form.igUrl} onChange={(e) => set("igUrl", e.target.value.trim())}
-              placeholder="https://www.instagram.com/p/..." />
-            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.7rem", color:"var(--muted)", marginTop:"5px", lineHeight:1.5 }}>
-              {lang === "en"
-                ? "Paste a public Instagram post link and it'll show up as a real embedded card on your recipe."
-                : "공개 인스타그램 게시물 링크를 붙여넣으면 레시피에 실제 카드로 그대로 보여져요."}
-            </p>
+            <label>{t.note}</label>
+            <textarea value={form.note} onChange={(e) => set("note", e.target.value)}
+              placeholder={lang === "en" ? "Bright acidity with fruity aroma…" : "산미가 밝고 과일향이 가득했어요 …"}/>
           </div>
 
           {/* 태그 */}
@@ -2310,7 +1980,7 @@ export default function RecipeModal({
 
         {/* 프리셋으로 저장 버튼 */}
         <div style={{ display:"flex", justifyContent:"flex-end", marginTop:"16px" }}>
-          <button type="button" data-tutorial="preset-save-btn"
+          <button type="button"
             onClick={() => presets.length < PRESET_LIMIT && setShowPresetSave(true)}
             disabled={presets.length >= PRESET_LIMIT}
             style={{
@@ -2333,7 +2003,7 @@ export default function RecipeModal({
 
         <div className="modal-actions">
           <button className="btn-cancel" onClick={onClose}>{t.cancel}</button>
-          <button className="btn-primary" data-tutorial="recipe-save-btn" style={{ width:"auto", marginTop:0, padding:"0.7rem 2rem" }}
+          <button className="btn-primary" style={{ width:"auto", marginTop:0, padding:"0.7rem 2rem" }}
             onClick={save} disabled={saving}>
             {saving ? t.saving : isEdit ? t.update : t.save}
           </button>
