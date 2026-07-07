@@ -928,7 +928,7 @@ export default function RecipeModal({
       className="modal-backdrop"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal" ref={modalRef}>
+      <div className="modal modal--framed" ref={modalRef}>
         <div className="modal-sticky-header">
           <h2 style={{ marginBottom:"10px" }}>
             {isEdit
@@ -1016,6 +1016,7 @@ export default function RecipeModal({
           </div>
         </div>
 
+        <div className="modal-scroll-body">
         {/* 프리셋 저장 오버레이 */}
         {showPresetSave && (
           <div style={{ position:"fixed", inset:0, background:"#0005", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}
@@ -2334,6 +2335,7 @@ export default function RecipeModal({
             onClick={save} disabled={saving}>
             {saving ? t.saving : isEdit ? t.update : t.save}
           </button>
+        </div>
         </div>
       </div>
     </div>

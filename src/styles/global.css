@@ -1186,27 +1186,29 @@ html {
 }
 @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* 모달 내부 sticky 헤더 — 부모(.modal)의 상단 패딩/safe-area까지 배경을 끌어올려서
-   스크롤 시 그 틈으로 뒤 콘텐츠가 비치거나 헤더가 슬쩍 밀려 보이는 문제 방지.
-   좌우는 절대 건드리지 않음(스크롤바 폭 등으로 폭이 어긋나 진행바가 좁아 보이는 부작용 있었음). */
-.modal-sticky-header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  background: var(--foam);
-  margin: -32px 0 18px;
-  padding-top: 32px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--divider);
-  transform: translateZ(0);
-  will-change: transform;
-  backface-visibility: hidden;
+/* RecipeModal 전용 — 헤더(제목+진행바+프리셋)를 완전히 고정하고 그 아래만 별도로 스크롤되게 함
+   (엑셀 틀고정과 동일한 원리). sticky처럼 스크롤 중 재계산/리페인트가 필요 없어서
+   내용이 헤더 위로 비치거나 밀려 보이는 현상이 구조적으로 발생할 수 없음.
+   .modal 자체는 다른 모달들과 공유하므로 절대 수정하지 않고, 이 변형 클래스로만 적용. */
+.modal--framed {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-@media (max-width: 600px) {
-  .modal-sticky-header {
-    margin-top: calc(-1 * max(56px, env(safe-area-inset-top, 56px)));
-    padding-top: max(56px, env(safe-area-inset-top, 56px));
-  }
+.modal-scroll-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.modal-sticky-header {
+  flex-shrink: 0;
+  background: var(--foam);
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--divider);
 }
 .modal::before {
   content: '';
