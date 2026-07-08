@@ -444,12 +444,6 @@ export default function RecipeDetailModal({
                     {ln.label}
                   </span>
                 ))}
-                {zones.map(z => (
-                  <span key={z.label} style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"var(--muted)" }}>
-                    <span style={{ width:"9px", height:"9px", background:z.color, opacity:0.35, borderRadius:"2px", display:"inline-block" }}/>
-                    {z.label}
-                  </span>
-                ))}
               </div>
               <div style={{ textAlign:"center", fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"var(--muted)", marginTop:"8px" }}>
                 {lang==="en" ? `This recipe's ratio — 1 : ${ratio.r}` : `이 레시피의 추출비 — 1 : ${ratio.r}`}
