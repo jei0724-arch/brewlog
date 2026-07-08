@@ -400,6 +400,17 @@ export default function RecipeDetailModal({
                 <path d={areaD} fill={`url(#tasteGrad-${recipe.id})`} opacity="0.88"/>
                 <path d={curveD} fill="none" stroke="var(--espresso)" strokeWidth="2" strokeLinejoin="round"/>
 
+                {/* 구간 라벨 — 곡선 위에 직접 얹어서 어느 쪽이 무슨 맛인지 바로 보이게 */}
+                {[
+                  { ratioAt: 0.55, l: lang==="en"?"Sour":"신맛" },
+                  { ratioAt: 2.05, l: lang==="en"?"Sweet":"단맛" },
+                  { ratioAt: 3.65, l: lang==="en"?"Bitter":"쓴맛" },
+                ].map(z => (
+                  <text key={z.l} x={padL + (z.ratioAt/maxRatio)*chartW} y={padT + 18} fontSize="12.5" fontWeight="700"
+                    fill="#fff" stroke="rgba(0,0,0,0.35)" strokeWidth="2.5" paintOrder="stroke" textAnchor="middle" fontFamily="'DM Sans',sans-serif">
+                    {z.l}
+                  </text>
+                ))}
                 {/* X축 */}
                 <line x1={padL} y1={padT+chartH} x2={padL+chartW} y2={padT+chartH} stroke="var(--divider)" strokeWidth="1"/>
                 {[0,1,2,3,4].map(v => {
@@ -415,21 +426,11 @@ export default function RecipeDetailModal({
                 {/* 이 레시피의 실제 추출비율 위치 마커 */}
                 <line x1={markerX} y1={padT-2} x2={markerX} y2={padT+chartH} stroke="#e74c3c" strokeWidth="2"/>
                 <circle cx={markerX} cy={padT-2} r="3" fill="#e74c3c"/>
-
-                {/* 범례 */}
-                {[
-                  { c:"#f2e14d", l: lang==="en"?"Sour":"신맛" },
-                  { c:"#7dc850", l: lang==="en"?"Sweet":"단맛" },
-                  { c:"#e2584d", l: lang==="en"?"Bitter":"쓴맛" },
-                ].map((leg, i) => (
-                  <g key={leg.l} transform={`translate(${W-96}, ${16 + i*18})`}>
-                    <circle cx="0" cy="0" r="4.5" fill={leg.c} stroke="#fff" strokeWidth="1"/>
-                    <text x="9" y="3.5" fontSize="10.5" fill="var(--espresso)" fontFamily="'DM Sans',sans-serif">{leg.l}</text>
-                  </g>
-                ))}
               </svg>
               <div style={{ textAlign:"center", fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"var(--muted)", marginTop:"2px" }}>
-                {lang==="en" ? "Brew Ratio" : "추출비"}
+                {lang==="en"
+                  ? "Brew Ratio — lower ratio → sour, higher ratio → bitter"
+                  : "추출비 — 낮을수록 신맛, 높을수록 쓴맛에 가까워져요"}
               </div>
             </div>
           );
