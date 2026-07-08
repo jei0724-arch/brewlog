@@ -355,6 +355,86 @@ export default function RecipeDetailModal({
           </div>
         )}
 
+        {/* 추출비율에 따른 맛 변화 그래프 — 이 레시피의 실제 비율 위치를 빨간선으로 표시 */}
+        {ratio && (() => {
+          const W = 600, H = 210;              // viewBox 크기
+          const padL = 46, padR = 16, padT = 14, padB = 30;
+          const chartW = W - padL - padR;
+          const chartH = H - padT - padB;
+          const maxRatio = 4.5;
+
+          const N = 60;
+          const pts = Array.from({ length: N + 1 }, (_, i) => {
+            const rx = (i / N) * maxRatio;
+            const conc = Math.max(0, Math.exp(-1.0 * rx) * (1 - 0.12 * rx));
+            return [padL + (rx / maxRatio) * chartW, padT + (1 - conc) * chartH];
+          });
+          const curveD = "M" + pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" L ");
+          const areaD  = curveD + ` L ${pts[pts.length-1][0].toFixed(1)},${padT+chartH} L ${pts[0][0].toFixed(1)},${padT+chartH} Z`;
+
+          const rVal = Math.min(maxRatio, Math.max(0, parseFloat(ratio.r)));
+          const markerX = padL + (rVal / maxRatio) * chartW;
+
+          return (
+            <div style={{ marginBottom:"1rem", padding:"14px 16px", background:"var(--cream)", borderRadius:"var(--r-card)", border:"1px solid var(--divider)" }}>
+              <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", fontWeight:700, color:"var(--espresso)", marginBottom:"8px" }}>
+                {lang==="en" ? "How Extraction Ratio Affects Taste" : "에스프레소 추출비율에 따른 맛 변화도"}
+              </div>
+              <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", height:"auto", display:"block" }}>
+                <defs>
+                  <linearGradient id={`tasteGrad-${recipe.id}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%"  stopColor="#f2e14d"/>
+                    <stop offset="35%" stopColor="#7dc850"/>
+                    <stop offset="68%" stopColor="#eb9a4a"/>
+                    <stop offset="100%" stopColor="#e2584d"/>
+                  </linearGradient>
+                </defs>
+
+                {/* Y축 라벨 */}
+                <text x="10" y={padT + chartH/2} fontSize="11" fill="var(--muted)" fontFamily="'DM Sans',sans-serif"
+                  transform={`rotate(-90 10 ${padT + chartH/2})`} textAnchor="middle">
+                  {lang==="en" ? "Concentration" : "농도"}
+                </text>
+
+                {/* 곡선 + 그라데이션 채우기 */}
+                <path d={areaD} fill={`url(#tasteGrad-${recipe.id})`} opacity="0.88"/>
+                <path d={curveD} fill="none" stroke="var(--espresso)" strokeWidth="2" strokeLinejoin="round"/>
+
+                {/* X축 */}
+                <line x1={padL} y1={padT+chartH} x2={padL+chartW} y2={padT+chartH} stroke="var(--divider)" strokeWidth="1"/>
+                {[0,1,2,3,4].map(v => {
+                  const x = padL + (v/maxRatio)*chartW;
+                  return (
+                    <text key={v} x={x} y={H-8} fontSize="11" fill="var(--muted)" fontFamily="'DM Sans',sans-serif" textAnchor="middle">
+                      1:{v}
+                    </text>
+                  );
+                })}
+                <text x={padL+chartW/2} y={H} fontSize="10" fill="var(--muted)" fontFamily="'DM Sans',sans-serif" textAnchor="middle" opacity="0">.</text>
+
+                {/* 이 레시피의 실제 추출비율 위치 마커 */}
+                <line x1={markerX} y1={padT-2} x2={markerX} y2={padT+chartH} stroke="#e74c3c" strokeWidth="2"/>
+                <circle cx={markerX} cy={padT-2} r="3" fill="#e74c3c"/>
+
+                {/* 범례 */}
+                {[
+                  { c:"#f2e14d", l: lang==="en"?"Sour":"신맛" },
+                  { c:"#7dc850", l: lang==="en"?"Sweet":"단맛" },
+                  { c:"#e2584d", l: lang==="en"?"Bitter":"쓴맛" },
+                ].map((leg, i) => (
+                  <g key={leg.l} transform={`translate(${W-96}, ${16 + i*18})`}>
+                    <circle cx="0" cy="0" r="4.5" fill={leg.c} stroke="#fff" strokeWidth="1"/>
+                    <text x="9" y="3.5" fontSize="10.5" fill="var(--espresso)" fontFamily="'DM Sans',sans-serif">{leg.l}</text>
+                  </g>
+                ))}
+              </svg>
+              <div style={{ textAlign:"center", fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"var(--muted)", marginTop:"2px" }}>
+                {lang==="en" ? "Brew Ratio" : "추출비"}
+              </div>
+            </div>
+          );
+        })()}
+
         {recipe.diluteMl && <div className="card-dilution">{lang==="en"?(recipe.diluteType==="물"?"Water":recipe.diluteType==="우유"?"Milk":recipe.diluteType):recipe.diluteType} {recipe.diluteMl}ml {t.dilution}</div>}
 
         {/* 별점 */}
