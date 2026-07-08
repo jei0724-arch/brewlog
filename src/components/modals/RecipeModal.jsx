@@ -32,6 +32,7 @@ import {
   isAutoMachine, isBothModeBrand, getBuiltinGrinder,
 } from "../../utils/storage";
 import { calcPressure } from "../../utils/pressure";
+import { parseRecipeFromText } from "../../utils/aiImport";
 import { CoffeeBeanIcon, BrandInput, TagInput, FlavorRadar } from "../ui";
 import Timer from "../recipes/Timer";
 import HandDripTimer from "../recipes/HandDripTimer";
@@ -639,6 +640,52 @@ export default function RecipeModal({
     setTimeout(() => { applyingPresetRef.current = false; }, 300);
   };
 
+  // ── AI 레시피 가져오기 (인스타 캡션/블로그 텍스트 → 폼 자동 채움) ──
+  const [aiImportText,  setAiImportText]  = useState("");
+  const [aiImporting,   setAiImporting]   = useState(false);
+  const [aiImportError, setAiImportError] = useState("");
+  const [aiImportOk,    setAiImportOk]    = useState(false);
+
+  const handleAiImport = async () => {
+    if (!aiImportText.trim() || aiImporting) return;
+    setAiImporting(true); setAiImportError(""); setAiImportOk(false);
+    try {
+      const r = await parseRecipeFromText(aiImportText, lang);
+      if (!r) { setAiImporting(false); return; }
+
+      applyingPresetRef.current = true;
+      if (r.menuGuess && COFFEE_MENUS.some(m => m.id === r.menuGuess)) {
+        const m = COFFEE_MENUS.find(m => m.id === r.menuGuess);
+        selectMenu(m);
+      }
+      if (r.bean)      set("bean", String(r.bean));
+      if (r.company)   set("company", String(r.company));
+      if (r.machine)   setMachineBrand(String(r.machine));
+      if (r.grinder)   setGrinderBrand(String(r.grinder));
+      if (r.grindSize) set("grindSize", String(r.grindSize));
+      if (r.gram)       set("gram", String(r.gram));
+      if (r.espressoMl) set("espressoMl", String(r.espressoMl));
+      if (r.waterTemp)  set("waterTemp", String(r.waterTemp));
+      if (r.note)       set("note", String(r.note));
+      if (Array.isArray(r.tags) && r.tags.length) {
+        setForm((f) => ({ ...f, tags: [...new Set([...(f.tags||[]), ...r.tags.slice(0,10)])].slice(0,10) }));
+      }
+
+      if (r.menuGuess === "hand_drip" && Array.isArray(r.pourStages) && r.pourStages.length) {
+        const stages = r.pourStages.map(s => ({ time:String(parseInt(s.time)||0), amount:String(s.amount||""), label:s.label||"", desc:"" }));
+        const total  = stages.reduce((sum,s)=>sum+(parseInt(s.time)||0), 0);
+        setForm((f) => ({ ...f, pourStages: stages, seconds: total > 0 ? String(total) : f.seconds }));
+      } else if (r.seconds) {
+        set("seconds", String(r.seconds));
+      }
+      setTimeout(() => { applyingPresetRef.current = false; }, 300);
+      setAiImportOk(true);
+    } catch (e) {
+      setAiImportError(e.message || (lang==="en" ? "Import failed." : "가져오기에 실패했어요."));
+    }
+    setAiImporting(false);
+  };
+
   const savePreset = () => {
     const trimmed = presetName.trim();
     if (!trimmed) return;
@@ -1130,6 +1177,44 @@ export default function RecipeModal({
         )}
 
         <div className="modal-grid">
+          {/* ── AI 레시피 가져오기 (인스타 캡션/블로그 텍스트 붙여넣기) ── */}
+          <div style={{ gridColumn:"1 / -1", background:"var(--foam)", border:"1px solid var(--latte)", borderRadius:"var(--r-card)", padding:"14px 16px", marginBottom:"20px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"8px" }}>
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 2l1.8 4.6L16 8l-4.2 1.4L10 14l-1.8-4.6L4 8l4.2-1.4L10 2z" fill="var(--latte)"/></svg>
+              <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", fontWeight:700, color:"var(--espresso)" }}>
+                {lang === "en" ? "AI Recipe Import" : "AI로 레시피 가져오기"}
+              </span>
+            </div>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"var(--muted)", marginBottom:"8px", lineHeight:1.5 }}>
+              {lang === "en"
+                ? "Paste an Instagram caption or blog text below — AI will fill in the fields it can find below."
+                : "인스타그램 캡션이나 블로그 글을 붙여넣으면, AI가 찾을 수 있는 항목들을 아래 폼에 자동으로 채워줘요."}
+            </p>
+            <textarea
+              value={aiImportText}
+              onChange={(e) => setAiImportText(e.target.value)}
+              placeholder={lang === "en"
+                ? "e.g. Ethiopia Yirgacheffe, 18g in / 36g out, 27s, Breville 870, 92°C…"
+                : "예) 에티오피아 예가체프, 18g in / 36g out, 27초, 브레빌 870, 92도…"}
+              rows={3}
+              style={{ width:"100%", padding:"0.7rem 0.85rem", border:"1px solid var(--steam)", borderRadius:"8px", background:"var(--cream)", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", color:"var(--espresso)", outline:"none", resize:"vertical", boxSizing:"border-box", marginBottom:"8px" }}
+            />
+            <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+              <button type="button" onClick={handleAiImport} disabled={!aiImportText.trim() || aiImporting}
+                style={{ padding:"0.55rem 1.1rem", borderRadius:"var(--r-btn)", border:"none", background:"var(--latte)", color:"#fff", fontFamily:"'DM Sans',sans-serif", fontSize:"0.8rem", fontWeight:600, cursor: aiImportText.trim() ? "pointer" : "default", opacity: !aiImportText.trim()||aiImporting ? 0.5 : 1 }}>
+                {aiImporting ? (lang === "en" ? "Analyzing…" : "분석 중…") : (lang === "en" ? "Fill with AI" : "AI로 채우기")}
+              </button>
+              {aiImportOk && !aiImporting && (
+                <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"#27ae60", fontWeight:600 }}>
+                  {lang === "en" ? "✓ Filled — please double-check the fields" : "✓ 채워졌어요 — 꼭 한 번 확인해주세요"}
+                </span>
+              )}
+            </div>
+            {aiImportError && (
+              <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", color:"#c0392b", marginTop:"6px" }}>{aiImportError}</p>
+            )}
+          </div>
+
           {/* ── 섹션: 기본 정보 ── */}
           <div style={{ gridColumn:"1 / -1", margin:"4px 0 16px" }}>
             <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Basic Info" : "기본 정보"}</span>
