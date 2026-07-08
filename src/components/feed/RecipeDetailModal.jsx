@@ -698,6 +698,54 @@ export default function RecipeDetailModal({
                     return `<svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" xmlns="http://www.w3.org/2000/svg">${grids}${axes}<polygon points="${datapts}" fill="#B07D54" fill-opacity="0.2" stroke="#B07D54" stroke-width="2" stroke-linejoin="round"/>${dots}${labels}</svg>`;
                   })();
 
+                  // 맛 변화 그래프 (본문 그래프와 동일한 곡선 — 공유 카드용 SVG 문자열로 재구성)
+                  const tasteGraphSVG = (() => {
+                    if (!ratio) return "";
+                    const W=380, H=168, padL=26, padR=8, padT=8, padB=20;
+                    const chartW=W-padL-padR, chartH=H-padT-padB;
+                    const xMin=1, xMax=4, yMin=0, yMax=10;
+                    const px = x => padL + ((x-xMin)/(xMax-xMin))*chartW;
+                    const py = y => padT + (1-(y-yMin)/(yMax-yMin))*chartH;
+                    const buildPath = fn => {
+                      const N=40; let d="";
+                      for (let i=0;i<=N;i++){ const x=xMin+(i/N)*(xMax-xMin); d+=(i===0?"M":" L")+`${px(x).toFixed(1)},${py(fn(x)).toFixed(1)}`; }
+                      return d;
+                    };
+                    const bodyFn    = x => 3 + 7*Math.exp(-0.6*(x-1));
+                    const acidityFn = x => 1.8 + 7.2*Math.exp(-0.85*(x-1));
+                    const sweetFn   = x => 1.5 + 7*Math.exp(-((x-1.9)**2)/(2*0.5*0.5));
+                    const bitterFn  = x => 1 + 8*(1-Math.exp(-0.7*(x-1)));
+                    const balanceFn = x => 2.2 + 7.8*Math.exp(-((x-2)**2)/(2*0.42*0.42));
+                    const rVal = Math.min(xMax, Math.max(xMin, parseFloat(ratio.r)||xMin));
+                    const markerX = px(rVal);
+                    const zones = [
+                      { from:1,   to:1.5, color:"#D4537E" },
+                      { from:1.5, to:2.5, color:"#BA7517" },
+                      { from:2.5, to:4,   color:"#639922" },
+                    ];
+                    const lines = [
+                      { d:buildPath(bodyFn),    c:"#712B13", label:"바디감" },
+                      { d:buildPath(acidityFn), c:"#D4537E", label:"신맛" },
+                      { d:buildPath(sweetFn),   c:"#3B6D11", label:"단맛" },
+                      { d:buildPath(bitterFn),  c:"#085041", label:"쓴맛" },
+                      { d:buildPath(balanceFn), c:"#854F0B", label:"밸런스", dash:true },
+                    ];
+                    const zonesHTML = zones.map(z => `<rect x="${px(z.from).toFixed(1)}" y="${padT}" width="${(px(z.to)-px(z.from)).toFixed(1)}" height="${chartH}" fill="${z.color}" opacity="0.09"/>`).join("");
+                    const gridHTML  = [2,4,6,8,10].map(v => `<line x1="${padL}" x2="${padL+chartW}" y1="${py(v).toFixed(1)}" y2="${py(v).toFixed(1)}" stroke="#ECEAE7" stroke-width="1"/>`).join("");
+                    const xLabelsHTML = [1,1.5,2,2.5,3,3.5,4].map(v => `<text x="${px(v).toFixed(1)}" y="${(padT+chartH+13).toFixed(1)}" font-size="8" fill="#9C8E82" text-anchor="middle" font-family="DM Sans,sans-serif">1:${v}</text>`).join("");
+                    const linesHTML   = lines.map(ln => `<path d="${ln.d}" fill="none" stroke="${ln.c}" stroke-width="1.8" stroke-linejoin="round" ${ln.dash?'stroke-dasharray="5 3"':""}/>`).join("");
+                    const svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+                      ${zonesHTML}${gridHTML}
+                      <line x1="${padL}" y1="${padT+chartH}" x2="${padL+chartW}" y2="${padT+chartH}" stroke="#9C8E82" stroke-width="1"/>
+                      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+chartH}" stroke="#9C8E82" stroke-width="1"/>
+                      ${xLabelsHTML}${linesHTML}
+                      <line x1="${markerX.toFixed(1)}" y1="${padT-1}" x2="${markerX.toFixed(1)}" y2="${padT+chartH}" stroke="#e74c3c" stroke-width="1.8"/>
+                      <circle cx="${markerX.toFixed(1)}" cy="${padT-1}" r="2.5" fill="#e74c3c"/>
+                    </svg>`;
+                    const legendHTML = lines.map(ln => `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:9px;"><span style="width:9px;height:2px;background:${ln.c};display:inline-block;"></span>${ln.label}</span>`).join("");
+                    return `<div>${svg}<div style="font-size:8px;color:#9C8E82;margin-top:4px;">${legendHTML}</div></div>`;
+                  })();
+
                   // 장비 / 원두 정보
                   const waterLabel = recipe.waterType
                     ? [WATER_LABELS[recipe.waterType]||recipe.waterType, recipe.waterBrand].filter(Boolean).join(" ") : "";
@@ -742,6 +790,13 @@ export default function RecipeDetailModal({
                       </div>
                       ${infusionLabel?`<div style="font-size:10px;color:#9C8E82;text-align:center;margin-top:2px;">${infusionLabel}</div>`:""}
                     </div>
+
+                    <!-- 맛 변화 그래프 -->
+                    ${tasteGraphSVG?`
+                    <div style="padding:0 16px 14px;background:#FBFBFA;">
+                      <div style="font-size:9px;font-weight:700;color:#BBB;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">Taste by Ratio</div>
+                      ${tasteGraphSVG}
+                    </div>`:""}
 
                     <!-- 상세 정보 테이블 -->
                     <table style="width:100%;border-collapse:collapse;background:#FAFAF9;border-top:1px solid #ECEAE7;">
