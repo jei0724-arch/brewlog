@@ -355,82 +355,104 @@ export default function RecipeDetailModal({
           </div>
         )}
 
-        {/* 추출비율에 따른 맛 변화 그래프 — 이 레시피의 실제 비율 위치를 빨간선으로 표시 */}
+        {/* 추출비율에 따른 맛 변화 그래프 — 바디감/신맛/쓴맛/밸런스 4개 곡선 + 구간 배경, 이 레시피의 실제 비율은 빨간선으로 표시 */}
         {ratio && (() => {
-          const W = 600, H = 210;              // viewBox 크기
-          const padL = 46, padR = 16, padT = 14, padB = 30;
+          const W = 600, H = 230;
+          const padL = 40, padR = 14, padT = 16, padB = 32;
           const chartW = W - padL - padR;
           const chartH = H - padT - padB;
-          const maxRatio = 4.5;
+          const xMin = 1, xMax = 4, yMin = 0, yMax = 10;
+          const px = (x) => padL + ((x - xMin) / (xMax - xMin)) * chartW;
+          const py = (y) => padT + (1 - (y - yMin) / (yMax - yMin)) * chartH;
 
-          const N = 60;
-          const pts = Array.from({ length: N + 1 }, (_, i) => {
-            const rx = (i / N) * maxRatio;
-            const conc = 1 / (1 + 0.55 * rx);   // 완만한 감쇠 — 오른쪽 끝까지 곡선이 보이도록
-            return [padL + (rx / maxRatio) * chartW, padT + (1 - conc) * chartH];
-          });
-          const curveD = "M" + pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" L ");
-          const areaD  = curveD + ` L ${pts[pts.length-1][0].toFixed(1)},${padT+chartH} L ${pts[0][0].toFixed(1)},${padT+chartH} Z`;
+          const buildPath = (fn) => {
+            const N = 60;
+            let d = "";
+            for (let i = 0; i <= N; i++) {
+              const x = xMin + (i / N) * (xMax - xMin);
+              d += (i === 0 ? "M" : " L") + `${px(x).toFixed(1)},${py(fn(x)).toFixed(1)}`;
+            }
+            return d;
+          };
 
-          const rVal = Math.min(maxRatio, Math.max(0, parseFloat(ratio.r)));
-          const markerX = padL + (rVal / maxRatio) * chartW;
+          const bodyFn    = (x) => 3 + 7 * Math.exp(-0.6 * (x - 1));
+          const acidityFn = (x) => 1.8 + 7.2 * Math.exp(-0.85 * (x - 1));
+          const bitterFn  = (x) => 1 + 8 * (1 - Math.exp(-0.7 * (x - 1)));
+          const balanceFn = (x) => 2.2 + 7.8 * Math.exp(-((x - 2) ** 2) / (2 * 0.42 * 0.42));
+
+          const rVal = Math.min(xMax, Math.max(xMin, parseFloat(ratio.r) || xMin));
+          const markerX = px(rVal);
+
+          const zones = [
+            { from:1,   to:1.5, color:"#D4537E", label: lang==="en"?"Ristretto 1:1–1:1.5":"리스트레토 1:1–1:1.5" },
+            { from:1.5, to:2.5, color:"#BA7517", label: lang==="en"?"Espresso 1:1.5–1:2.5":"에스프레소 1:1.5–1:2.5" },
+            { from:2.5, to:4,   color:"#639922", label: lang==="en"?"Lungo 1:2.5–1:4":"룽고 1:2.5–1:4" },
+          ];
+          const lines = [
+            { d: buildPath(bodyFn),    color:"#712B13", dash:false, label: lang==="en"?"Body":"바디감" },
+            { d: buildPath(acidityFn), color:"#D4537E", dash:false, label: lang==="en"?"Acidity":"신맛" },
+            { d: buildPath(bitterFn),  color:"#085041", dash:false, label: lang==="en"?"Bitterness":"쓴맛" },
+            { d: buildPath(balanceFn), color:"#854F0B", dash:true,  label: lang==="en"?"Balance":"밸런스" },
+          ];
 
           return (
             <div style={{ marginBottom:"1rem", padding:"14px 16px", background:"var(--cream)", borderRadius:"var(--r-card)", border:"1px solid var(--divider)" }}>
               <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.75rem", fontWeight:700, color:"var(--espresso)", marginBottom:"8px" }}>
-                {lang==="en" ? "How Extraction Ratio Affects Taste" : "에스프레소 추출비율에 따른 맛 변화도"}
+                {lang==="en" ? "Espresso Taste Profile by Extraction Ratio" : "추출비에 따른 에스프레소 맛 프로파일 변화"}
               </div>
               <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", height:"auto", display:"block" }}>
-                <defs>
-                  <linearGradient id={`tasteGrad-${recipe.id}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%"  stopColor="#f2e14d"/>
-                    <stop offset="40%" stopColor="#7dc850"/>
-                    <stop offset="72%" stopColor="#8a5a34"/>
-                    <stop offset="100%" stopColor="#241811"/>
-                  </linearGradient>
-                </defs>
-
-                {/* Y축 라벨 */}
-                <text x="10" y={padT + chartH/2} fontSize="11" fill="var(--muted)" fontFamily="'DM Sans',sans-serif"
-                  transform={`rotate(-90 10 ${padT + chartH/2})`} textAnchor="middle">
-                  {lang==="en" ? "Concentration" : "농도"}
-                </text>
-
-                {/* 곡선 + 그라데이션 채우기 */}
-                <path d={areaD} fill={`url(#tasteGrad-${recipe.id})`} opacity="0.88"/>
-                <path d={curveD} fill="none" stroke="var(--espresso)" strokeWidth="2" strokeLinejoin="round"/>
-
-                {/* 구간 라벨 — 곡선 위에 직접 얹어서 어느 쪽이 무슨 맛인지 바로 보이게 */}
-                {[
-                  { ratioAt: 0.55, l: lang==="en"?"Sour":"신맛" },
-                  { ratioAt: 2.05, l: lang==="en"?"Sweet":"단맛" },
-                  { ratioAt: 3.65, l: lang==="en"?"Bitter":"쓴맛" },
-                ].map(z => (
-                  <text key={z.l} x={padL + (z.ratioAt/maxRatio)*chartW} y={padT + 18} fontSize="12.5" fontWeight="700"
-                    fill="#fff" stroke="rgba(0,0,0,0.35)" strokeWidth="2.5" paintOrder="stroke" textAnchor="middle" fontFamily="'DM Sans',sans-serif">
-                    {z.l}
-                  </text>
+                {/* 구간 배경 */}
+                {zones.map(z => (
+                  <rect key={z.label} x={px(z.from)} y={padT} width={px(z.to)-px(z.from)} height={chartH} fill={z.color} opacity="0.09"/>
                 ))}
-                {/* X축 */}
-                <line x1={padL} y1={padT+chartH} x2={padL+chartW} y2={padT+chartH} stroke="var(--divider)" strokeWidth="1"/>
-                {[0,1,2,3,4].map(v => {
-                  const x = padL + (v/maxRatio)*chartW;
-                  return (
-                    <text key={v} x={x} y={H-8} fontSize="11" fill="var(--muted)" fontFamily="'DM Sans',sans-serif" textAnchor="middle">
-                      1:{v}
-                    </text>
-                  );
-                })}
-                <text x={padL+chartW/2} y={H} fontSize="10" fill="var(--muted)" fontFamily="'DM Sans',sans-serif" textAnchor="middle" opacity="0">.</text>
-
+                {/* 가로 그리드 */}
+                {[2,4,6,8,10].map(v => (
+                  <line key={v} x1={padL} x2={padL+chartW} y1={py(v)} y2={py(v)} stroke="var(--divider)" strokeWidth="1"/>
+                ))}
+                {/* 축 */}
+                <line x1={padL} y1={padT+chartH} x2={padL+chartW} y2={padT+chartH} stroke="var(--muted)" strokeWidth="1"/>
+                <line x1={padL} y1={padT} x2={padL} y2={padT+chartH} stroke="var(--muted)" strokeWidth="1"/>
+                {/* Y축 라벨 */}
+                <text x="10" y={padT+chartH/2} fontSize="10.5" fill="var(--muted)" fontFamily="'DM Sans',sans-serif"
+                  transform={`rotate(-90 10 ${padT+chartH/2})`} textAnchor="middle">
+                  {lang==="en" ? "Intensity" : "강도"}
+                </text>
+                {[2,4,6,8,10].map(v => (
+                  <text key={v} x={padL-6} y={py(v)+3.5} fontSize="10" fill="var(--muted)" fontFamily="'DM Sans',sans-serif" textAnchor="end">{v}</text>
+                ))}
+                {/* X축 라벨 */}
+                {[1,1.5,2,2.5,3,3.5,4].map(v => (
+                  <text key={v} x={px(v)} y={padT+chartH+16} fontSize="10" fill="var(--muted)" fontFamily="'DM Sans',sans-serif" textAnchor="middle">1:{v}</text>
+                ))}
+                {/* 4개 곡선 */}
+                {lines.map(ln => (
+                  <path key={ln.label} d={ln.d} fill="none" stroke={ln.color} strokeWidth="2.2" strokeLinejoin="round"
+                    strokeDasharray={ln.dash ? "6 4" : undefined}/>
+                ))}
                 {/* 이 레시피의 실제 추출비율 위치 마커 */}
                 <line x1={markerX} y1={padT-2} x2={markerX} y2={padT+chartH} stroke="#e74c3c" strokeWidth="2"/>
                 <circle cx={markerX} cy={padT-2} r="3" fill="#e74c3c"/>
               </svg>
-              <div style={{ textAlign:"center", fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"var(--muted)", marginTop:"2px" }}>
-                {lang==="en"
-                  ? "Brew Ratio — lower ratio → sour, higher ratio → bitter"
-                  : "추출비 — 낮을수록 신맛, 높을수록 쓴맛에 가까워져요"}
+
+              {/* 범례 */}
+              <div style={{ display:"flex", flexWrap:"wrap", gap:"6px 14px", marginTop:"10px" }}>
+                {lines.map(ln => (
+                  <span key={ln.label} style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"var(--muted)" }}>
+                    <span style={{ width:"13px", height:"2.5px", background: ln.dash ? undefined : ln.color,
+                      backgroundImage: ln.dash ? `repeating-linear-gradient(90deg, ${ln.color}, ${ln.color} 4px, transparent 4px, transparent 7px)` : undefined,
+                      display:"inline-block" }}/>
+                    {ln.label}
+                  </span>
+                ))}
+                {zones.map(z => (
+                  <span key={z.label} style={{ display:"flex", alignItems:"center", gap:"5px", fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"var(--muted)" }}>
+                    <span style={{ width:"9px", height:"9px", background:z.color, opacity:0.35, borderRadius:"2px", display:"inline-block" }}/>
+                    {z.label}
+                  </span>
+                ))}
+              </div>
+              <div style={{ textAlign:"center", fontFamily:"'DM Sans',sans-serif", fontSize:"0.68rem", color:"var(--muted)", marginTop:"8px" }}>
+                {lang==="en" ? `This recipe's ratio — 1 : ${ratio.r}` : `이 레시피의 추출비 — 1 : ${ratio.r}`}
               </div>
             </div>
           );
