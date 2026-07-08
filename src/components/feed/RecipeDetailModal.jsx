@@ -377,6 +377,7 @@ export default function RecipeDetailModal({
 
           const bodyFn    = (x) => 3 + 7 * Math.exp(-0.6 * (x - 1));
           const acidityFn = (x) => 1.8 + 7.2 * Math.exp(-0.85 * (x - 1));
+          const sweetFn   = (x) => 1.5 + 7 * Math.exp(-((x - 1.9) ** 2) / (2 * 0.5 * 0.5));
           const bitterFn  = (x) => 1 + 8 * (1 - Math.exp(-0.7 * (x - 1)));
           const balanceFn = (x) => 2.2 + 7.8 * Math.exp(-((x - 2) ** 2) / (2 * 0.42 * 0.42));
 
@@ -391,6 +392,7 @@ export default function RecipeDetailModal({
           const lines = [
             { d: buildPath(bodyFn),    color:"#712B13", dash:false, label: lang==="en"?"Body":"바디감" },
             { d: buildPath(acidityFn), color:"#D4537E", dash:false, label: lang==="en"?"Acidity":"신맛" },
+            { d: buildPath(sweetFn),   color:"#3B6D11", dash:false, label: lang==="en"?"Sweetness":"단맛" },
             { d: buildPath(bitterFn),  color:"#085041", dash:false, label: lang==="en"?"Bitterness":"쓴맛" },
             { d: buildPath(balanceFn), color:"#854F0B", dash:true,  label: lang==="en"?"Balance":"밸런스" },
           ];
