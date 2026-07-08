@@ -366,7 +366,7 @@ export default function RecipeDetailModal({
           const N = 60;
           const pts = Array.from({ length: N + 1 }, (_, i) => {
             const rx = (i / N) * maxRatio;
-            const conc = Math.max(0, Math.exp(-1.0 * rx) * (1 - 0.12 * rx));
+            const conc = 1 / (1 + 0.55 * rx);   // 완만한 감쇠 — 오른쪽 끝까지 곡선이 보이도록
             return [padL + (rx / maxRatio) * chartW, padT + (1 - conc) * chartH];
           });
           const curveD = "M" + pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" L ");
@@ -384,9 +384,9 @@ export default function RecipeDetailModal({
                 <defs>
                   <linearGradient id={`tasteGrad-${recipe.id}`} x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%"  stopColor="#f2e14d"/>
-                    <stop offset="35%" stopColor="#7dc850"/>
-                    <stop offset="68%" stopColor="#eb9a4a"/>
-                    <stop offset="100%" stopColor="#e2584d"/>
+                    <stop offset="40%" stopColor="#7dc850"/>
+                    <stop offset="72%" stopColor="#8a5a34"/>
+                    <stop offset="100%" stopColor="#241811"/>
                   </linearGradient>
                 </defs>
 
