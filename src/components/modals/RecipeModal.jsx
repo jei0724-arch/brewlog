@@ -1652,7 +1652,7 @@ export default function RecipeModal({
           )}
 
           {/* 추출 시간 — 메뉴에 따라 다른 타이머 */}
-          <div className="field" data-field="seconds">
+          <div className="field full" data-field="seconds">
             <label style={{ color: errors.seconds ? "#c0392b" : undefined }}>{t.seconds}</label>
             {selectedMenu === "hand_drip" ? (
               <HandDripTimer
