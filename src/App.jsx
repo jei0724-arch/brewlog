@@ -88,13 +88,16 @@ export default function App() {
       }
     });
 
-    // 최초 방문 시 IP 기반 언어 감지
-    // ⚠️ 검색엔진 크롤러(Googlebot 등)는 해외 서버에서 접속하기 때문에, 이 로직을 그대로 타면
-    //    실제 콘텐츠(한글)가 아니라 영어 화면이 색인되어 SEO에 불리해짐 → 봇은 감지 자체를 건너뛰고
-    //    기본값(ko)을 그대로 유지시킴
-    const ua = navigator.userAgent || "";
-    const isBot = /bot|crawl|spider|slurp|bingpreview|facebookexternalhit|lighthouse|headlesschrome/i.test(ua);
-    if (!isBot && !localStorage.getItem("brewlog_lang")) {
+    // ── 다국어 SEO: URL의 ?lang= 파라미터를 최우선 적용 ──────────────
+    // index.html의 hreflang이 /?lang=ko, /?lang=en 각각을 가리키므로,
+    // 구글은 두 버전을 별도로 크롤링해서 한국/해외 검색 결과에 각각 알맞게 노출시킬 수 있음
+    // (한 URL의 상태가 크롤러 IP에 따라 랜덤하게 바뀌던 이전 방식보다 안정적)
+    const urlLang = new URLSearchParams(window.location.search).get("lang");
+    if (urlLang === "ko" || urlLang === "en") {
+      setLang(urlLang);
+      localStorage.setItem("brewlog_lang", urlLang);
+    } else if (!localStorage.getItem("brewlog_lang")) {
+      // lang 파라미터가 없는 기본 진입(x-default)일 때만 IP 기반 추정 — 실제 방문자 대상
       fetch("https://ipapi.co/json/")
         .then((r) => r.json())
         .then((d) => {
