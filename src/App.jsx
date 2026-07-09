@@ -89,7 +89,12 @@ export default function App() {
     });
 
     // 최초 방문 시 IP 기반 언어 감지
-    if (!localStorage.getItem("brewlog_lang")) {
+    // ⚠️ 검색엔진 크롤러(Googlebot 등)는 해외 서버에서 접속하기 때문에, 이 로직을 그대로 타면
+    //    실제 콘텐츠(한글)가 아니라 영어 화면이 색인되어 SEO에 불리해짐 → 봇은 감지 자체를 건너뛰고
+    //    기본값(ko)을 그대로 유지시킴
+    const ua = navigator.userAgent || "";
+    const isBot = /bot|crawl|spider|slurp|bingpreview|facebookexternalhit|lighthouse|headlesschrome/i.test(ua);
+    if (!isBot && !localStorage.getItem("brewlog_lang")) {
       fetch("https://ipapi.co/json/")
         .then((r) => r.json())
         .then((d) => {
