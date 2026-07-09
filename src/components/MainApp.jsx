@@ -418,6 +418,7 @@ async function geminiWithRetry(url, body, signal, maxRetry = 3) {
 레시피: ${JSON.stringify(recent.slice(0,3).map(r=>({bean:r.bean,gram:r.gram,seconds:r.seconds,espressoMl:r.espressoMl,waterTemp:r.waterTemp,rating:r.rating,note:r.note})))}
 응답 형식(JSON only): {"tip":"3문장 이내 추출 팁","recipeTitle":"추천 레시피 이름","recipeDesc":"2문장 설명","gram":"권장 원두량(숫자만)","temp":"권장 물온도(숫자만)","seconds":"권장 추출시간(숫자만)"}`
         : `You are a professional barista AI. Analyze the user's recent espresso recipe data and respond with today's extraction tip and recommended recipe in JSON only.
+IMPORTANT: Respond entirely in English. Some fields in the recipe data below (like bean names or notes) may be written in Korean — translate/paraphrase them into English in your response. Do not include any Korean characters anywhere in your output.
 Recipes: ${JSON.stringify(recent.slice(0,3).map(r=>({bean:r.bean,gram:r.gram,seconds:r.seconds,espressoMl:r.espressoMl,waterTemp:r.waterTemp,rating:r.rating,note:r.note})))}
 Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommended recipe name","recipeDesc":"2 sentence description","gram":"recommended dose (number only)","temp":"recommended temp (number only)","seconds":"recommended time (number only)"}`;
 
