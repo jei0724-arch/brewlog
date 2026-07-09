@@ -1921,16 +1921,18 @@ export default function RecipeModal({
             <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.78rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.04em" }}>{lang === "en" ? "Brew Details" : "추출 세부 기록"}</span>
             <div style={{ height:"1px", background:"var(--divider)", marginTop:"10px" }}/>
           </div>
-          {machineType !== "handdrip" && (
-            <div className="field full" style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"var(--r-card)", padding:"16px", display:"flex", flexDirection:"column", gap:"14px" }}>
+          <div className="field full" style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"var(--r-card)", padding:"16px", display:"flex", flexDirection:"column", gap:"14px" }}>
               <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="var(--latte)" strokeWidth="1.3"/><path d="M8 5v3.5l2 1.5" stroke="var(--latte)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:"0.72rem", fontWeight:700, color:"var(--espresso)", letterSpacing:"0.06em", textTransform:"uppercase" }}>
                   {lang === "en" ? "Advanced Brew Log" : "추출 세부 기록"}
                 </span>
               </div>
+              {/* 압력 관련 항목 — 핸드드립은 해당 없음(펌프 압력 개념 자체가 없음) */}
+              {machineType !== "handdrip" && (
+                <>
               {/* 예상 압력 (입력값 기반 자동계산) */}
-              {machineType !== "handdrip" && pressureData && (
+              {pressureData && (
                 <div className={`pressure-box ${pressureData.status}`} style={{ marginBottom:0 }}>
                   <div className="pressure-title">{t.pressureTitle}</div>
                   <div className="pressure-row">
@@ -1975,6 +1977,8 @@ export default function RecipeModal({
                   );
                 })()}
               </div>
+                </>
+              )}
               {/* 연속 추출 메모 */}
               <div>
                 <label style={{ display:"block", fontSize:"0.72rem", color:"var(--muted)", letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:"6px" }}>
@@ -2095,7 +2099,6 @@ export default function RecipeModal({
                 })()}
               </div>
             </div>
-          )}
 
           {/* ── 섹션 구분선 ── */}
           <div style={{ gridColumn:"1 / -1", margin:"28px 0 14px" }}>
