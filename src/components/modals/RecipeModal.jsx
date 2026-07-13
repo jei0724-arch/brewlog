@@ -976,7 +976,7 @@ export default function RecipeModal({
         } catch (e) { console.error("[알림] 구독자 알림 오류:", e.message); }
       }
 
-      onSave();
+      onSave(isEdit ? payload : undefined);
 
       // Gemini 캐시 무효화
       try {

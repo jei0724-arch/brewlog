@@ -1161,7 +1161,13 @@ Response format (JSON only): {"tip":"tip in 3 sentences","recipeTitle":"recommen
       {showModal && (
         <RecipeModal user={user} editTarget={editTarget} lang={lang} recipes={recipes.filter(r=>r.uid===user?.uid).slice(0,5)}
           onClose={()=>window.history.go(-1)}
-          onSave={()=>{ loadRecipes(); window.history.go(-1); }}/>
+          onSave={(updated)=>{
+            loadRecipes();
+            if (updated && detailRecipeRef.current && detailRecipeRef.current.id === updated.id) {
+              setDetailRecipeWrapped(updated);
+            }
+            window.history.go(-1);
+          }}/>
       )}
       {profileModal && (
         <BrewerProfileModal
