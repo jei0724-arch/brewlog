@@ -1260,19 +1260,40 @@ export default function RecipeModal({
             </div>
           )}
 
-          {/* 원두 선택 — 내 원두에서 */}
+          {/* 원두명 — 직접 입력 (항상 사용 가능) */}
+          <div className="field full">
+            <label style={{ color: errors.bean ? "#c0392b" : undefined }}>
+              {lang === "en" ? "Bean Name *" : "원두명 *"}
+            </label>
+            <input
+              value={form.bean || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                set("bean", val);
+                setErrors((p) => ({ ...p, bean:false }));
+                // 내 원두 칩으로 채워진 상태에서 직접 수정하면 그 연결은 해제(자유 텍스트로 전환)
+                if (linkedBeanId) {
+                  const linked = myBeans.find((b) => b.id === linkedBeanId);
+                  if (!linked || linked.name !== val) setLinkedBeanId(null);
+                }
+              }}
+              placeholder={lang === "en" ? "e.g. Ethiopia Yirgacheffe" : "예) 에티오피아 예가체프"}
+            />
+          </div>
+
+          {/* 원두 선택 — 내 원두에서 (있으면 빠른 선택용 칩으로 제공) */}
           {myBeans.length === 0 ? (
             <div className="field full">
               <div style={{ background:"var(--cream)", border:"1px solid var(--divider)", borderRadius:"8px", padding:"14px 16px", fontSize:"0.82rem", color:"var(--muted)", lineHeight:1.6 }}>
                 {lang === "en"
-                  ? "No beans registered. Add beans in the My Beans tab first."
-                  : "등록된 원두가 없어요. 내 원두 탭에서 원두를 먼저 추가해주세요."}
+                  ? "No beans registered yet. Add beans in the My Beans tab to select them quickly here."
+                  : "등록된 원두가 없어요. 내 원두 탭에서 원두를 추가하면 여기서 빠르게 선택할 수 있어요."}
               </div>
             </div>
           ) : (
             <div className="field full">
-              <label style={{ color: errors.bean ? "#c0392b" : undefined }}>
-                {lang === "en" ? "Select Bean *" : "원두 선택 *"}
+              <label>
+                {lang === "en" ? "Quick Select from My Beans" : "내 원두에서 빠른 선택"}
               </label>
               <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
                 {myBeans.map((b) => {
