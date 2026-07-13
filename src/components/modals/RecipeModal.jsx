@@ -1281,6 +1281,35 @@ export default function RecipeModal({
             />
           </div>
 
+          {/* 원두 회사 — 직접 입력 */}
+          <div className="field">
+            <label style={{ color: errors.company ? "#c0392b" : undefined }}>
+              {lang === "en" ? "Roastery *" : "원두 회사 *"}
+            </label>
+            <input
+              value={form.company || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                set("company", val);
+                setErrors((p) => ({ ...p, company:false }));
+                if (linkedBeanId) {
+                  const linked = myBeans.find((b) => b.id === linkedBeanId);
+                  if (!linked || linked.roastery !== val) setLinkedBeanId(null);
+                }
+              }}
+              placeholder={lang === "en" ? "e.g. Insight Coffee" : "예) 인사이트"}
+            />
+          </div>
+
+          {/* 로스팅 날짜 — 직접 입력 */}
+          <div className="field">
+            <label>{lang === "en" ? "Roast Date" : "로스팅 날짜"}</label>
+            <input type="date"
+              value={form.roastDate || ""}
+              onChange={(e) => set("roastDate", e.target.value)}
+            />
+          </div>
+
           {/* 원두 선택 — 내 원두에서 (있으면 빠른 선택용 칩으로 제공) */}
           {myBeans.length === 0 ? (
             <div className="field full">
@@ -2280,7 +2309,6 @@ export default function RecipeModal({
                         e.stopPropagation();
                         setForm(f => ({ ...f, [ax.key]: parseInt(e.target.value) }));
                       }}
-                      onFocus={(e) => e.target.blur()}
                       className="flavor-range" style={{ "--pct": `${pct}%` }}/>
                     <div style={{ fontSize:"0.62rem", color:"var(--muted)", opacity:0.65, lineHeight:1.3, marginTop:"1px" }}>
                       {lang === "en" ? ax.desc_en : ax.desc_ko}
